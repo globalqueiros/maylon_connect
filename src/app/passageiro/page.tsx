@@ -154,13 +154,13 @@ export default function TripsPage() {
                   <td className="px-6 py-3">
                     <div className="flex items-center gap-3 text-sm">
                       <div className="flex items-center gap-1">
-                        <MapPin size={14} className="text-green-500" />
-                        <span>{item.pickup_address}</span>
+                        <MapPin size={28} className="text-green-500" />
+                        <span className="text-sm">{item.pickup_address}</span>
                       </div>
                       <span className="text-gray-400">→</span>
                       <div className="flex items-center gap-1">
-                        <MapPin size={14} className="text-red-500" />
-                        <span>{item.destination_address}</span>
+                        <MapPin size={28} className="text-red-500" />
+                        <span className="text-sm">{item.destination_address}</span>
                       </div>
                     </div>
                   </td>

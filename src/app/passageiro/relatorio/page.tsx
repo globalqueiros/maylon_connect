@@ -1,105 +1,164 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { MapPin, Eye } from "lucide-react";
+import Link from "next/link";
 
-interface Ride {
-  id: number;
-  origem: string;
-  destino: string;
-  valor: number | null;
-  data: string;
+interface Trip {
+  trip_request_id: number;
+  pickup_address: string;
+  destination_address: string;
+  valor: number;
+  current_status: string;
 }
 
-export default function RidesPage() {
-  const [rides, setRides] = useState<Ride[]>([]);
-  const [filter, setFilter] = useState("30");
-
-  const fetchRides = async (days: string) => {
-    const res = await fetch(`/api/rides?days=${days}`, {
-      credentials: "include",
-    });
-
-    const data = await res.json();
-    setRides(data);
-  };
+export default function TripsTable() {
+  const [rows, setRows] = useState<Trip[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchRides(filter);
-  }, [filter]);
+    const fetchTrips = async () => {
+      try {
+        const res = await fetch("/api/trips", {
+          credentials: "include",
+        });
 
-  const handlePrint = (ride: Ride) => {
-    const printWindow = window.open("", "_blank");
-    if (!printWindow) return;
+        if (!res.ok) {
+          console.error("Erro API:", res.status);
+          setRows([]);
+          return;
+        }
 
-    printWindow.document.write(`
-      <html>
-        <head>
-          <title>Recibo de Corrida</title>
-          <style>
-            body { font-family: Arial; padding: 20px; }
-          </style>
-        </head>
-        <body>
-          <h2>Recibo da Corrida</h2>
-          <p><strong>ID:</strong> ${ride.id}</p>
-          <p><strong>Origem:</strong> ${ride.origem}</p>
-          <p><strong>Destino:</strong> ${ride.destino}</p>
-          <p><strong>Valor:</strong> R$ ${ride.valor ?? 0}</p>
-          <p><strong>Data:</strong> ${new Date(ride.data).toLocaleString()}</p>
-          <br/>
-          <button onclick="window.print()">Imprimir</button>
-        </body>
-      </html>
-    `);
+        const data = await res.json();
 
-    printWindow.document.close();
+        const lista = Array.isArray(data)
+          ? data
+          : Array.isArray(data?.trips)
+            ? data.trips
+            : [];
+
+        setRows(lista);
+      } catch (error) {
+        console.error("Erro ao buscar viagens:", error);
+        setRows([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTrips();
+  }, []);
+
+  const traduzirStatus = (status: string) => {
+    switch (status) {
+      case "completed":
+        return "Finalizada";
+      case "cancelled":
+        return "Cancelada";
+      case "in_progress":
+        return "Em andamento";
+      default:
+        return "Pendente";
+    }
   };
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="bg-gray-400 p-8 rounded-2xl shadow-lg flex flex-col items-center gap-4">
+          <div className="w-10 h-10 border-4 border-teal-500 border-t-transparent rounded-full animate-spin"></div>
+          <p className="text-gray-300 font-medium">
+            Aguarde, carregando página...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold mb-4">Minhas Corridas</h1>
-      <table className="min-w-full border rounded-xl overflow-hidden">
-        <thead className="bg-gray-100">
-          <tr>
-            <th className="px-4 py-2 text-left">#</th>
-            <th className="px-4 py-2 text-left">Origem</th>
-            <th className="px-4 py-2 text-left">Destino</th>
-            <th className="px-4 py-2 text-left">Valor</th>
-            <th className="px-4 py-2 text-left">Data</th>
-            <th className="px-4 py-2">Ações</th>
-          </tr>
-        </thead>
+    <>
+      <div className="p-6">
+        <h1 className="text-2xl font-bold mb-3">Relatórios de Viagens</h1>
+        <div className="bg-white rounded-2xl shadow p-6">
+          <table className="min-w-full text-sm text-left">
+            <thead className="bg-gray-50 border-b">
+              <tr className="text-gray-600 uppercase text-xs">
+                <th className="px-6 py-3">ID</th>
+                <th className="px-6 py-3">Origem x Destino</th>
+                <th className="px-6 py-3">Valor</th>
+                <th className="px-6 py-3">Status</th>
+                <th className="px-6 py-3 text-center">Ação</th>
+              </tr>
+            </thead>
 
-        <tbody>
-          {rides.map((ride) => (
-            <tr key={ride.id} className="border-t">
-              <td className="px-4 py-2">{ride.id}</td>
-              <td className="px-4 py-2">{ride.origem}</td>
-              <td className="px-4 py-2">{ride.destino}</td>
-              <td className="px-4 py-2">R$ {ride.valor ?? 0}</td>
-              <td className="px-4 py-2">
-                {new Date(ride.data).toLocaleString()}
-              </td>
-              <td className="px-4 py-2">
-                <button
-                  onClick={() => handlePrint(ride)}
-                  className="bg-blue-500 text-white px-3 py-1 rounded-lg hover:bg-blue-600"
-                >
-                  Imprimir
-                </button>
-              </td>
-            </tr>
-          ))}
-
-          {rides.length === 0 && (
-            <tr>
-              <td colSpan={6} className="text-center text-sm text-white bg-red-400 p-4">
-                Nenhuma corrida foi encontrada.
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </table>
-    </div>
+            <tbody className="divide-y">
+              {loading ? (
+                <tr>
+                  <td colSpan={5} className="text-center py-4 text-gray-400">
+                    Carregando...
+                  </td>
+                </tr>
+              ) : rows.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="text-center py-4 text-red-500">
+                    Nenhuma corrida encontrada 🚫
+                  </td>
+                </tr>
+              ) : (
+                rows.map((item) => (
+                  <tr key={item.trip_request_id} className="hover:bg-gray-50">
+                    <td className="px-6 py-3 font-semibold">
+                      {item.trip_request_id}
+                    </td>
+                    <td className="px-6 py-3">
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-1">
+                          <MapPin size={18} className="text-green-500" />
+                          <span className="text-xs">{item.pickup_address}</span>
+                        </div>
+                        <span className="text-gray-400">→</span>
+                        <div className="flex items-center gap-1">
+                          <MapPin size={18} className="text-red-500" />
+                          <span className="text-xs">{item.destination_address}</span>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-3">
+                      {item.valor === 0 ? (
+                        <span className="text-gray-400">Aguardando</span>
+                      ) : (
+                        new Intl.NumberFormat("pt-BR", {
+                          style: "currency",
+                          currency: "BRL",
+                        }).format(item.valor)
+                      )}
+                    </td>
+                    <td className="px-6 py-3">
+                      <span
+                        className={`px-2 py-1 rounded-full text-xs font-semibold ${item.current_status === "completed"
+                          ? "bg-green-100 text-green-600"
+                          : item.current_status === "cancelled"
+                            ? "bg-red-100 text-red-600"
+                            : item.current_status === "in_progress"
+                              ? "bg-yellow-100 text-yellow-600"
+                              : "bg-gray-100 text-gray-600"
+                          }`}
+                      >
+                        {traduzirStatus(item.current_status)}
+                      </span>
+                    </td>
+                    <td className="px-6 py-3 text-center">
+                      <Link href={`/passageiro/trips/${item.trip_request_id}`}>
+                        <Eye size={16} className="cursor-pointer" />
+                      </Link>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </>
   );
 }
