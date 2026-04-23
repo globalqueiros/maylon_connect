@@ -1,5 +1,5 @@
 "use client";
-
+import Banner from "../components/banner"
 import { Eye, MapPin } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -96,14 +96,7 @@ export default function TripsPage() {
         </div>
       </div>
 
-      <Image
-        src="/banner.png"
-        alt="Banner"
-        width={1200}
-        height={300}
-        className="w-full h-[300px] object-cover rounded-2xl shadow-lg"
-        priority
-      />
+      <Banner />
 
       <div className="bg-white rounded-2xl shadow p-6">
         <h5 className="text-lg font-semibold mb-3">Últimas Viagens</h5>
