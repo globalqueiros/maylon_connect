@@ -1,7 +1,9 @@
 "use client";
+
 import { Eye, MapPin } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import Image from "next/image"; // 👈 IMPORTANTE
 
 type User = {
   id: number;
@@ -78,13 +80,11 @@ export default function TripsPage() {
           </span>
         </span>
       </h1>
-
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="bg-white rounded-xl shadow p-4">
           <h5 className="text-lg font-semibold">Quantidade de Viagens</h5>
           <p className="text-black text-sm">{totalViagens}</p>
         </div>
-
         <div className="bg-white rounded-xl shadow p-4">
           <h5 className="text-lg font-semibold">Gasto Total</h5>
           <p className="text-black text-sm">
@@ -95,6 +95,15 @@ export default function TripsPage() {
           </p>
         </div>
       </div>
+
+      <Image
+        src="/banner.png"
+        alt="Banner"
+        width={1200}
+        height={300}
+        className="w-full h-[300px] object-cover rounded-2xl shadow-lg"
+        priority
+      />
 
       <div className="bg-white rounded-2xl shadow p-6">
         <h5 className="text-lg font-semibold mb-3">Últimas Viagens</h5>
@@ -109,7 +118,6 @@ export default function TripsPage() {
                 <th className="px-6 py-3 text-center">Ação</th>
               </tr>
             </thead>
-
             <tbody className="divide-y">
               {loading ? (
                 <tr>
@@ -119,37 +127,30 @@ export default function TripsPage() {
                 </tr>
               ) : rows.length === 0 ? (
                 <tr>
-                  <td
-                    colSpan={5}
-                    className="text-center py-6 text-gray-500"
-                  >
+                  <td colSpan={5} className="text-center py-6 text-gray-500">
                     Nenhuma corrida encontrada
                   </td>
                 </tr>
               ) : (
                 rows.map((item) => (
                   <tr key={item.trip_request_id} className="hover:bg-gray-50">
-                    <td className="px-6 py-3">
-                      #{item.trip_request_id}
-                    </td>
+                    <td className="px-6 py-3">#{item.trip_request_id}</td>
                     <td className="px-6 py-3">
                       <div className="flex items-center gap-3">
                         <div className="flex items-center gap-1">
                           <MapPin size={14} className="text-green-500" />
-                          <span>{item.pickup_address}</span>
+                          {item.pickup_address}
                         </div>
                         <span className="text-gray-400">→</span>
                         <div className="flex items-center gap-1">
                           <MapPin size={14} className="text-red-500" />
-                          <span>{item.destination_address}</span>
+                          {item.destination_address}
                         </div>
                       </div>
                     </td>
                     <td className="px-6 py-3">
                       {item.valor === 0 ? (
-                        <span className="text-gray-400">
-                          Aguardando
-                        </span>
+                        <span className="text-gray-400">Aguardando</span>
                       ) : (
                         new Intl.NumberFormat("pt-BR", {
                           style: "currency",

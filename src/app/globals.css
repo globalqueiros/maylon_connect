@@ -68,6 +68,7 @@ body {
     transform: translateX(100%);
     opacity: 0;
   }
+
   to {
     transform: translateX(0);
     opacity: 1;
@@ -76,4 +77,13 @@ body {
 
 .animate-slideIn {
   animation: slideIn 0.3s ease;
+}
+
+.swiper-button-next,
+.swiper-button-prev {
+  color: #14b8a6;
+}
+
+.swiper-pagination-bullet-active {
+  background: #14b8a6;
 }
