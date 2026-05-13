@@ -1,9 +1,9 @@
 "use client";
-import Banner from "../components/banner"
+import Banner from "../passageiro/trips/[id]/components/banner"
 import { Eye, MapPin } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import Image from "next/image"; // 👈 IMPORTANTE
+import Image from "next/image";
 
 type User = {
   id: number;
@@ -29,8 +29,8 @@ export default function TripsPage() {
     hora < 12
       ? { texto: "Bom dia", emoji: "☀️" }
       : hora < 18
-      ? { texto: "Boa tarde", emoji: "🌤️" }
-      : { texto: "Boa noite", emoji: "🌙" };
+        ? { texto: "Boa tarde", emoji: "🌤️" }
+        : { texto: "Boa noite", emoji: "🌙" };
 
   useEffect(() => {
     fetch("/api/me", { credentials: "include" })
@@ -95,9 +95,7 @@ export default function TripsPage() {
           </p>
         </div>
       </div>
-
       <Banner />
-
       <div className="bg-white rounded-2xl shadow p-6">
         <h5 className="text-lg font-semibold mb-3">Últimas Viagens</h5>
         <div className="overflow-x-auto">
@@ -120,7 +118,7 @@ export default function TripsPage() {
                 </tr>
               ) : rows.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="text-center py-6 text-gray-500">
+                  <td colSpan={5} className="text-center bg-red-500 text-white py-6">
                     Nenhuma corrida encontrada
                   </td>
                 </tr>
@@ -153,15 +151,14 @@ export default function TripsPage() {
                     </td>
                     <td className="px-6 py-3">
                       <span
-                        className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                          item.current_status === "completed"
+                        className={`px-2 py-1 rounded-full text-xs font-semibold ${item.current_status === "completed"
                             ? "bg-green-100 text-green-600"
                             : item.current_status === "cancelled"
-                            ? "bg-red-100 text-red-600"
-                            : item.current_status === "in_progress"
-                            ? "bg-yellow-100 text-yellow-600"
-                            : "bg-gray-100 text-gray-600"
-                        }`}
+                              ? "bg-red-100 text-red-600"
+                              : item.current_status === "in_progress"
+                                ? "bg-yellow-100 text-yellow-600"
+                                : "bg-gray-100 text-gray-600"
+                          }`}
                       >
                         {traduzirStatus(item.current_status)}
                       </span>

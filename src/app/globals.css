@@ -87,3 +87,14 @@ body {
 .swiper-pagination-bullet-active {
   background: #14b8a6;
 }
+
+@keyframes arrowMove {
+    0%,
+    100% {
+        transform: translateX(0);
+    }
+
+    50% {
+        transform: translateX(6px);
+    }
+}

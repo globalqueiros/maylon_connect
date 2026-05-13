@@ -1,6 +1,6 @@
 import { db } from "../../lib/db";
-import Sidebar from "../../components/sidebar";
-import Header from "../../components/header";
+import Sidebar from "../../passageiro/trips/[id]/components/sidebar";
+import Header from "../../passageiro/trips/[id]/components/header";
 
 export default async function Protocolo({ params }: any) {
   // ✅ CORRETO

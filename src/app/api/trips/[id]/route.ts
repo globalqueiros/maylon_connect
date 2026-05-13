@@ -3,32 +3,54 @@ import { db } from "../../../lib/db";
 
 export async function GET(
   req: Request,
-  context: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  try {
-    const { id } = await context.params;
+  const { id } = await params;
 
+  try {
     const [rows]: any = await db.query(
       `
-      SELECT 
-        trc.trip_request_id,
-        trc.pickup_address,
-        trc.destination_address,
-        COALESCE(tr.actual_fare, tr.estimated_fare, 0) as valor,
-        tr.current_status
-      FROM trip_request_coordinates trc
-      LEFT JOIN trip_requests tr 
-        ON tr.id = trc.trip_request_id
-      WHERE trc.trip_request_id = ?
+      SELECT
+        tr.id,
+        tr.ref_id,
+        tr.entrance,
+        tr.note,
+        tr.actual_fare,
+        tr.actual_distance,
+        tr.current_status,
+        tr.payment_status,
+        tr.created_at,
+        tr.payment_method,
+        u.full_name AS passenger_name,
+        u.email AS passenger_email,
+        u.phone AS passenger_phone,
+        d.full_name AS driver_name,
+        d.phone AS driver_phone
+      FROM trip_requests tr
+      LEFT JOIN users u
+        ON u.id = tr.customer_id
+      LEFT JOIN users d
+        ON d.id = tr.driver_id
+      WHERE tr.id = ?
       `,
       [id]
     );
 
-    return NextResponse.json(rows[0] || null);
+    if (rows.length === 0) {
+      return NextResponse.json(
+        { error: "Corrida não encontrada" },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json({
+      trip: rows[0],
+    });
   } catch (error) {
-    console.error(error);
+    console.log(error);
+
     return NextResponse.json(
-      { error: "Erro ao buscar corrida" },
+      { error: "Erro interno" },
       { status: 500 }
     );
   }

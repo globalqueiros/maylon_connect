@@ -102,7 +102,7 @@ export default function Login() {
           ) : (
             <>
               <Mail size={16} />
-              Enviar Magic Link
+              Enviar Link
             </>
           )}
         </button>

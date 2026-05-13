@@ -1,10 +1,11 @@
 "use client";
 import { useState, useEffect } from "react";
-import Sidebar from "../components/sidebar";
-import Header from "../components/header";
+import Sidebar from "../passageiro/trips/[id]/components/sidebar";
+import Header from "../passageiro/trips/[id]/components/header";
 import Image from "next/image";
-import { Car, Pencil, Settings, User, BadgeCheck, Lock } from "lucide-react";
+import { Car, Pencil, Settings, User, BadgeCheck, Lock, X } from "lucide-react";
 import Link from "next/link";
+import { Eye, EyeOff } from "lucide-react";
 
 type Usuario = {
   id: number;
@@ -24,17 +25,24 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const [saving, setSaving] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const [usuario, setUsuario] = useState<Usuario | null>(null);
   const [loading, setLoading] = useState(true);
   const [previewSrc, setPreviewSrc] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [showSenha, setShowSenha] = useState(false);
+  const [showConfirmar, setShowConfirmar] = useState(false);
   const [alert, setAlert] = useState<{
     type: "success" | "error";
     message: string;
   } | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [open, setOpen] = useState(false);
+  const [senha, setSenha] = useState("");
+  const [confirmar, setConfirmar] = useState("");
+  const [erro, setErro] = useState("");
 
   useEffect(() => {
     const saved = localStorage.getItem("sidebar");
@@ -139,6 +147,57 @@ export default function DashboardLayout({
       }
     };
   }, [previewSrc]);
+
+  const handleSubmit = async () => {
+    if (!senha || !confirmar) {
+      setErro("Preencha todos os campos");
+      return;
+    }
+
+    if (senha.length < 6) {
+      setErro("Mínimo 6 caracteres");
+      return;
+    }
+
+    if (senha !== confirmar) {
+      setErro("As senhas não coincidem");
+      return;
+    }
+
+    setErro("");
+    setSaving(true);
+
+    try {
+      const res = await fetch("/api/change-password", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({ senha }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setErro(data.message || "Erro ao atualizar senha");
+        return;
+      }
+
+      setAlert({
+        type: "success",
+        message: "Senha atualizada com sucesso!",
+      });
+
+      setOpen(false);
+      setSenha("");
+      setConfirmar("");
+    } catch (err) {
+      setErro("Erro inesperado");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -291,7 +350,10 @@ export default function DashboardLayout({
               <Lock size={16} className="text-teal-500" />
               Alterar Senha
             </h1>
-            <button className="bg-teal-500 hover:bg-teal-600 text-sm text-white cursor-pointer px-4 py-2 rounded-xl text-sm">
+            <button
+              onClick={() => setOpen(true)}
+              className="bg-teal-500 hover:bg-teal-600 active:scale-95 transition-all duration-200 text-white cursor-pointer px-5 py-2 rounded-xl text-sm font-semibold shadow-md flex items-center gap-2">
+              <Lock size={16} />
               Atualizar
             </button>
           </div>
@@ -327,6 +389,87 @@ export default function DashboardLayout({
                 className="px-6 py-1 bg-teal-600 hover:bg-teal-500 cursor-pointer text-white text-sm text-white rounded-lg disabled:opacity-50"
               >
                 {uploading ? "Salvando..." : "Salvar"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-white w-full max-w-sm rounded-2xl p-6 relative shadow-xl animate-fadeIn">
+            <button
+              onClick={() => setOpen(false)}
+              className="absolute top-3 right-3 text-gray-400 hover:text-black cursor-pointer transition"
+            >
+              <X size={18} />
+            </button>
+            <h2 className="text-lg font-bold mb-4 text-center">
+              Alterar Senha
+            </h2>
+            {erro && (
+              <div className="mb-3 flex items-center gap-2 bg-red-100 border border-red-300 text-red-700 text-sm px-3 py-2 rounded-lg">
+                <span className="font-semibold">Erro:</span>
+                <span>{erro}</span>
+              </div>
+            )}
+            <div className="relative mb-3">
+              <input
+                type={showSenha ? "text" : "password"}
+                placeholder="Nova senha"
+                value={senha}
+                onChange={(e) => setSenha(e.target.value)}
+                className="w-full border rounded-lg p-2 pr-10 text-sm outline-none focus:ring-2 focus:ring-teal-500"
+              />
+              <button
+                type="button"
+                onClick={() => setShowSenha((prev) => !prev)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-black cursor-pointer"
+              >
+                {showSenha ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
+            <div className="relative mb-4">
+              <input
+                type={showConfirmar ? "text" : "password"}
+                placeholder="Confirmar senha"
+                value={confirmar}
+                onChange={(e) => setConfirmar(e.target.value)}
+                className="w-full border rounded-lg p-2 pr-10 text-sm outline-none focus:ring-2 focus:ring-teal-500"
+              />
+              <button
+                type="button"
+                onClick={() => setShowConfirmar((prev) => !prev)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-black cursor-pointer"
+              >
+                {showConfirmar ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
+            <div className="flex gap-2 mt-3">
+              {/* SALVAR */}
+              <button
+                type="button"
+                onClick={handleSubmit}
+                disabled={saving}
+                className="flex-1 bg-teal-500 hover:bg-teal-600 active:scale-[0.97] transition-all duration-150 text-white py-2.5 rounded-lg text-sm font-semibold cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-400"
+              >
+                {saving ? (
+                  <>
+                    <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                    Salvando...
+                  </>
+                ) : (
+                  <>
+                    Salvar
+                  </>
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                disabled={saving}
+                className="flex-1 bg-red-500 hover:bg-red-400 active:scale-[0.97] transition-all duration-150 text-white py-2.5 rounded-lg text-sm font-semibold cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400"
+              >
+                Cancelar
               </button>
             </div>
           </div>

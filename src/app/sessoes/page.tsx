@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
-import Sidebar from "../components/sidebar";
-import Header from "../components/header";
+import Sidebar from "../passageiro/trips/[id]/components/sidebar";
+import Header from "../passageiro/trips/[id]/components/header";
 import { AlertTriangle, Smartphone, Monitor, ChevronRight } from "lucide-react";
 
 type Usuario = {

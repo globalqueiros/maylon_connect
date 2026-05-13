@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { GoogleAnalytics } from '@next/third-parties/google';
-import VLibras from "./components/vlibras";
+import VLibras from "./passageiro/trips/[id]/components/vlibras";
 
 export const metadata: Metadata = {
   title: "Portal Connect - Maylon",
