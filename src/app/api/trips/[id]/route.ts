@@ -29,8 +29,10 @@ export async function GET(
       FROM trip_requests tr
       LEFT JOIN users u
         ON u.id = tr.customer_id
+
       LEFT JOIN users d
         ON d.id = tr.driver_id
+
       WHERE tr.id = ?
       `,
       [id]

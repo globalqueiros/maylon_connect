@@ -80,7 +80,7 @@ export default function TripsPage() {
   const traduzirStatus = (status: string) => {
     switch (status) {
       case "completed":
-        return "Finalizada";
+        return "Concluída";
       case "cancelled":
         return "Cancelada";
       case "in_progress":
@@ -103,13 +103,11 @@ export default function TripsPage() {
           </span>
         </span>
       </h1>
-
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="bg-white rounded-xl shadow p-4">
           <h5 className="text-lg font-semibold">Quantidade de Viagens</h5>
           <p className="text-black text-sm">{totalViagens}</p>
         </div>
-
         <div className="bg-white rounded-xl shadow p-4">
           <h5 className="text-lg font-semibold">Gasto Total</h5>
           <p className="text-black text-sm">
@@ -141,62 +139,86 @@ export default function TripsPage() {
               </tr>
             ) : rows.length === 0 ? (
               <tr>
-                <td colSpan={5} className="text-center py-4 text-white bg-red-500">
+                <td
+                  colSpan={5}
+                  className="text-center py-4 text-white bg-red-500"
+                >
                   Nenhuma corrida encontrada
                 </td>
               </tr>
             ) : (
-              rows.map((item) => (
-                <tr key={item.trip_request_id} className="hover:bg-gray-50">
-                  <td className="px-6 py-3">
-                    {item.trip_request_id}
-                  </td>
-                  <td className="px-6 py-3">
-                    <div className="flex items-center gap-3 text-sm">
-                      <div className="flex items-center gap-1">
-                        <MapPin size={28} className="text-green-500" />
-                        <span className="text-sm">{item.pickup_address}</span>
+              rows
+                .sort(
+                  (a, b) =>
+                    b.trip_request_id - a.trip_request_id
+                )
+                .slice(0, 5)
+                .map((item) => (
+                  <tr
+                    key={item.trip_request_id}
+                    className="hover:bg-gray-50"
+                  >
+                    <td className="px-6 py-3">
+                      {item.trip_request_id}
+                    </td>
+                    <td className="px-6 py-3">
+                      <div className="flex items-center gap-3 text-sm">
+                        <div className="flex items-center gap-1">
+                          <MapPin
+                            size={28}
+                            className="text-green-500"
+                          />
+                          <span className="text-sm">
+                            {item.pickup_address}
+                          </span>
+                        </div>
+                        <span className="text-gray-400">→</span>
+                        <div className="flex items-center gap-1">
+                          <MapPin
+                            size={28}
+                            className="text-red-500"
+                          />
+                          <span className="text-sm">
+                            {item.destination_address}
+                          </span>
+                        </div>
                       </div>
-                      <span className="text-gray-400">→</span>
-                      <div className="flex items-center gap-1">
-                        <MapPin size={28} className="text-red-500" />
-                        <span className="text-sm">{item.destination_address}</span>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-3">
-                    {item.valor === 0 ? (
-                      <span className="text-gray-400">
-                        Aguardando
+                    </td>
+                    <td className="px-6 py-3">
+                      {item.valor === 0 ? (
+                        <span className="text-gray-400">
+                          Aguardando
+                        </span>
+                      ) : (
+                        new Intl.NumberFormat("pt-BR", {
+                          style: "currency",
+                          currency: "BRL",
+                        }).format(item.valor)
+                      )}
+                    </td>
+                    <td className="px-6 py-3">
+                      <span
+                        className={`px-2 py-1 rounded-full text-xs font-semibold ${item.current_status === "completed"
+                            ? "bg-green-100 text-green-600"
+                            : item.current_status === "cancelled"
+                              ? "bg-red-100 text-red-600"
+                              : item.current_status === "in_progress"
+                                ? "bg-yellow-100 text-yellow-600"
+                                : "bg-gray-100 text-gray-600"
+                          }`}
+                      >
+                        {traduzirStatus(item.current_status)}
                       </span>
-                    ) : (
-                      new Intl.NumberFormat("pt-BR", {
-                        style: "currency",
-                        currency: "BRL",
-                      }).format(item.valor)
-                    )}
-                  </td>
-                  <td className="px-6 py-3">
-                    <span
-                      className={`px-2 py-1 rounded-full text-xs font-semibold ${item.current_status === "completed"
-                        ? "bg-green-100 text-green-600"
-                        : item.current_status === "cancelled"
-                          ? "bg-red-100 text-red-600"
-                          : item.current_status === "in_progress"
-                            ? "bg-yellow-100 text-yellow-600"
-                            : "bg-gray-100 text-gray-600"
-                        }`}
-                    >
-                      {traduzirStatus(item.current_status)}
-                    </span>
-                  </td>
-                  <td className="px-6 py-3 text-center">
-                    <Link href={`passageiro/trips/${item.trip_request_id}`}>
-                      <Eye size={16} />
-                    </Link>
-                  </td>
-                </tr>
-              ))
+                    </td>
+                    <td className="px-6 py-3 text-center">
+                      <Link
+                        href={`/passageiro/trips/${item.trip_request_id}`}
+                      >
+                        <Eye size={16} />
+                      </Link>
+                    </td>
+                  </tr>
+                ))
             )}
           </tbody>
         </table>
