@@ -147,6 +147,90 @@ export default function BeneficiosPage() {
         return img.startsWith("/") ? img : `/${img}`;
     };
 
+    const [modalCaju, setModalCaju] = useState(false);
+    const [endereco, setEndereco] = useState({
+        cep: "",
+        endereco: "",
+        numero: "",
+        complemento: "",
+        bairro: "",
+        cidade: "",
+        estado: "",
+    });
+    const [beneficioSelecionado, setBeneficioSelecionado] = useState<number | null>(null);
+
+    const ativarCaju = async () => {
+        if (!usuario || !beneficioSelecionado) return;
+
+        try {
+            const res = await fetch("/api/caju/ativar", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    usuario_id: usuario.id,
+                    beneficio_id: beneficioSelecionado,
+                    ...endereco,
+                }),
+            });
+
+            const data = await res.json();
+
+            if (res.ok) {
+                setBeneficios(prev =>
+                    prev.map(b =>
+                        b.id === beneficioSelecionado
+                            ? { ...b, ativo: true }
+                            : b
+                    )
+                );
+
+                setModalCaju(false);
+
+                setAlerta({
+                    tipo: "success",
+                    mensagem: "Cartão Caju ativado com sucesso!",
+                });
+            } else {
+                setAlerta({
+                    tipo: "error",
+                    mensagem: data.error || "Erro ao ativar benefício",
+                });
+            }
+        } catch {
+            setAlerta({
+                tipo: "error",
+                mensagem: "Erro ao ativar benefício",
+            });
+        }
+    };
+
+    const buscarCep = async (cep: string) => {
+        const cepLimpo = cep.replace(/\D/g, "");
+
+        if (cepLimpo.length !== 8) return;
+
+        try {
+            const response = await fetch(
+                `https://viacep.com.br/ws/${cepLimpo}/json/`
+            );
+            const data = await response.json();
+
+            if (!data.erro) {
+                setEndereco((prev) => ({
+                    ...prev,
+                    endereco: data.logradouro || "",
+                    bairro: data.bairro || "",
+                    cidade: data.localidade || "",
+                    estado: data.uf || "",
+                }));
+            }
+        } catch (error) {
+            console.error("Erro ao buscar CEP:", error);
+        }
+    };
+
     if (loadingUser) {
         return (
             <div className="flex items-center justify-center min-h-screen">
@@ -168,10 +252,10 @@ export default function BeneficiosPage() {
             {alerta && (
                 <div
                     className={`my-3 p-3 rounded-xl text-white text-sm font-medium ${alerta.tipo === "success"
-                            ? "bg-green-500"
-                            : alerta.tipo === "error"
-                                ? "bg-red-500"
-                                : "bg-red-500"
+                        ? "bg-green-500"
+                        : alerta.tipo === "error"
+                            ? "bg-red-500"
+                            : "bg-red-500"
                         }`}
                 >
                     {alerta.mensagem}
@@ -225,10 +309,12 @@ export default function BeneficiosPage() {
                                     {b.descricao}
                                 </p>
                                 <p className="text-white font-semibold text-sm">
-                                    {new Intl.NumberFormat("pt-BR", {
-                                        style: "currency",
-                                        currency: "BRL",
-                                    }).format(Number(b.valor))}
+                                    {b.valor && !isNaN(Number(b.valor))
+                                        ? new Intl.NumberFormat("pt-BR", {
+                                            style: "currency",
+                                            currency: "BRL",
+                                        }).format(Number(b.valor))
+                                        : null}
                                 </p>
                             </div>
                             <button
@@ -296,14 +382,24 @@ export default function BeneficiosPage() {
                                     {b.descricao}
                                 </p>
                                 <p className="text-white font-semibold text-sm">
-                                    {new Intl.NumberFormat("pt-BR", {
-                                        style: "currency",
-                                        currency: "BRL",
-                                    }).format(Number(b.valor))}
+                                    {b.valor && !isNaN(Number(b.valor))
+                                        ? new Intl.NumberFormat("pt-BR", {
+                                            style: "currency",
+                                            currency: "BRL",
+                                        }).format(Number(b.valor))
+                                        : null}
                                 </p>
                             </div>
                             <button
-                                onClick={() => toggleBeneficio(b.id)}
+                                onClick={() => {
+                                    if (b.titulo.toLowerCase().includes("caju")) {
+                                        setBeneficioSelecionado(b.id);
+                                        setModalCaju(true);
+                                        return;
+                                    }
+
+                                    toggleBeneficio(b.id);
+                                }}
                                 disabled={loadingId === b.id}
                                 className={`mt-4 text-sm w-full p-2 rounded-xl font-semibold text-white transition cursor-pointer ${loadingId === b.id
                                     ? "bg-gray-400"
@@ -316,6 +412,120 @@ export default function BeneficiosPage() {
                     </div>
                 ))}
             </div>
+            {modalCaju && (
+                <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+                    <div className="bg-white rounded-2xl p-6 w-full max-w-lg">
+                        <h2 className="text-lg font-bold mb-4">
+                            Ativar Cartão Caju
+                        </h2>
+                        <label htmlFor="cep">CEP</label>
+                        <input
+                            type="text"
+                            placeholder="CEP"
+                            value={endereco.cep}
+                            maxLength={9}
+                            onChange={(e) => {
+                                let cep = e.target.value.replace(/\D/g, "");
+                                cep = cep.replace(/^(\d{5})(\d)/, "$1-$2");
+                                setEndereco({
+                                    ...endereco,
+                                    cep,
+                                });
+                                if (cep.replace(/\D/g, "").length === 8) {
+                                    buscarCep(cep);
+                                }
+                            }}
+                            className="w-34 border rounded-lg p-2 mb-3"
+                        />
+                        <label htmlFor="endereco">Endereço</label>
+                        <input
+                            type="text"
+                            placeholder="Endereço"
+                            value={endereco.endereco}
+                            onChange={(e) =>
+                                setEndereco({ ...endereco, endereco: e.target.value })
+                            }
+                            className="w-full border rounded-lg p-3 mb-3"
+                        />
+
+                        <div className="grid grid-cols-2 gap-3 mb-3">
+                            <label htmlFor="numero">Número</label>
+                            <input
+                                type="text"
+                                placeholder="Número"
+                                value={endereco.numero}
+                                onChange={(e) =>
+                                    setEndereco({ ...endereco, numero: e.target.value })
+                                }
+                                className="border rounded-lg p-3"
+                            />
+                            <label htmlFor="complemento">Complemento</label>
+                            <input
+                                type="text"
+                                placeholder="Complemento"
+                                value={endereco.complemento}
+                                onChange={(e) =>
+                                    setEndereco({
+                                        ...endereco,
+                                        complemento: e.target.value,
+                                    })
+                                }
+                                className="border rounded-lg p-3"
+                            />
+                        </div>
+                        <label htmlFor="bairro">Bairro</label>
+                        <input
+                            type="text"
+                            placeholder="Bairro"
+                            value={endereco.bairro}
+                            onChange={(e) =>
+                                setEndereco({ ...endereco, bairro: e.target.value })
+                            }
+                            className="w-full border rounded-lg p-3 mb-3"
+                        />
+
+                        <div className="grid grid-cols-2 gap-3">
+                            <label htmlFor="cidade">Cidade</label>
+                            <input
+                                type="text"
+                                placeholder="Cidade"
+                                value={endereco.cidade}
+                                onChange={(e) =>
+                                    setEndereco({ ...endereco, cidade: e.target.value })
+                                }
+                                className="border rounded-lg p-3"
+                            />
+
+                            <input
+                                type="text"
+                                placeholder="UF"
+                                value={endereco.estado}
+                                maxLength={2}
+                                onChange={(e) =>
+                                    setEndereco({ ...endereco, estado: e.target.value.toUpperCase() })
+                                }
+                                className="border rounded-lg p-3"
+                            />
+                        </div>
+
+                        <div className="flex justify-end gap-3 mt-6">
+                            <button
+                                onClick={() => setModalCaju(false)}
+                                className="border text-sm px-4 py-2 rounded-lg"
+                            >
+                                Cancelar
+                            </button>
+
+                            <button
+                                onClick={ativarCaju}
+                                className="bg-teal-500 text-sm text-white px-4 py-2 rounded-lg"
+                            >
+                                Confirmar Ativação
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

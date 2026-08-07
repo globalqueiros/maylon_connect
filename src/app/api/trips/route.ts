@@ -15,21 +15,21 @@ export async function GET(req: Request) {
     const userId = user.id;
 
     const [rows]: any = await db.query(
-      `
-      SELECT 
-        trc.trip_request_id,
-        trc.pickup_address,
-        trc.destination_address,
-        COALESCE(tr.actual_fare, tr.estimated_fare, 0) as valor,
-        tr.current_status
-      FROM trip_request_coordinates trc
-      LEFT JOIN trip_requests tr 
-        ON tr.id = trc.trip_request_id
-      WHERE 
-        tr.customer_id = ? 
-        OR tr.driver_id = ?
-      ORDER BY trc.trip_request_id DESC
-      `,
+      ` SELECT 
+          trc.trip_request_id,
+          trc.pickup_address,
+          trc.destination_address,
+          COALESCE(tr.actual_fare, tr.estimated_fare, 0) as valor,
+          tr.current_status,
+          tr.created_at
+        FROM trip_request_coordinates trc
+        LEFT JOIN trip_requests tr 
+          ON tr.id = trc.trip_request_id
+        WHERE 
+          tr.customer_id = ? 
+          OR tr.driver_id = ?
+        ORDER BY tr.created_at DESC
+        `,
       [userId, userId]
     );
 

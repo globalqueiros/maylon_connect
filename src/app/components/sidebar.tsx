@@ -8,7 +8,8 @@ import {
   LogOut,
   Percent,
   ShoppingBasket,
-  Car
+  Car,
+  CarFront
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -20,19 +21,19 @@ const menuMotorista = [
   { name: "Benefícios", icon: HandCoins, href: "/motorista/beneficios" },
   { name: "Shopping", icon: ShoppingBasket, href: "/motorista/shopping" },
   { name: "Carros", icon: Car, href: "/motorista/carros" },
-  { name: "Imposto de Renda", icon: Percent , href: "/motorista/impostos" },
+  { name: "Imposto de Renda", icon: Percent, href: "/motorista/impostos" },
   { name: "Sair", icon: LogOut, href: "/saindo" },
 ];
 
 const menuPassageiro = [
   { name: "Dashboard", icon: LayoutDashboard, href: "/passageiro" },
-  { name: "Relatório", icon: FilePenLine, href: "/passageiro/relatorio" },
+  { name: "Viagens", icon: CarFront, href: "/passageiro/viagens" },
   { name: "Benefícios", icon: HandCoins, href: "/passageiro/beneficios" },
   { name: "Sair", icon: LogOut, href: "/saindo" },
 ];
 
 const supportItems = [
-  { name: "Central de Ajuda", icon: Headset, href: "/central_ajuda" },
+  { name: "Central de Ajuda", icon: Headset, href: "/passageiro/central_ajuda" },
 ];
 
 type User = {
@@ -66,11 +67,10 @@ export default function Sidebar({ collapsed }: { collapsed: boolean }) {
   const menuItems = isDriver ? menuMotorista : menuPassageiro;
   return (
     <div
-      className={`h-screen bg-white border-r border-gray-300 transition-all duration-300 ${
-        collapsed ? "w-20" : "w-64"
-      }`}
+      className={`h-screen bg-white border-r border-gray-300 transition-all duration-300 ${collapsed ? "w-20" : "w-64"
+        }`}
     >
-      <div className="flex items-center justify-center p-4">
+      <div className="flex items-center border-b h-16 mb-4 border-gray-300 justify-center p-4">
         {collapsed ? (
           <Image
             src="/favicon.webp"
@@ -95,11 +95,14 @@ export default function Sidebar({ collapsed }: { collapsed: boolean }) {
             <Link
               key={index}
               href={item.href}
-              className={`flex items-center gap-3 p-3 rounded-lg transition
-                ${
-                  isActive
-                    ? "bg-teal-500 text-white shadow-md"
-                    : "hover:bg-gray-100 text-gray-700"
+              className={`flex items-center gap-3 rounded-lg p-3 transition
+                ${collapsed
+                  ? "justify-center"
+                  : "justify-start text-left"
+                }
+                ${isActive
+                  ? "bg-teal-500 text-white shadow-md"
+                  : "text-gray-700 hover:bg-gray-100"
                 }
               `}
             >
@@ -121,11 +124,14 @@ export default function Sidebar({ collapsed }: { collapsed: boolean }) {
             <Link
               key={index}
               href={item.href}
-              className={`flex items-center gap-3 p-3 rounded-lg transition
-                ${
-                  isActive
-                    ? "bg-teal-500 text-white shadow-md"
-                    : "hover:bg-gray-100 text-gray-700"
+              className={`flex items-center gap-3 rounded-lg p-3 transition
+                ${collapsed
+                  ? "justify-center"
+                  : "justify-start text-left"
+                }
+                ${isActive
+                  ? "bg-teal-500 text-white shadow-md"
+                  : "text-gray-700 hover:bg-gray-100"
                 }
               `}
             >

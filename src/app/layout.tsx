@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { GoogleAnalytics } from '@next/third-parties/google';
-import VLibras from "./passageiro/trips/[id]/components/vlibras";
+import { GoogleAnalytics } from "@next/third-parties/google";
+import VLibras from "./components/vlibras";
 
 export const metadata: Metadata = {
   title: "Portal Connect - Maylon",
@@ -14,10 +14,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="pt-BR">
-      <body>
+    <html lang="pt-BR" suppressHydrationWarning>
+      <body suppressHydrationWarning>
         {children}
-        <VLibras/>
+        <VLibras />
       </body>
       <GoogleAnalytics gaId="G-4R88G65G1X" />
     </html>

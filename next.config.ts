@@ -7,6 +7,10 @@ const nextConfig: NextConfig = {
         protocol: "https",
         hostname: "maylon-mobilidade.s3.us-east-1.amazonaws.com",
       },
+      {
+        protocol: "https",
+        hostname: "auth.maylon.com.br",
+      },
     ],
   },
 };

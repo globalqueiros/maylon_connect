@@ -9,6 +9,8 @@ import {
   Settings,
   Headset,
   LogOut,
+  Car,
+  MapPin,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -17,6 +19,7 @@ type User = {
   full_name: string;
   email: string;
   profile_image?: string;
+  user_type: "driver" | "customer";
 };
 
 export default function Header({
@@ -31,19 +34,19 @@ export default function Header({
   const [imgSrc, setImgSrc] = useState("/foto_perfil.png");
 
   useEffect(() => {
-  const fetchUser = async () => {
-    const res = await fetch("/api/me", {
-      credentials: "include",
-    });
+    const fetchUser = async () => {
+      const res = await fetch("/api/me", {
+        credentials: "include",
+      });
 
-    if (res.ok) {
-      const data = await res.json();
-      setUser(data);
-    }
-  };
+      if (res.ok) {
+        const data = await res.json();
+        setUser(data);
+      }
+    };
 
-  fetchUser();
-}, []);
+    fetchUser();
+  }, []);
 
   useEffect(() => {
     if (user?.profile_image && user.profile_image.trim() !== "") {
@@ -115,7 +118,7 @@ export default function Header({
             <ChevronDown size={16} />
           </button>
           {open && (
-            <div className="absolute right-0 mt-2.5 w-64 bg-white border rounded-xl shadow-lg p-4 z-50">              
+            <div className="absolute right-0 mt-2.5 w-64 bg-white border rounded-xl shadow-lg p-4 z-50">
               <div className="mb-3">
                 <p className="font-semibold text-xs">
                   {firstName}
@@ -126,15 +129,53 @@ export default function Header({
               </div>
               <div className="border-t my-2"></div>
               <div className="flex flex-col text-xs gap-2">
-                <Link href="/perfil" className="flex items-center gap-2 p-2 cursor-pointer rounded-lg hover:bg-gray-100">
-                  <User size={18} /> Meu Perfil
+                <Link
+                  href="/passageiro/perfil"
+                  className="flex items-center gap-2 p-2 cursor-pointer rounded-lg hover:bg-gray-100"
+                >
+                  <User size={18} />
+                  Meu Perfil
                 </Link>
-                <Link href="configuracoes" className="flex items-center gap-2 p-2 cursor-pointer rounded-lg hover:bg-gray-100">
-                  <Settings size={18} /> Configurações
+                <Link
+                  href="/passageiro/configuracoes"
+                  className="flex items-center gap-2 p-2 cursor-pointer rounded-lg hover:bg-gray-100"
+                >
+                  <Settings size={18} />
+                  Configurações
                 </Link>
-                <Link href="/central_ajuda" className="flex items-center gap-2 p-2 cursor-pointer rounded-lg hover:bg-gray-100">
-                  <Headset size={18} /> Suporte
+                <Link
+                  href="/passageiro/central_ajuda"
+                  className="flex items-center gap-2 p-2 cursor-pointer rounded-lg hover:bg-gray-100"
+                >
+                  <Headset size={18} />
+                  Suporte
                 </Link>
+                {/* Apenas motorista */}
+                {user?.user_type === "driver" && (
+                  <>
+                    <Link
+                      href="/veiculo"
+                      className="flex items-center gap-2 p-2 cursor-pointer rounded-lg hover:bg-gray-100"
+                    >
+                      <Car size={18} />
+                      Meu Veículo
+                    </Link>
+                    <Link
+                      href="/corridas"
+                      className="flex items-center gap-2 p-2 cursor-pointer rounded-lg hover:bg-gray-100"
+                    >
+                      <MapPin size={18} />
+                      Minhas Corridas
+                    </Link>
+                    <Link
+                      href="/central_ajuda"
+                      className="flex items-center gap-2 p-2 cursor-pointer rounded-lg hover:bg-gray-100"
+                    >
+                      <Headset size={18} />
+                      Suporte
+                    </Link>
+                  </>
+                )}
               </div>
               <div className="border-t my-2"></div>
               <Link

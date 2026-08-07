@@ -1,7 +1,5 @@
 "use client";
 import { useState, useEffect } from "react";
-import Sidebar from "../passageiro/trips/[id]/components/sidebar";
-import Header from "../passageiro/trips/[id]/components/header";
 import { AlertTriangle, Smartphone, Monitor, ChevronRight } from "lucide-react";
 
 type Usuario = {
@@ -153,12 +151,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
     return (
         <div className="flex min-h-screen">
-            <Sidebar collapsed={collapsed} />
             <div className="flex flex-col flex-1">
-                <Header toggleSidebar={() => setCollapsed(!collapsed)} />
-                <main className="p-6 bg-gray-50 min-h-screen">
                     <div className="flex items-center justify-between mb-4">
-                        <h1 className="text-2xl font-bold">Sessões Ativas</h1>
+                        <h1 className="text-xl font-bold text-white leading-none">Sessões Ativas</h1>
                         <button
                             type="button"
                             onClick={logoutAllSessions}
@@ -233,7 +228,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                             })
                         )}
                     </div>
-                </main>
             </div>
         </div>
     );

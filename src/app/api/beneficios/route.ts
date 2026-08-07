@@ -38,24 +38,23 @@ export async function POST(req: Request) {
 
     const [rows]: any = await db.query(
       `
-      SELECT 
-        b.id,
-        b.imagem,
-        b.titulo,
-        b.descricao,
-        b.valor,
-        b.tipo,
-        IFNULL(ub.ativo, false) as ativo
-      FROM beneficios b
-      LEFT JOIN usuario_beneficios ub 
-        ON ub.beneficio_id = b.id 
-        AND ub.usuario_id = ?
-      WHERE 
-        b.ativo = true
-        AND (
-          b.tipo = 'ambos'
-          OR b.tipo = ?
-        )
+        SELECT
+            b.id,
+            b.imagem,
+            b.titulo,
+            b.descricao,
+            b.valor,
+            b.tipo,
+            CASE
+                WHEN ub.id IS NULL THEN 0
+                ELSE ub.status
+            END AS status
+        FROM beneficios b
+        LEFT JOIN beneficio_assinaturas ub
+            ON ub.beneficio_id = b.id
+            AND ub.usuario_id = ?
+        WHERE
+            b.status = 1;
       `,
       [usuario_id, tipo]
     );

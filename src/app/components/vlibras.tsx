@@ -1,13 +1,19 @@
-"use client";
-import { useEffect } from "react";
+"use client"; 
+import { useEffect, useState } from "react";
 import Script from "next/script";
 
+declare global {
+  interface Window {
+    VLibras: any;
+  }
+}
+
 export default function VLibras() {
+  const [mounted, setMounted] = useState(false);
   useEffect(() => {
-    if (window.VLibras) {
-      new window.VLibras.Widget("https://vlibras.gov.br/app");
-    }
+    setMounted(true);
   }, []);
+  if (!mounted) return null;
 
   return (
     <>
@@ -20,6 +26,13 @@ export default function VLibras() {
       <Script
         src="https://vlibras.gov.br/app/vlibras-plugin.js"
         strategy="afterInteractive"
+        onLoad={() => {
+          if (window.VLibras) {
+            new window.VLibras.Widget(
+              "https://vlibras.gov.br/app"
+            );
+          }
+        }}
       />
     </>
   );

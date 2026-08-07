@@ -1,5 +1,4 @@
 "use client";
-import Banner from "../passageiro/trips/[id]/components/banner"
 import { Eye, MapPin } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -19,10 +18,17 @@ type Trip = {
   current_status: string;
 };
 
+type Banner = {
+  id: number;
+  image: string;
+  title?: string;
+};
+
 export default function TripsPage() {
   const [user, setUser] = useState<User | null>(null);
   const [rows, setRows] = useState<Trip[]>([]);
   const [loading, setLoading] = useState(true);
+  const [banners, setBanners] = useState<Banner[]>([]);
 
   const hora = new Date().getHours();
   const saudacao =
@@ -45,6 +51,13 @@ export default function TripsPage() {
       .then((data) => setRows(Array.isArray(data) ? data : []))
       .catch(() => console.error("Erro ao buscar viagens"))
       .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    fetch("/api/banners")
+      .then((res) => res.json())
+      .then((data) => setBanners(Array.isArray(data) ? data : []))
+      .catch(() => console.error("Erro ao buscar banners"));
   }, []);
 
   const totalViagens = rows.length;
@@ -95,7 +108,17 @@ export default function TripsPage() {
           </p>
         </div>
       </div>
-      <Banner />
+      {banners.length > 0 && (
+        <div className="relative w-full h-64 rounded-2xl overflow-hidden shadow-lg">
+          <Image
+            src={banners[0].image}
+            alt="Banner"
+            fill
+            className="object-cover"
+            priority
+          />
+        </div>
+      )}
       <div className="bg-white rounded-2xl shadow p-6">
         <h5 className="text-lg font-semibold mb-3">Últimas Viagens</h5>
         <div className="overflow-x-auto">
@@ -152,12 +175,12 @@ export default function TripsPage() {
                     <td className="px-6 py-3">
                       <span
                         className={`px-2 py-1 rounded-full text-xs font-semibold ${item.current_status === "completed"
-                            ? "bg-green-100 text-green-600"
-                            : item.current_status === "cancelled"
-                              ? "bg-red-100 text-red-600"
-                              : item.current_status === "in_progress"
-                                ? "bg-yellow-100 text-yellow-600"
-                                : "bg-gray-100 text-gray-600"
+                          ? "bg-green-100 text-green-600"
+                          : item.current_status === "cancelled"
+                            ? "bg-red-100 text-red-600"
+                            : item.current_status === "in_progress"
+                              ? "bg-yellow-100 text-yellow-600"
+                              : "bg-gray-100 text-gray-600"
                           }`}
                       >
                         {traduzirStatus(item.current_status)}

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { db } from "../../../lib/db";
+import { db2 } from "../../../lib/db";
 
 export async function POST(req: Request) {
   try {
@@ -24,7 +24,7 @@ export async function POST(req: Request) {
       return t;
     };
 
-    const [userRows]: any = await db.query(
+    const [userRows]: any = await db2.query(
       "SELECT id, user_type FROM users WHERE id = ?",
       [usuario_id]
     );
@@ -38,8 +38,8 @@ export async function POST(req: Request) {
 
     const tipoUsuario = normalizar(userRows[0].user_type);
 
-    const [beneficioRows]: any = await db.query(
-      "SELECT tipo FROM beneficios WHERE id = ?",
+    const [beneficioRows]: any = await db2.query(
+      "SELECT id, tipo FROM beneficios WHERE id = ?",
       [beneficio_id]
     );
 
@@ -52,10 +52,7 @@ export async function POST(req: Request) {
 
     const tipoBeneficio = normalizar(beneficioRows[0].tipo);
 
-    if (
-      tipoBeneficio !== "ambos" &&
-      tipoUsuario !== tipoBeneficio
-    ) {
+    if (tipoBeneficio !== "ambos" && tipoUsuario !== tipoBeneficio) {
       return NextResponse.json(
         {
           error:
@@ -67,37 +64,36 @@ export async function POST(req: Request) {
       );
     }
 
-    const [rows]: any = await db.query(
+    const [rows]: any = await db2.query(
       "SELECT id, ativo FROM usuario_beneficios WHERE usuario_id = ? AND beneficio_id = ?",
       [usuario_id, beneficio_id]
     );
 
     if (rows.length > 0) {
-      const novoStatus = !rows[0].ativo;
+      const novoStatus = rows[0].ativo ? 0 : 1;
 
-      await db.query(
+      await db2.query(
         "UPDATE usuario_beneficios SET ativo = ? WHERE id = ?",
         [novoStatus, rows[0].id]
       );
 
       return NextResponse.json({
-        ativo: novoStatus,
+        ativo: !!novoStatus,
         message: novoStatus
           ? "Benefício ativado com sucesso"
           : "Benefício desativado com sucesso",
       });
     }
 
-    await db.query(
-      "INSERT INTO usuario_beneficios (usuario_id, beneficio_id, ativo) VALUES (?, ?, ?)",
-      [usuario_id, beneficio_id, true]
+    await db2.query(
+      "INSERT INTO usuario_beneficios (usuario_id, beneficio_id, ativo) VALUES (?, ?, 1)",
+      [usuario_id, beneficio_id]
     );
 
     return NextResponse.json({
       ativo: true,
       message: "Benefício ativado com sucesso",
     });
-
   } catch (error) {
     console.error("Erro na API:", error);
 

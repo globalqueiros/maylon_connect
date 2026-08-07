@@ -9,3 +9,14 @@ export const db = mysql.createPool({
   connectionLimit: 10,
   queueLimit: 0,
 });
+
+export const db2 = mysql.createPool({
+  host: process.env.DB2_HOST,
+  user: process.env.DB2_USER,
+  password: process.env.DB2_PASSWORD,
+  database: process.env.DB2_NAME,
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0,
+});
+

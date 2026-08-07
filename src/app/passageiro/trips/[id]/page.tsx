@@ -85,7 +85,7 @@ export default function DetalhesCorrida({
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-[#f4f7fb] flex items-center justify-center p-6">
+            <div className="min-h-screen bg-transparent flex items-center justify-center p-6">
                 <div className="bg-white rounded-[35px] shadow-2xl p-12 flex flex-col items-center gap-6 w-full max-w-md">
                     <div className="w-16 h-16 rounded-full border-4 border-emerald-500 border-t-transparent animate-spin"></div>
                     <div className="text-center">
@@ -103,7 +103,7 @@ export default function DetalhesCorrida({
 
     if (!trip) {
         return (
-            <div className="min-h-screen bg-[#f4f7fb] flex items-center justify-center p-6">
+            <div className="min-h-screen bg-transparent flex items-center justify-center p-6">
                 <div className="bg-white rounded-[35px] shadow-xl p-12 text-center max-w-md w-full">
                     <div className="w-20 h-20 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-6">
                         <XCircle className="w-10 h-10 text-red-500" />
@@ -192,8 +192,8 @@ export default function DetalhesCorrida({
                                     <p className="text-zinc-500 text-sm font-medium">
                                         Data da corrida
                                     </p>
-                                    <h3 className="font-black text-xl text-zinc-900 mt-0">
-                                        {new Date(trip.created_at).toLocaleDateString("pt-BR")}
+                                    <h3 className="font-black text-sm text-zinc-900 mt-0">
+                                        {new Date(trip.created_at).toLocaleString("pt-BR")}
                                     </h3>
                                 </div>
                                 <div className="group bg-gradient-to-br from-zinc-50 to-zinc-100/70 rounded-[28px] p-6 border border-zinc-100 hover:shadow-md transition-all duration-300">
@@ -206,8 +206,8 @@ export default function DetalhesCorrida({
                                     <div className="mt-2">
                                         <span
                                             className={`inline-flex items-center px-4 py-2 rounded-xl text-sm font-bold ${trip.payment_method === "cash"
-                                                    ? "bg-green-100 text-green-700"
-                                                    : "bg-blue-100 text-blue-700"
+                                                ? "bg-green-100 text-green-700"
+                                                : "bg-blue-100 text-blue-700"
                                                 }`}
                                         >
                                             {traduzirMetodoPagamento(trip.payment_method)}
@@ -231,74 +231,115 @@ export default function DetalhesCorrida({
                         </div>
                         {!isCanceled && (
                             <div className="bg-white rounded-[35px] p-7 shadow-sm border border-zinc-100">
-    <div className="flex items-center gap-4 mb-8">
-        <div className="w-14 h-14 rounded-2xl bg-black flex items-center justify-center text-white">
-            <Navigation className="w-7 h-7" />
-        </div>
-
-        <div>
-            <h2 className="text-2xl font-black text-zinc-900">
-                Trajeto da Corrida
-            </h2>
-
-            <p className="text-zinc-500">
-                Origem e destino da viagem
-            </p>
-        </div>
-    </div>
-
-    <div className="grid lg:grid-cols-2 gap-8">
-        <div className="flex flex-col gap-8">
-            <div className="flex gap-5">
-                <div className="flex flex-col items-center">
-                    <div className="w-5 h-5 rounded-full bg-emerald-500"></div>
-                    <div className="w-1 h-full bg-zinc-200"></div>
-                </div>
-
-                <div>
-                    <p className="text-zinc-500 text-sm">
-                        Local de embarque
-                    </p>
-
-                    <h3 className="text-lg font-bold text-zinc-900 mt-1">
-                        {trip.entrance || "Não informado"}
-                    </h3>
-                </div>
-            </div>
-
-            <div className="flex gap-5">
-                <div className="flex flex-col items-center">
-                    <div className="w-5 h-5 rounded-full bg-red-500"></div>
-                </div>
-
-                <div>
-                    <p className="text-zinc-500 text-sm">
-                        Destino final
-                    </p>
-
-                    <h3 className="text-lg font-bold text-zinc-900 mt-1">
-                        {trip.note || "Não informado"}
-                    </h3>
-                </div>
-            </div>
-        </div>
-
-        <div className="rounded-[28px] overflow-hidden border border-zinc-200 shadow-sm h-[350px]">
-            <iframe
-                width="100%"
-                height="100%"
-                loading="lazy"
-                allowFullScreen
-                referrerPolicy="no-referrer-when-downgrade"
-                src={`https://www.google.com/maps?q=${encodeURIComponent(
-                    trip.entrance || ""
-                )}&output=embed`}
-                className="w-full h-full"
-            />
-        </div>
-    </div>
-</div>
+                                <div className="flex items-center gap-4 mb-6">
+                                    <div>
+                                        <h2 className="text-2xl font-black text-zinc-900">
+                                            Trajeto da Corrida
+                                        </h2>
+                                        <p className="text-zinc-500 text-xs mt-1">
+                                            Origem e destino da viagem
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className="flex flex-col gap-4">
+                                    <div className="flex flex-col gap-4">
+                                        <div className="flex gap-5">
+                                            <div className="flex flex-col items-center">
+                                                <div className="w-5 h-5 rounded-full bg-emerald-500"></div>
+                                                <div className="w-1 h-full bg-zinc-200"></div>
+                                            </div>
+                                            <div>
+                                                <p className="text-zinc-500 text-xs">
+                                                    Local de embarque
+                                                </p>
+                                                <h3 className="text-base font-bold text-zinc-900 mt-0">
+                                                    {trip.entrance || "Não informado"}
+                                                </h3>
+                                            </div>
+                                        </div>
+                                        <div className="flex gap-5">
+                                            <div className="flex flex-col items-center">
+                                                <div className="w-5 h-5 rounded-full bg-red-500"></div>
+                                            </div>
+                                            <div>
+                                                <p className="text-zinc-500 text-xs">
+                                                    Destino final
+                                                </p>
+                                                <h3 className="text-base font-bold text-zinc-900 mt-0">
+                                                    {trip.note || "Não informado"}
+                                                </h3>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="rounded-[28px] overflow-hidden border border-zinc-200 shadow-sm h-[350px]">
+                                        <iframe
+                                            width="100%"
+                                            height="100%"
+                                            loading="lazy"
+                                            allowFullScreen
+                                            referrerPolicy="no-referrer-when-downgrade"
+                                            src={`https://www.google.com/maps?q=${encodeURIComponent(trip.entrance || "São Paulo")
+                                                }&output=embed`}
+                                            className="w-full h-full"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
                         )}
+                    </div>
+                    <div className="flex flex-col gap-6">
+                        <div className="bg-white rounded-[35px] p-7 shadow-sm border border-zinc-100">
+                            <div className="flex items-center gap-4 mb-6">
+                                <div>
+                                    <h2 className="text-2xl font-black text-zinc-900">
+                                        Motorista
+                                    </h2>
+                                    <p className="text-zinc-500 text-xs mt-0">
+                                        Informações do condutor
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="flex flex-col gap-5">
+                                <div className="bg-zinc-50 rounded-2xl p-5 border border-zinc-100">
+                                    <p className="text-zinc-500 text-xs mb-1">
+                                        Nome do motorista
+                                    </p>
+
+                                    <h3 className="text-lg font-bold text-zinc-900">
+                                        {trip.driver_name || "Não informado"}
+                                    </h3>
+                                </div>
+
+                                <div className="bg-zinc-50 rounded-2xl p-5 border border-zinc-100">
+                                    <p className="text-zinc-500 text-xs mb-1">
+                                        Telefone
+                                    </p>
+
+                                    <div className="flex items-center gap-3">
+                                        <Phone className="w-5 h-5 text-emerald-600" />
+
+                                        <h3 className="text-base font-bold text-zinc-900">
+                                            {trip.driver_phone || "Não informado"}
+                                        </h3>
+                                    </div>
+                                </div>
+
+                                <div className="bg-gradient-to-br from-emerald-500 to-teal-600 rounded-3xl p-6 text-white">
+                                    <p className="text-sm text-white/80">
+                                        Status do motorista
+                                    </p>
+
+                                    <h3 className="text-xl font-black mt-1">
+                                        Disponível
+                                    </h3>
+
+                                    <p className="text-sm text-white/80 mt-3 leading-relaxed">
+                                        Motorista vinculado à corrida e pronto para atendimento.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>

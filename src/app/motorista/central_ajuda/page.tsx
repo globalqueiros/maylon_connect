@@ -1,8 +1,8 @@
 "use client";
 import { useState, useEffect } from "react";
-import Sidebar from "../passageiro/trips/[id]/components/sidebar";
-import Header from "../passageiro/trips/[id]/components/header";
-import HuggyChat from "../passageiro/trips/[id]/components/huggychat";
+import Sidebar from "../../components/sidebar";
+import Header from "../../components/header";
+import HuggyChat from "../../components/huggychat";
 import { Eye, Mails, MessagesSquare } from "lucide-react";
 import Link from 'next/link';
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";

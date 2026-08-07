@@ -39,33 +39,88 @@ export function magicLinkTemplate(
   const { browser, device } = getDeviceAndBrowser(userAgent);
 
   return `
-  <div style="font-family:Arial;background:#f4f6f8;padding:20px;">
-    <div style="max-width:600px;margin:auto;background:#fff;border-radius:10px;padding:30px;">      
-      <div style="text-align:center;margin-bottom:20px;">
-        <img src="https://auth.maylon.com.br/storage/app/public/business/2026-02-21-699a698c29d9b.webp" width="120"/>
+      <div style="margin:0;padding:0;background-color:#f4f6f8;font-family:Arial,Helvetica,sans-serif;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color:#f4f6f8;padding:30px 15px;">
+          <tr>
+            <td align="center">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:600px;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.08);">
+                <!-- Cabeçalho -->
+                <tr>
+                  <td align="center" style="background:linear-gradient(135deg,#14b8a6,#0f766e);padding:35px 20px;">
+                    <img src="https://auth.maylon.com.br/storage/app/public/business/2026-02-21-699a698c29d9b.webp"
+                        alt="Maylon"
+                        width="120"
+                        style="display:block;border:0;max-width:120px;height:auto;margin-bottom:20px;" />
+                    <h1 style="margin:0;color:#ffffff;font-size:28px;font-weight:bold;">
+                      Alerta de Segurança
+                    </h1>
+                  </td>
+                </tr>
+                <!-- Conteúdo -->
+                <tr>
+                  <td style="padding:40px 30px;">
+                    <h2 style="margin-top:0;color:#111827;font-size:24px;">
+                      Olá, ${userName}
+                    </h2>
+                    <p style="font-size:16px;line-height:1.7;color:#4b5563;margin-bottom:25px;">
+                      Detectamos uma tentativa de acesso à sua conta Maylon. Confira abaixo os detalhes registrados:
+                    </p>
+                    <!-- Card -->
+                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0"
+                          style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:12px;padding:20px;margin:25px 0;">
+                      <tr>
+                        <td style="padding:20px;">
+                          <h3 style="margin-top:0;color:#111827;font-size:18px;">
+                            🔐 Detalhes do acesso
+                          </h3>
+                          <p style="margin:10px 0;color:#374151;font-size:15px;">
+                            <strong>IP:</strong> ${ip || "Não identificado"}
+                          </p>
+                          <p style="margin:10px 0;color:#374151;font-size:15px;">
+                            <strong>Dispositivo:</strong> ${browser} ${device}
+                          </p>
+                          <p style="margin:10px 0;color:#374151;font-size:15px;">
+                            <strong>Localização:</strong> ${location || "Não identificada"}
+                          </p>
+                        </td>
+                      </tr>
+                    </table>
+                    <!-- Botão -->
+                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                      <tr>
+                        <td align="center" style="padding:15px 0 30px 0;">
+                          <a href="${link}"
+                            style="background:#14b8a6;color:#ffffff;text-decoration:none;padding:16px 32px;border-radius:10px;font-size:16px;font-weight:bold;display:inline-block;">
+                            Acessar Minha Conta
+                          </a>
+                        </td>
+                      </tr>
+                    </table>
+                    <!-- Avisos -->
+                    <p style="font-size:14px;color:#6b7280;line-height:1.6;">
+                      ⏳ Este link permanecerá válido por apenas <strong>15 minutos</strong>.
+                    </p>
+                    <p style="font-size:14px;color:#dc2626;line-height:1.6;">
+                      Caso você não reconheça esta tentativa de acesso, recomendamos alterar sua senha imediatamente e entrar em contato com nossa equipe de suporte.
+                    </p>
+                  </td>
+                </tr>
+                <!-- Rodapé -->
+                <tr>
+                  <td align="center" style="background:#f9fafb;padding:25px;border-top:1px solid #e5e7eb;">
+                    <p style="margin:0;font-size:13px;color:#6b7280;">
+                      Este é um e-mail automático. Por favor, não responda esta mensagem.
+                    </p>
+                    <p style="margin:12px 0 0 0;font-size:13px;color:#9ca3af;">
+                      © ${new Date().getFullYear()} Maylon. Todos os direitos reservados.
+                    </p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
       </div>
-      <h2>Olá, ${userName}</h2>
-      <p>Detectamos uma tentativa de acesso à sua conta.</p>
-      <div style="background:#f3f4f6;padding:15px;border-radius:8px;margin:20px 0;">
-        <strong>🔐 Detalhes do acesso:</strong><br/>
-        IP: ${ip || "Não identificado"}<br/>
-        Navegador: ${browser} ${device}<br/>
-        Localização: ${location || "Não identificada"}
-      </div>
-      <div style="text-align:center;margin:25px 0;">
-        <a href="${link}" style="background:#14b8a6;color:#fff;padding:14px 26px;border-radius:8px;text-decoration:none;">
-          🔐 Acessar minha conta
-        </a>
-      </div>
-      <p style="font-size:13px;color:#6b7280;">
-        Este link expira em 15 minutos.
-      </p>
-      <p style="font-size:13px;color:#ef4444;">
-        Se não foi você, ignore este e-mail.
-      </p>
-
-    </div>
-  </div>
   `;
 }
 
