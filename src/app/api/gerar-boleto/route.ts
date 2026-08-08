@@ -23,7 +23,7 @@ export async function POST(req: Request) {
         }
     );
 
-    cost data = await response.json();
- 
+    const data = await response.json();
+
     return NextResponse.json(data);
 }

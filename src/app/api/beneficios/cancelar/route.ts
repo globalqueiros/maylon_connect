@@ -42,14 +42,14 @@ export async function POST(req: Request) {
       }
     }
 
-    if (beneficio.metodo_pagamento === "boleto_btg") {
-      // integrar API BTG aqui
+    if (beneficio.metodo_pagamento === "pix_btg" || beneficio.metodo_pagamento === "boleto_btg") {
+      // Cancelamento remoto BTG pode ser adicionado com endpoint de cancelamento da autorização.
     }
 
     await db.query(
       `
       UPDATE usuario_beneficios
-      SET ativo = 0
+      SET ativo = 0, status_assinatura = 'cancelado'
       WHERE id = ?
       `,
       [beneficio.id]

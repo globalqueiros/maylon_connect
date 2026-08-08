@@ -45,22 +45,28 @@ export async function POST(req: Request) {
             b.descricao,
             b.valor,
             b.tipo,
+            COALESCE(ub.ativo, 0) AS ativo,
+            COALESCE(ub.status_assinatura, 'disponivel') AS status_assinatura,
+            ub.metodo_pagamento,
             CASE
-                WHEN ub.id IS NULL THEN 0
-                ELSE ub.status
-            END AS status
+              WHEN ub.id IS NOT NULL
+                AND ub.ativo = 1
+                AND ub.status_assinatura = 'aprovado'
+              THEN 0
+              ELSE 1
+            END AS disponivel
         FROM beneficios b
-        LEFT JOIN beneficio_assinaturas ub
+        LEFT JOIN usuario_beneficios ub
             ON ub.beneficio_id = b.id
             AND ub.usuario_id = ?
         WHERE
-            b.status = 1;
+            b.status = 1
+            AND (b.tipo = ? OR b.tipo = 'ambos' OR b.tipo = 'passageiro' OR b.tipo = 'customer')
       `,
       [usuario_id, tipo]
     );
 
     return NextResponse.json(Array.isArray(rows) ? rows : []);
-
   } catch (error) {
     console.error(error);
 

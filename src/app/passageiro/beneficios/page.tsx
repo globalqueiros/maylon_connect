@@ -2,12 +2,8 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import { AlertTriangle, CheckCircle, Gift } from "lucide-react";
-import Cards from "react-credit-cards-2";
-import "react-credit-cards-2/dist/es/styles-compiled.css";
 import CardCheckoutModal from "../../components/CardCheckoutModal";
-import {
-  CreditCard
-} from "lucide-react";
+import PixCheckoutModal from "../../components/PixCheckoutModal";
 
 type Beneficio = {
     id: number;
@@ -16,18 +12,28 @@ type Beneficio = {
     titulo: string;
     descricao: string;
     valor: string;
-    status: boolean;
-    status_assinatura: "aprovado" | "pendente" | "cancelado" | "expirado" | "erro";
+    ativo?: boolean | number;
+    disponivel?: boolean | number;
+    status?: boolean | number;
+    status_assinatura:
+        | "aprovado"
+        | "pendente"
+        | "cancelado"
+        | "expirado"
+        | "erro"
+        | "disponivel"
+        | "aguardando_autorizacao"
+        | "aguardando_pagamento"
+        | "recusado";
 };
 
 type Usuario = {
     id: number;
-    tipo: string;
+    tipo?: string;
+    user_type?: string;
+    full_name?: string;
+    email?: string;
 };
-
-type MetodoPagamento =
-    | "boleto_btg"
-    | "stripe_recorrente";
 
 export default function BeneficiosPage() {
     const [alerta, setAlerta] = useState<{
@@ -35,12 +41,6 @@ export default function BeneficiosPage() {
         mensagem: string;
     } | null>(null);
     const [pixModalOpen, setPixModalOpen] = useState(false);
-    const [etapa, setEtapa] = useState<"metodo" | "cartao">("metodo");
-    const [number, setNumber] = useState("");
-    const [name, setName] = useState("");
-    const [expiry, setExpiry] = useState("");
-    const [cvc, setCvc] = useState("");
-    const [focus, setFocus] = useState("");
     const [openCartao, setOpenCartao] = useState(false);
     const [beneficios, setBeneficios] = useState<
         Beneficio[]
@@ -51,10 +51,6 @@ export default function BeneficiosPage() {
 
     const [loadingUser, setLoadingUser] =
         useState(true);
-
-    const [loadingId, setLoadingId] = useState<
-        number | null
-    >(null);
 
     const [modalOpen, setModalOpen] =
         useState(false);
@@ -82,7 +78,10 @@ export default function BeneficiosPage() {
                     return;
                 }
 
-                setUsuario(data);
+                setUsuario({
+                    ...data,
+                    tipo: data.user_type === "driver" ? "motorista" : "passageiro",
+                });
             } catch (error) {
                 console.error(
                     "Erro ao buscar usuário:",
@@ -115,10 +114,6 @@ export default function BeneficiosPage() {
             });
 
             const texto = await res.text();
-
-            console.log("Status API benefícios:", res.status);
-            console.log("Resposta bruta:", texto);
-
             let data;
 
             try {
@@ -128,8 +123,6 @@ export default function BeneficiosPage() {
                 setBeneficios([]);
                 return;
             }
-
-            console.log("Resposta da API:", data);
 
             let lista: Beneficio[] = [];
 
@@ -144,9 +137,7 @@ export default function BeneficiosPage() {
                 setBeneficios([]);
                 return;
             }
-            setBeneficios(
-                lista.filter(b => b.tipo === "passageiro")
-            );
+            setBeneficios(lista);
         };
 
         carregarBeneficios();
@@ -159,9 +150,15 @@ export default function BeneficiosPage() {
 
     const abrirPixModal = () => {
         setModalOpen(false);
-
         setTimeout(() => {
             setPixModalOpen(true);
+        }, 200);
+    };
+
+    const abrirCartaoModal = () => {
+        setModalOpen(false);
+        setTimeout(() => {
+            setOpenCartao(true);
         }, 200);
     };
 
@@ -174,100 +171,12 @@ export default function BeneficiosPage() {
         setBeneficioSelecionado(null);
     };
 
-    const toggleBeneficio = async (
-        beneficio_id: number,
-        metodo_pagamento?: MetodoPagamento
-    ) => {
-        if (!usuario) return;
+    const isAtivo = (b: Beneficio) =>
+        !!b.ativo && b.status_assinatura === "aprovado";
 
-        setLoadingId(beneficio_id);
+    const ativos = beneficios.filter(isAtivo);
 
-        try {
-            const res = await fetch(
-                "/api/beneficios/toggle",
-                {
-                    method: "POST",
-                    headers: {
-                        "Content-Type":
-                            "application/json",
-                    },
-                    body: JSON.stringify({
-                        usuario_id: usuario.id,
-                        beneficio_id,
-                        metodo_pagamento,
-                    }),
-                }
-            );
-
-            const data = await res.json();
-
-            if (res.ok) {
-                setBeneficios(prev =>
-                    prev.map(b =>
-                        b.id === beneficio_id
-                            ? {
-                                ...b,
-                                ativo: data.ativo,
-                                status_assinatura: data.status_assinatura,
-                            }
-                            : b
-                    )
-                );
-
-                if (data.ativo) {
-                    setAlerta({
-                        tipo: "success",
-                        mensagem:
-                            "Benefício ativado com sucesso!",
-                    });
-                } else {
-                    setAlerta({
-                        tipo: "warning",
-                        mensagem:
-                            "Benefício desativado com sucesso!",
-                    });
-                }
-
-                fecharModal();
-            } else {
-                setAlerta({
-                    tipo: "error",
-                    mensagem:
-                        data.error ||
-                        "Erro ao atualizar benefício",
-                });
-            }
-        } catch (error) {
-            console.error(
-                "Erro ao atualizar benefício:",
-                error
-            );
-
-            setAlerta({
-                tipo: "error",
-                mensagem: "Erro na requisição",
-            });
-        } finally {
-            setLoadingId(null);
-
-            setTimeout(
-                () => setAlerta(null),
-                5000
-            );
-        }
-    };
-
-    const ativos = beneficios.filter(
-        b => !b.status
-    );
-
-    const disponiveis = beneficios.filter(
-        b => b.status
-    );
-
-    const possuiAprovado = ativos.some(
-        b => b.status_assinatura === "aprovado"
-    );
+    const disponiveis = beneficios.filter((b) => !isAtivo(b));
 
     const getImageSrc = (img?: string) => {
         if (!img) return "/bg-login.png";
@@ -339,6 +248,30 @@ export default function BeneficiosPage() {
                         <span className="text-red-500 font-medium">
                             Nenhum benefício ativo no momento.
                         </span>
+                    </div>
+                )}
+                {ativos.length > 0 && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
+                        {ativos.map((b) => (
+                            <div
+                                key={`ativo-${b.id}`}
+                                className="rounded-2xl border border-emerald-200 bg-white p-5 shadow"
+                            >
+                                <h3 className="text-lg font-bold text-gray-900">
+                                    {b.titulo}
+                                </h3>
+                                <p className="mt-1 text-sm text-emerald-700 font-semibold">
+                                    Assinatura ativa
+                                </p>
+                                <p className="mt-3 text-teal-700 font-bold">
+                                    {new Intl.NumberFormat("pt-BR", {
+                                        style: "currency",
+                                        currency: "BRL",
+                                    }).format(Number(b.valor))}
+                                    /mês
+                                </p>
+                            </div>
+                        ))}
                     </div>
                 )}
             </div>
@@ -468,7 +401,6 @@ export default function BeneficiosPage() {
                                     <div className="mt-4 grid gap-4">
                                         <button
                                             onClick={abrirPixModal}
-                                            disabled={loadingId === beneficioSelecionado.id}
                                             className="flex cursor-pointer items-center justify-between rounded-2xl border-2 border-gray-200 p-5 transition hover:border-[#009688] hover:bg-teal-50"
                                         >
                                             <div className="flex items-center gap-4">
@@ -488,8 +420,7 @@ export default function BeneficiosPage() {
                                             ➜
                                         </button>
                                         <button
-                                            onClick={() => setOpenCartao(true)}
-                                            disabled={loadingId === beneficioSelecionado.id}
+                                            onClick={abrirCartaoModal}
                                             className="flex cursor-pointer items-center justify-between rounded-2xl border-2 border-gray-200 p-5 transition hover:border-[#009688] hover:bg-teal-50"
                                         >
                                             <div className="flex items-center gap-4">
@@ -508,15 +439,6 @@ export default function BeneficiosPage() {
 
                                             ➜
                                         </button>
-                                        <CardCheckoutModal
-
-                                            open={openCartao}
-
-                                            onClose={() =>
-                                                setOpenCartao(false)
-                                            }
-
-                                        />
                                     </div>
                                     <div className="mt-8 rounded-xl bg-amber-50 border border-amber-200 p-4 text-sm text-justify text-amber-800">
                                         Ao prosseguir, sua assinatura será processada após a confirmação do pagamento, e os benefícios contratados serão liberados automaticamente.
@@ -527,41 +449,31 @@ export default function BeneficiosPage() {
                     </div>
                 )}
             </div>
-            {pixModalOpen && beneficioSelecionado && (
-                <div
-                    className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm"
-                >
-                    <div className="bg-white rounded-3xl w-full max-w-md p-8">
-                        <h2 className="text-2xl font-bold text-center">
-                            Pagamento via PIX
-                        </h2>
-                        <p className="text-gray-500 text-center mt-2">
-                            Escaneie o QR Code ou copie o código PIX.
-                        </p>
-                        <div className="flex justify-center my-8">
-                            <div className="w-56 h-56 bg-gray-100 rounded-xl flex items-center justify-center">
-                                QR CODE
-                            </div>
-                        </div>
-                        <button
-                            className="w-full cursor-pointer bg-[#009688] text-white rounded-xl py-3"
-                            onClick={() =>
-                                toggleBeneficio(
-                                    beneficioSelecionado.id,
-                                    "boleto_btg"
-                                )
-                            }
-                        >
-                            Gerar PIX
-                        </button>
-                        <button
-                            onClick={fecharPixModal}
-                            className="mt-3 cursor-pointer w-full border rounded-xl py-3"
-                        >
-                            Cancelar
-                        </button>
+            <CardCheckoutModal
+                open={openCartao}
+                onClose={() => setOpenCartao(false)}
+                usuario={usuario}
+                beneficio={beneficioSelecionado}
+            />
 
-                    </div>
+            <PixCheckoutModal
+                open={pixModalOpen}
+                onClose={fecharPixModal}
+                usuario={usuario}
+                beneficio={beneficioSelecionado}
+            />
+
+            {alerta && (
+                <div
+                    className={`fixed bottom-6 right-6 z-[10000] rounded-xl px-5 py-4 shadow-lg ${
+                        alerta.tipo === "success"
+                            ? "bg-emerald-600 text-white"
+                            : alerta.tipo === "warning"
+                              ? "bg-amber-500 text-white"
+                              : "bg-red-600 text-white"
+                    }`}
+                >
+                    {alerta.mensagem}
                 </div>
             )}
         </div>
