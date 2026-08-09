@@ -42,9 +42,8 @@ export async function POST(req: Request) {
       }
     }
 
-    if (beneficio.metodo_pagamento === "pix_btg" || beneficio.metodo_pagamento === "boleto_btg") {
-      // Cancelamento remoto BTG pode ser adicionado com endpoint de cancelamento da autorização.
-    }
+    // Pix BTG: cancelamento remoto depende de endpoint de revoke da autorização
+    // (mantemos status local cancelado; revoke remoto pode ser plugado com BTG_ACCESS_TOKEN)
 
     await db.query(
       `

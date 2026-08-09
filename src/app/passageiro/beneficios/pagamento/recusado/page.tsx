@@ -8,30 +8,28 @@ import {
   CreditCard,
   CalendarDays,
   BadgeAlert,
+  Loader2,
 } from "lucide-react";
 
-function formatBRL(valor: string) {
-  const n = Number(String(valor).replace(",", "."));
-  if (Number.isNaN(n)) return valor || "R$ 0,00";
-  return new Intl.NumberFormat("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-  }).format(n);
-}
-
 function PaymentDeclinedContent() {
-  const params = useSearchParams();
-  const method = params.get("method") || "card";
-  const valor = params.get("valor") || "0";
-  const titulo = params.get("titulo") || "Assinatura";
-  const motivo =
-    params.get("motivo") || "Pagamento recusado pela instituição financeira";
-  const codigo = params.get("codigo") || "payment_declined";
+  const searchParams = useSearchParams();
+  const method = searchParams.get("method") || "card";
+  const pedido = searchParams.get("pedido") || "—";
+  const reason = searchParams.get("reason") || "card_declined";
+  const valor = searchParams.get("valor");
+  const amount = valor
+    ? new Intl.NumberFormat("pt-BR", {
+        style: "currency",
+        currency: "BRL",
+      }).format(Number(valor))
+    : "—";
 
-  const dateLabel = new Intl.DateTimeFormat("pt-BR", {
-    dateStyle: "short",
-    timeStyle: "short",
-  }).format(new Date());
+  const reasonLabel =
+    reason === "canceled"
+      ? "Pagamento cancelado pelo usuário"
+      : reason === "pix_rejected"
+        ? "Autorização ou pagamento Pix recusado"
+        : "Cartão recusado pela instituição financeira";
 
   return (
     <div className="flex min-h-screen items-center justify-center p-6">
@@ -42,20 +40,19 @@ function PaymentDeclinedContent() {
             Pagamento não aprovado
           </h1>
           <p className="mt-2 text-sm text-gray-500">
-            Não foi possível concluir {titulo}.
+            Não foi possível concluir seu pagamento.
           </p>
         </div>
-
         <div className="space-y-3 border-b p-6 text-sm">
           <Info
             icon={<BadgeAlert className="h-5 w-5" />}
             label="Pedido"
-            value="—"
+            value={`#${pedido}`}
           />
           <Info
             icon={<CreditCard className="h-5 w-5" />}
             label="Valor"
-            value={formatBRL(valor)}
+            value={amount}
           />
           <Info
             icon={<CreditCard className="h-5 w-5" />}
@@ -65,7 +62,7 @@ function PaymentDeclinedContent() {
           <Info
             icon={<CalendarDays className="h-5 w-5" />}
             label="Data e Hora"
-            value={dateLabel}
+            value={new Date().toLocaleString("pt-BR")}
           />
           <div className="flex items-center justify-between">
             <span className="text-gray-500">Status de Pagamento</span>
@@ -74,15 +71,13 @@ function PaymentDeclinedContent() {
             </span>
           </div>
         </div>
-
         <div className="border-b p-6">
           <h2 className="font-semibold text-gray-900">Motivo</h2>
-          <p className="mt-1 text-sm text-gray-600">{motivo}</p>
+          <p className="mt-1 text-sm text-gray-600">{reasonLabel}</p>
           <div className="mt-2.5 rounded-lg bg-red-500 p-3 font-mono text-sm text-gray-200">
-            Código: {codigo}
+            Código: {reason}
           </div>
         </div>
-
         <div className="border-b p-6">
           <h2 className="font-semibold">Sugestões</h2>
           <ul className="mt-2 space-y-2 text-sm text-gray-600">
@@ -92,7 +87,6 @@ function PaymentDeclinedContent() {
             <li>• Utilize PIX</li>
           </ul>
         </div>
-
         <div className="space-y-3 p-6">
           <Link
             href="/passageiro/beneficios"
@@ -129,7 +123,7 @@ export default function PaymentDeclined() {
     <Suspense
       fallback={
         <div className="flex min-h-screen items-center justify-center">
-          Carregando...
+          <Loader2 className="h-8 w-8 animate-spin text-red-500" />
         </div>
       }
     >
@@ -138,15 +132,13 @@ export default function PaymentDeclined() {
   );
 }
 
-function Info({
-  icon,
-  label,
-  value,
-}: {
+type InfoProps = {
   icon: React.ReactNode;
   label: string;
   value: string;
-}) {
+};
+
+function Info({ icon, label, value }: InfoProps) {
   return (
     <div className="flex items-center justify-between">
       <div className="flex items-center gap-2 text-gray-500">

@@ -1,9 +1,13 @@
 import { NextResponse } from "next/server";
-import { db2 } from "../../../lib/db";
+import { db } from "../../../lib/db";
 
+/**
+ * Toggle is only for free/admin activation.
+ * Paid Stripe/Pix subscriptions must go through checkout APIs.
+ */
 export async function POST(req: Request) {
   try {
-    const { usuario_id, beneficio_id } = await req.json();
+    const { usuario_id, beneficio_id, metodo_pagamento } = await req.json();
 
     if (!usuario_id || !beneficio_id) {
       return NextResponse.json(
@@ -12,19 +16,30 @@ export async function POST(req: Request) {
       );
     }
 
+    if (
+      metodo_pagamento === "stripe_recorrente" ||
+      metodo_pagamento === "pix_btg" ||
+      metodo_pagamento === "boleto_btg"
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            "Este benefício exige checkout de pagamento. Use Cartão (Stripe) ou Pix (BTG).",
+        },
+        { status: 400 }
+      );
+    }
+
     const normalizar = (tipo: string) => {
       if (!tipo) return "";
-
       const t = tipo.toLowerCase();
-
       if (t === "motorista" || t === "driver") return "driver";
       if (t === "passageiro" || t === "customer") return "customer";
       if (t === "ambos") return "ambos";
-
       return t;
     };
 
-    const [userRows]: any = await db2.query(
+    const [userRows]: any = await db.query(
       "SELECT id, user_type FROM users WHERE id = ?",
       [usuario_id]
     );
@@ -38,7 +53,7 @@ export async function POST(req: Request) {
 
     const tipoUsuario = normalizar(userRows[0].user_type);
 
-    const [beneficioRows]: any = await db2.query(
+    const [beneficioRows]: any = await db.query(
       "SELECT id, tipo FROM beneficios WHERE id = ?",
       [beneficio_id]
     );
@@ -64,39 +79,54 @@ export async function POST(req: Request) {
       );
     }
 
-    const [rows]: any = await db2.query(
-      "SELECT id, ativo FROM usuario_beneficios WHERE usuario_id = ? AND beneficio_id = ?",
+    const [rows]: any = await db.query(
+      "SELECT id, ativo, metodo_pagamento, status_assinatura FROM usuario_beneficios WHERE usuario_id = ? AND beneficio_id = ?",
       [usuario_id, beneficio_id]
     );
 
     if (rows.length > 0) {
-      const novoStatus = rows[0].ativo ? 0 : 1;
+      const row = rows[0];
+      if (
+        row.ativo &&
+        (row.metodo_pagamento === "stripe_recorrente" ||
+          row.metodo_pagamento === "pix_btg")
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              "Assinatura paga ativa. Use o cancelamento de assinatura para desativar.",
+          },
+          { status: 400 }
+        );
+      }
 
-      await db2.query(
+      const novoStatus = row.ativo ? 0 : 1;
+      await db.query(
         "UPDATE usuario_beneficios SET ativo = ? WHERE id = ?",
-        [novoStatus, rows[0].id]
+        [novoStatus, row.id]
       );
 
       return NextResponse.json({
         ativo: !!novoStatus,
+        status_assinatura: novoStatus ? "aprovado" : "cancelado",
         message: novoStatus
           ? "Benefício ativado com sucesso"
           : "Benefício desativado com sucesso",
       });
     }
 
-    await db2.query(
-      "INSERT INTO usuario_beneficios (usuario_id, beneficio_id, ativo) VALUES (?, ?, 1)",
+    await db.query(
+      "INSERT INTO usuario_beneficios (usuario_id, beneficio_id, ativo, status_assinatura) VALUES (?, ?, 1, 'aprovado')",
       [usuario_id, beneficio_id]
     );
 
     return NextResponse.json({
       ativo: true,
+      status_assinatura: "aprovado",
       message: "Benefício ativado com sucesso",
     });
   } catch (error) {
     console.error("Erro na API:", error);
-
     return NextResponse.json(
       { error: "Erro interno ao atualizar benefício" },
       { status: 500 }
