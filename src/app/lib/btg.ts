@@ -164,6 +164,11 @@ function ymd(date: Date) {
   return date.toISOString().slice(0, 10);
 }
 
+/** Stable-ish contract id for Pix Automático (max 35 chars). */
+export function buildPixContractId(usuarioId: number, beneficioId: number) {
+  return `MAY${usuarioId}B${beneficioId}${Date.now()}`.slice(0, 35);
+}
+
 /** Step 1: Pix Automático authorization QR (Journey 2) */
 export async function createPixAuthorization(params: {
   contract: string;

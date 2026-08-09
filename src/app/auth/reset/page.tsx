@@ -1,8 +1,8 @@
 "use client";
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
-export default function ResetPage() {
+function ResetForm() {
   const params = useSearchParams();
   const token = params.get("token");
 
@@ -26,5 +26,13 @@ export default function ResetPage() {
       />
       <button onClick={handleReset}>Salvar</button>
     </div>
+  );
+}
+
+export default function ResetPage() {
+  return (
+    <Suspense fallback={<div className="p-5">Carregando...</div>}>
+      <ResetForm />
+    </Suspense>
   );
 }

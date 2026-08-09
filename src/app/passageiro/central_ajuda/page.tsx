@@ -62,7 +62,6 @@ export default function DashboardLayout() {
     if (salvo && salvoTempo && agora - Number(salvoTempo) < TEMPO_LIMITE) {
       return salvo;
     }
-    const [loading, setLoading] = useState(true);
     const ano = new Date().getFullYear();
     const random = Math.floor(100000000 + Math.random() * 900000000);
     const novo = `MAY - ${random}${ano}`;
@@ -98,8 +97,7 @@ export default function DashboardLayout() {
         if (!res.ok) {
           throw new Error("Erro ao buscar usuário");
         }
-        const usuario = await res.json();
-        setUsuarioId(usuario.id);
+        await res.json();
       } catch (error) {
         console.error(error);
       } finally {

@@ -5,7 +5,7 @@ import {
   getUsuario,
   updateAssinaturaById,
 } from "../../../lib/assinaturas";
-import { createPixInstantCollection } from "../../../lib/btg";
+import { createPixInstantCharge } from "../../../lib/btg";
 
 export async function POST(req: Request) {
   try {
@@ -71,11 +71,11 @@ export async function POST(req: Request) {
 
     const usuario = await getUsuario(assinatura.usuario_id);
 
-    const collection = await createPixInstantCollection({
+    const collection = await createPixInstantCharge({
       amount: Number(beneficio.valor),
       displayText: `1a mensalidade - ${beneficio.titulo}`.slice(0, 140),
-      payerName: usuario?.full_name,
-      payerTaxId: usuario?.identification_number,
+      payerName: usuario?.full_name || "Cliente Maylon",
+      payerTaxId: String(usuario?.identification_number || ""),
       tags: {
         assinatura_id: String(assinatura.id),
         usuario_id: String(assinatura.usuario_id),

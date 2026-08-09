@@ -6,6 +6,13 @@ declare global {
   interface Window {
     VLibras: any;
   }
+  namespace React {
+    interface HTMLAttributes<T> {
+      vw?: string;
+      "vw-access-button"?: string;
+      "vw-plugin-wrapper"?: string;
+    }
+  }
 }
 
 export default function VLibras() {

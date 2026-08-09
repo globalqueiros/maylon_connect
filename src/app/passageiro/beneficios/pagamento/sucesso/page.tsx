@@ -16,7 +16,7 @@ import {
   Wallet,
   Loader2,
 } from "lucide-react";
-import ReceiptDoc from "./recibo/page";
+import ReceiptDoc from "./recibo/Receipt";
 
 type PaymentMethod = "card" | "pix";
 

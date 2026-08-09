@@ -1,12 +1,12 @@
 "use client";
 import Image from "next/image";
-import { useState, useEffect } from "react";
+import { Suspense, useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { Mail } from "lucide-react";
 
-export default function LoginPage() {
+function LoginPage() {
   const [open, setOpen] = useState(false);
   const [showAlert, setShowAlert] = useState(false);
   const [resetEmail, setResetEmail] = useState("");
@@ -349,5 +349,13 @@ export default function LoginPage() {
         </AnimatePresence>
       )}
     </>
+  );
+}
+
+export default function LoginPageWrapper() {
+  return (
+    <Suspense fallback={null}>
+      <LoginPage />
+    </Suspense>
   );
 }

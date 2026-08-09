@@ -195,7 +195,7 @@ export default function DashboardLayout() {
                   if (typeof window !== "undefined" && (window as any).Huggy) {
                     (window as any).Huggy.openBox();
                   } else {
-                    alert("Chat indisponível no momento. Tente novamente mais tarde");
+                    window.alert("Chat indisponível no momento. Tente novamente mais tarde");
                   }
                 }}
                 className="inline-flex items-center justify-center gap-2 px-3 py-2 text-sm rounded-lg bg-teal-500 hover:bg-teal-600 cursor-pointer text-white transition shadow"
