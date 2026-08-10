@@ -62,10 +62,17 @@ export default function BeneficiosPage() {
         const res = await fetch("/api/me", {
           method: "GET",
           credentials: "include",
+          cache: "no-store",
         });
 
-        if (!res.ok) {
+        if (res.status === 401) {
           window.location.href = "/";
+          return;
+        }
+
+        if (!res.ok) {
+          console.error("Erro /api/me:", res.status);
+          setLoadingUser(false);
           return;
         }
 
@@ -76,13 +83,12 @@ export default function BeneficiosPage() {
         }
 
         setUsuario({
-          id: data.id,
+          id: Number(data.id),
           tipo: data.user_type || data.tipo,
           user_type: data.user_type,
         });
       } catch (error) {
         console.error("Erro ao buscar usuário:", error);
-        window.location.href = "/";
       } finally {
         setLoadingUser(false);
       }

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import jwt from "jsonwebtoken";
 import { db } from "../../lib/db";
+import { toPositiveInt } from "../../lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -17,45 +18,103 @@ export async function GET() {
       );
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as {
-      id: number;
+    if (!process.env.JWT_SECRET) {
+      return NextResponse.json(
+        { message: "JWT_SECRET não configurada" },
+        { status: 500 }
+      );
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET) as {
+      id?: unknown;
+      userId?: unknown;
+      user_id?: unknown;
+      sub?: unknown;
+      email?: string;
+      user_type?: string;
     };
 
-    const [rows]: any = await db.query(
-      `SELECT
-        id,
-        full_name,
-        phone,
-        email,
-        user_type,
-        profile_image,
-        identification_number,
-        identification_type,
-        phone_verified_at,
-        email_verified_at
-      FROM users
-      WHERE id = ?`,
-      [decoded.id]
-    );
+    const userId =
+      toPositiveInt(decoded.id) ??
+      toPositiveInt(decoded.userId) ??
+      toPositiveInt(decoded.user_id) ??
+      toPositiveInt(decoded.sub);
+
+    if (!userId && !decoded.email) {
+      return NextResponse.json(
+        { message: "Token inválido" },
+        { status: 401 }
+      );
+    }
+
+    let rows: any[] = [];
+
+    if (userId) {
+      const [byId]: any = await db.query(
+        `SELECT
+          id,
+          full_name,
+          phone,
+          email,
+          user_type,
+          profile_image,
+          identification_number,
+          identification_type,
+          phone_verified_at,
+          email_verified_at
+        FROM users
+        WHERE id = ?
+        LIMIT 1`,
+        [userId]
+      );
+      rows = byId;
+    }
+
+    // Fallback for legacy tokens / id mismatches
+    if (!rows.length && decoded.email) {
+      const [byEmail]: any = await db.query(
+        `SELECT
+          id,
+          full_name,
+          phone,
+          email,
+          user_type,
+          profile_image,
+          identification_number,
+          identification_type,
+          phone_verified_at,
+          email_verified_at
+        FROM users
+        WHERE email = ?
+        LIMIT 1`,
+        [decoded.email]
+      );
+      rows = byEmail;
+    }
 
     if (!rows.length) {
+      // 401 so clients treat as auth failure (not a missing route)
       return NextResponse.json(
         { message: "Usuário não encontrado" },
-        { status: 404 }
+        { status: 401 }
       );
     }
 
     const user = rows[0];
-    const userId = Number(user.id);
+    const resolvedId = Number(user.id);
 
     const newToken = jwt.sign(
-      { id: userId, user_type: user.user_type },
-      process.env.JWT_SECRET!,
+      {
+        id: resolvedId,
+        user_type: user.user_type,
+        email: user.email,
+      },
+      process.env.JWT_SECRET,
       { expiresIn: "10d" }
     );
 
     const response = NextResponse.json({
-      id: userId,
+      id: resolvedId,
       full_name: user.full_name,
       phone: user.phone,
       email: user.email,
@@ -79,7 +138,7 @@ export async function GET() {
 
     return response;
   } catch (error) {
-    console.error(error);
+    console.error("/api/me error:", error);
 
     return NextResponse.json(
       { message: "Token inválido ou expirado" },

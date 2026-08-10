@@ -47,13 +47,17 @@ export async function POST(req: Request) {
     const userId = Number(user.id);
 
     const accessToken = jwt.sign(
-      { id: userId, user_type: user.user_type },
+      {
+        id: userId,
+        user_type: user.user_type,
+        email: user.email,
+      },
       process.env.JWT_SECRET!,
-      { expiresIn: "15m" }
+      { expiresIn: "10d" }
     );
 
     const refreshToken = jwt.sign(
-      { id: userId },
+      { id: userId, email: user.email },
       process.env.JWT_REFRESH_SECRET!,
       { expiresIn: "7d" }
     );
@@ -88,6 +92,7 @@ export async function POST(req: Request) {
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
       path: "/",
+      maxAge: 60 * 60 * 24 * 10,
     });
 
     res.cookies.set("refresh_token", refreshToken, {
@@ -95,6 +100,7 @@ export async function POST(req: Request) {
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
       path: "/",
+      maxAge: 60 * 60 * 24 * 7,
     });
 
     return res;

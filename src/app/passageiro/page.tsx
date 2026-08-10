@@ -75,13 +75,21 @@ export default function TripsPage() {
   useEffect(() => {
     const fetchTrips = async () => {
       try {
-        const res = await fetch("/api/trips");
+        const res = await fetch("/api/trips", {
+          credentials: "include",
+          cache: "no-store",
+        });
+        if (!res.ok) {
+          console.error("Erro API trips:", res.status);
+          setRows([]);
+          return;
+        }
         const data = await res.json();
-
         const lista = Array.isArray(data) ? data : [];
         setRows(lista);
       } catch (error) {
         console.error("Erro ao buscar viagens");
+        setRows([]);
       } finally {
         setLoading(false);
       }

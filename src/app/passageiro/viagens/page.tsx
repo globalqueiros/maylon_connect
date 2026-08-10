@@ -36,10 +36,15 @@ export default function TripsTable() {
       try {
         const res = await fetch("/api/trips", {
           credentials: "include",
+          cache: "no-store",
         });
 
         if (!res.ok) {
           console.error("Erro API:", res.status);
+          if (res.status === 401) {
+            window.location.href = "/";
+            return;
+          }
           setRows([]);
           return;
         }

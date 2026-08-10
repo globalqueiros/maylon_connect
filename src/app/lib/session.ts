@@ -26,44 +26,62 @@ export function toPositiveInt(value: unknown): number | null {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
 }
 
-type JwtPayload = {
+export type JwtPayload = {
   id?: unknown;
   userId?: unknown;
   user_id?: unknown;
   sub?: unknown;
   user_type?: string;
+  email?: string;
 };
+
+export type SessionUser = {
+  id: number;
+  user_type?: string;
+  email?: string;
+};
+
+function idFromPayload(decoded: JwtPayload): number | null {
+  return (
+    toPositiveInt(decoded.id) ??
+    toPositiveInt(decoded.userId) ??
+    toPositiveInt(decoded.user_id) ??
+    toPositiveInt(decoded.sub)
+  );
+}
+
+/** Read authenticated user from access_token cookie. */
+export async function getSessionUser(): Promise<SessionUser | null> {
+  const cookieStore = await cookies();
+  const token = cookieStore.get("access_token")?.value;
+  if (!token || !process.env.JWT_SECRET) return null;
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET) as JwtPayload;
+    const id = idFromPayload(decoded);
+    if (!id) return null;
+    return {
+      id,
+      user_type: decoded.user_type,
+      email: decoded.email,
+    };
+  } catch {
+    return null;
+  }
+}
 
 export async function getSessionUserId(
   bodyUserId?: unknown
 ): Promise<number | null> {
-  const fromBody = toPositiveInt(bodyUserId);
-  const cookieStore = await cookies();
-  const token = cookieStore.get("access_token")?.value;
-
-  if (token && process.env.JWT_SECRET) {
-    try {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET) as JwtPayload;
-      const fromToken =
-        toPositiveInt(decoded.id) ??
-        toPositiveInt(decoded.userId) ??
-        toPositiveInt(decoded.user_id) ??
-        toPositiveInt(decoded.sub);
-      // Prefer token, but never discard a valid body id if token has no id
-      if (fromToken) return fromToken;
-    } catch {
-      // fall back to body
-    }
-  }
-
-  return fromBody;
+  const session = await getSessionUser();
+  if (session?.id) return session.id;
+  return toPositiveInt(bodyUserId);
 }
 
 export function pickBeneficioId(body: Record<string, unknown>) {
   return (
     toPositiveInt(body.beneficio_id) ??
     toPositiveInt(body.beneficioId) ??
-    // only use generic `id` if beneficio_* keys are absent
     (body.beneficio_id == null && body.beneficioId == null
       ? toPositiveInt(body.id)
       : null)
