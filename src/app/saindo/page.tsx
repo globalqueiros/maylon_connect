@@ -7,25 +7,34 @@ export default function LogoutPage() {
   const router = useRouter();
 
   useEffect(() => {
-    // 🔥 Limpa autenticação
-    localStorage.removeItem("token");
-    sessionStorage.clear();
+    const logout = async () => {
+      try {
+        await fetch("/api/logout", {
+          method: "POST",
+          credentials: "include",
+          cache: "no-store",
+        });
+      } catch {
+        // ignore
+      }
 
-    // Se usar cookies (frontend simples)
-    document.cookie = "token=; path=/; max-age=0";
+      try {
+        localStorage.removeItem("token");
+        sessionStorage.clear();
+      } catch {
+        // ignore
+      }
 
-    // Redireciona com flag de sucesso
-    setTimeout(() => {
       router.replace("/?logout=success");
-    }, 500);
-  }, []);
-  
+    };
+
+    void logout();
+  }, [router]);
+
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-100">
+    <div className="flex min-h-screen items-center justify-center bg-gray-100">
       <div className="text-center">
-        <p className="text-gray-600 text-lg animate-pulse">
-          Saindo...
-        </p>
+        <p className="animate-pulse text-lg text-gray-600">Saindo...</p>
       </div>
     </div>
   );

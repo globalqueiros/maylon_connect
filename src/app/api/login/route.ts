@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "../../lib/db";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import { authCookieOptions } from "../../lib/authCookies";
 
 export async function POST(req: Request) {
   try {
@@ -87,21 +88,17 @@ export async function POST(req: Request) {
       },
     });
 
-    res.cookies.set("access_token", accessToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      path: "/",
-      maxAge: 60 * 60 * 24 * 10,
-    });
+    res.cookies.set(
+      "access_token",
+      accessToken,
+      authCookieOptions(60 * 60 * 24 * 10)
+    );
 
-    res.cookies.set("refresh_token", refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      path: "/",
-      maxAge: 60 * 60 * 24 * 7,
-    });
+    res.cookies.set(
+      "refresh_token",
+      refreshToken,
+      authCookieOptions(60 * 60 * 24 * 7)
+    );
 
     return res;
 

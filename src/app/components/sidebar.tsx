@@ -9,7 +9,7 @@ import {
   Percent,
   ShoppingBasket,
   Car,
-  CarFront
+  CarFront,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -32,10 +32,6 @@ const menuPassageiro = [
   { name: "Sair", icon: LogOut, href: "/saindo" },
 ];
 
-const supportItems = [
-  { name: "Central de Ajuda", icon: Headset, href: "/passageiro/central_ajuda" },
-];
-
 type User = {
   id: number;
   full_name: string;
@@ -45,30 +41,38 @@ type User = {
 export default function Sidebar({ collapsed }: { collapsed: boolean }) {
   const pathname = usePathname();
   const [user, setUser] = useState<User | null>(null);
+
   useEffect(() => {
     const fetchUser = async () => {
       try {
         const res = await fetch("/api/me", {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-          },
+          credentials: "include",
+          cache: "no-store",
         });
+        if (!res.ok) return;
         const data = await res.json();
-        setUser(data);
-      } catch (err) {
+        if (data?.id) setUser(data);
+      } catch {
         console.error("Erro ao buscar usuário");
       }
     };
 
     fetchUser();
   }, []);
-  if (!user) return null;
-  const isDriver = user.user_type === "driver";
+
+  // Infer menu from current route while /api/me loads (prevents empty sidebar)
+  const isDriverRoute = pathname.startsWith("/motorista");
+  const isDriver = user ? user.user_type === "driver" : isDriverRoute;
   const menuItems = isDriver ? menuMotorista : menuPassageiro;
+  const supportHref = isDriver
+    ? "/motorista/central_ajuda"
+    : "/passageiro/central_ajuda";
+
   return (
     <div
-      className={`h-screen bg-white border-r border-gray-300 transition-all duration-300 ${collapsed ? "w-20" : "w-64"
-        }`}
+      className={`h-screen bg-white border-r border-gray-300 transition-all duration-300 ${
+        collapsed ? "w-20" : "w-64"
+      }`}
     >
       <div className="flex items-center border-b h-16 mb-4 border-gray-300 justify-center p-4">
         {collapsed ? (
@@ -89,20 +93,22 @@ export default function Sidebar({ collapsed }: { collapsed: boolean }) {
             {isDriver ? "Motorista" : "Passageiro"}
           </p>
         )}
-        {menuItems.map((item, index) => {
-          const isActive = pathname === item.href;
+        {menuItems.map((item) => {
+          const isActive =
+            item.href === "/passageiro" || item.href === "/motorista"
+              ? pathname === item.href
+              : pathname === item.href || pathname.startsWith(`${item.href}/`);
           return (
             <Link
-              key={index}
+              key={item.href}
               href={item.href}
+              prefetch={item.href !== "/saindo"}
               className={`flex items-center gap-3 rounded-lg p-3 transition
-                ${collapsed
-                  ? "justify-center"
-                  : "justify-start text-left"
-                }
-                ${isActive
-                  ? "bg-teal-500 text-white shadow-md"
-                  : "text-gray-700 hover:bg-gray-100"
+                ${collapsed ? "justify-center" : "justify-start text-left"}
+                ${
+                  isActive
+                    ? "bg-teal-500 text-white shadow-md"
+                    : "text-gray-700 hover:bg-gray-100"
                 }
               `}
             >
@@ -118,30 +124,22 @@ export default function Sidebar({ collapsed }: { collapsed: boolean }) {
         {!collapsed && (
           <p className="text-gray-400 text-sm px-3 mb-2">Suporte</p>
         )}
-        {supportItems.map((item, index) => {
-          const isActive = pathname === item.href;
-          return (
-            <Link
-              key={index}
-              href={item.href}
-              className={`flex items-center gap-3 rounded-lg p-3 transition
-                ${collapsed
-                  ? "justify-center"
-                  : "justify-start text-left"
-                }
-                ${isActive
-                  ? "bg-teal-500 text-white shadow-md"
-                  : "text-gray-700 hover:bg-gray-100"
-                }
-              `}
-            >
-              <item.icon size={20} />
-              {!collapsed && (
-                <span className="text-xs font-medium">{item.name}</span>
-              )}
-            </Link>
-          );
-        })}
+        <Link
+          href={supportHref}
+          className={`flex items-center gap-3 rounded-lg p-3 transition
+            ${collapsed ? "justify-center" : "justify-start text-left"}
+            ${
+              pathname.startsWith(supportHref)
+                ? "bg-teal-500 text-white shadow-md"
+                : "text-gray-700 hover:bg-gray-100"
+            }
+          `}
+        >
+          <Headset size={20} />
+          {!collapsed && (
+            <span className="text-xs font-medium">Central de Ajuda</span>
+          )}
+        </Link>
       </div>
     </div>
   );

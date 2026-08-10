@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import jwt from "jsonwebtoken";
 import { db } from "../../lib/db";
 import { toPositiveInt } from "../../lib/session";
+import { authCookieOptions } from "../../lib/authCookies";
 
 export const dynamic = "force-dynamic";
 
@@ -53,13 +54,11 @@ export async function POST() {
 
     const res = NextResponse.json({ success: true });
 
-    res.cookies.set("access_token", newAccessToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      path: "/",
-      maxAge: 60 * 60 * 24 * 10,
-    });
+    res.cookies.set(
+      "access_token",
+      newAccessToken,
+      authCookieOptions(60 * 60 * 24 * 10)
+    );
 
     return res;
   } catch {

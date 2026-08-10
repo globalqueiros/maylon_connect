@@ -59,11 +59,25 @@ export default function BeneficiosPage() {
   useEffect(() => {
     const carregarUsuario = async () => {
       try {
-        const res = await fetch("/api/me", {
+        let res = await fetch("/api/me", {
           method: "GET",
           credentials: "include",
           cache: "no-store",
         });
+
+        // One refresh attempt before giving up (avoids false logouts)
+        if (res.status === 401) {
+          await fetch("/api/refresh", {
+            method: "POST",
+            credentials: "include",
+            cache: "no-store",
+          });
+          res = await fetch("/api/me", {
+            method: "GET",
+            credentials: "include",
+            cache: "no-store",
+          });
+        }
 
         if (res.status === 401) {
           window.location.href = "/";
@@ -72,13 +86,19 @@ export default function BeneficiosPage() {
 
         if (!res.ok) {
           console.error("Erro /api/me:", res.status);
-          setLoadingUser(false);
+          setAlerta({
+            tipo: "error",
+            mensagem: "Não foi possível carregar sua sessão. Tente novamente.",
+          });
           return;
         }
 
         const data = await res.json();
         if (!data?.id) {
-          window.location.href = "/";
+          setAlerta({
+            tipo: "error",
+            mensagem: "Sessão inválida. Recarregue a página.",
+          });
           return;
         }
 
@@ -89,6 +109,10 @@ export default function BeneficiosPage() {
         });
       } catch (error) {
         console.error("Erro ao buscar usuário:", error);
+        setAlerta({
+          tipo: "error",
+          mensagem: "Erro de conexão ao carregar benefícios.",
+        });
       } finally {
         setLoadingUser(false);
       }
@@ -343,6 +367,35 @@ export default function BeneficiosPage() {
           <p className="font-medium text-gray-300">
             Aguarde, carregando página...
           </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!usuario) {
+    return (
+      <div className="flex min-h-screen items-center justify-center p-6">
+        <div className="w-full max-w-md rounded-2xl bg-white p-6 text-center shadow">
+          <p className="font-semibold text-gray-900">
+            Não foi possível abrir Benefícios
+          </p>
+          <p className="mt-2 text-sm text-gray-600">
+            {alerta?.mensagem ||
+              "Sua sessão pode ter expirado. Tente novamente."}
+          </p>
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="mt-4 w-full rounded-xl bg-[#009688] py-2 font-semibold text-white"
+          >
+            Tentar novamente
+          </button>
+          <a
+            href="/passageiro"
+            className="mt-3 block text-sm text-teal-700 underline"
+          >
+            Voltar ao Dashboard
+          </a>
         </div>
       </div>
     );

@@ -10,16 +10,21 @@ export function middleware(req: NextRequest) {
     return NextResponse.redirect(new URL("/", req.url));
   }
 
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    // Don't wipe the session if env is missing in Edge — let the page load.
+    console.error("JWT_SECRET missing in middleware");
+    return NextResponse.next();
+  }
+
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as {
+    const decoded = jwt.verify(token, secret) as {
       id?: number | string;
       user_type?: string;
     };
 
     const userType = decoded.user_type;
 
-    // Only redirect when role is known AND clearly wrong.
-    // Tokens without user_type must still access the app (legacy cookies).
     if (pathname === "/" || pathname.startsWith("/login")) {
       if (userType === "driver") {
         return NextResponse.redirect(new URL("/motorista", req.url));
@@ -30,6 +35,7 @@ export function middleware(req: NextRequest) {
       return NextResponse.next();
     }
 
+    // Only bounce when role is known AND wrong — never for missing user_type
     if (pathname.startsWith("/motorista") && userType === "customer") {
       return NextResponse.redirect(new URL("/passageiro", req.url));
     }
@@ -40,11 +46,13 @@ export function middleware(req: NextRequest) {
 
     return NextResponse.next();
   } catch {
+    // Invalid/expired token: send to login, clear cookie
     const res = NextResponse.redirect(new URL("/", req.url));
     res.cookies.set("access_token", "", {
       httpOnly: true,
       path: "/",
       maxAge: 0,
+      sameSite: "lax",
     });
     return res;
   }

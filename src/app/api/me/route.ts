@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import jwt from "jsonwebtoken";
 import { db } from "../../lib/db";
 import { toPositiveInt } from "../../lib/session";
+import { authCookieOptions } from "../../lib/authCookies";
 
 export const dynamic = "force-dynamic";
 
@@ -25,7 +26,7 @@ export async function GET() {
       );
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET) as {
+    let decoded: {
       id?: unknown;
       userId?: unknown;
       user_id?: unknown;
@@ -33,6 +34,15 @@ export async function GET() {
       email?: string;
       user_type?: string;
     };
+
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET) as typeof decoded;
+    } catch {
+      return NextResponse.json(
+        { message: "Token inválido ou expirado" },
+        { status: 401 }
+      );
+    }
 
     const userId =
       toPositiveInt(decoded.id) ??
@@ -49,51 +59,57 @@ export async function GET() {
 
     let rows: any[] = [];
 
-    if (userId) {
-      const [byId]: any = await db.query(
-        `SELECT
-          id,
-          full_name,
-          phone,
-          email,
-          user_type,
-          profile_image,
-          identification_number,
-          identification_type,
-          phone_verified_at,
-          email_verified_at
-        FROM users
-        WHERE id = ?
-        LIMIT 1`,
-        [userId]
-      );
-      rows = byId;
-    }
+    try {
+      if (userId) {
+        const [byId]: any = await db.query(
+          `SELECT
+            id,
+            full_name,
+            phone,
+            email,
+            user_type,
+            profile_image,
+            identification_number,
+            identification_type,
+            phone_verified_at,
+            email_verified_at
+          FROM users
+          WHERE id = ?
+          LIMIT 1`,
+          [userId]
+        );
+        rows = byId;
+      }
 
-    // Fallback for legacy tokens / id mismatches
-    if (!rows.length && decoded.email) {
-      const [byEmail]: any = await db.query(
-        `SELECT
-          id,
-          full_name,
-          phone,
-          email,
-          user_type,
-          profile_image,
-          identification_number,
-          identification_type,
-          phone_verified_at,
-          email_verified_at
-        FROM users
-        WHERE email = ?
-        LIMIT 1`,
-        [decoded.email]
+      if (!rows.length && decoded.email) {
+        const [byEmail]: any = await db.query(
+          `SELECT
+            id,
+            full_name,
+            phone,
+            email,
+            user_type,
+            profile_image,
+            identification_number,
+            identification_type,
+            phone_verified_at,
+            email_verified_at
+          FROM users
+          WHERE email = ?
+          LIMIT 1`,
+          [decoded.email]
+        );
+        rows = byEmail;
+      }
+    } catch (dbError) {
+      console.error("/api/me database error:", dbError);
+      return NextResponse.json(
+        { message: "Erro ao carregar usuário" },
+        { status: 500 }
       );
-      rows = byEmail;
     }
 
     if (!rows.length) {
-      // 401 so clients treat as auth failure (not a missing route)
       return NextResponse.json(
         { message: "Usuário não encontrado" },
         { status: 401 }
@@ -126,23 +142,20 @@ export async function GET() {
       user_type: user.user_type,
     });
 
-    response.cookies.set("access_token", newToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      path: "/",
-      maxAge: 60 * 60 * 24 * 10,
-    });
+    response.cookies.set(
+      "access_token",
+      newToken,
+      authCookieOptions(60 * 60 * 24 * 10)
+    );
 
     response.headers.set("Cache-Control", "no-store");
 
     return response;
   } catch (error) {
     console.error("/api/me error:", error);
-
     return NextResponse.json(
-      { message: "Token inválido ou expirado" },
-      { status: 401 }
+      { message: "Erro interno" },
+      { status: 500 }
     );
   }
 }
