@@ -15,7 +15,9 @@ export function toPositiveInt(value: unknown): number | null {
   }
 
   const raw = String(value).trim();
-  if (!raw) return null;
+  if (!raw || raw === "null" || raw === "undefined" || raw === "NaN") {
+    return null;
+  }
 
   const n = Number(raw);
   if (Number.isFinite(n) && n > 0) return Math.trunc(n);
@@ -35,6 +37,7 @@ type JwtPayload = {
 export async function getSessionUserId(
   bodyUserId?: unknown
 ): Promise<number | null> {
+  const fromBody = toPositiveInt(bodyUserId);
   const cookieStore = await cookies();
   const token = cookieStore.get("access_token")?.value;
 
@@ -46,19 +49,39 @@ export async function getSessionUserId(
         toPositiveInt(decoded.userId) ??
         toPositiveInt(decoded.user_id) ??
         toPositiveInt(decoded.sub);
+      // Prefer token, but never discard a valid body id if token has no id
       if (fromToken) return fromToken;
     } catch {
       // fall back to body
     }
   }
 
-  return toPositiveInt(bodyUserId);
+  return fromBody;
 }
 
 export function pickBeneficioId(body: Record<string, unknown>) {
   return (
     toPositiveInt(body.beneficio_id) ??
     toPositiveInt(body.beneficioId) ??
-    toPositiveInt(body.id)
+    // only use generic `id` if beneficio_* keys are absent
+    (body.beneficio_id == null && body.beneficioId == null
+      ? toPositiveInt(body.id)
+      : null)
   );
+}
+
+export async function readJsonBody(
+  req: Request
+): Promise<Record<string, unknown>> {
+  try {
+    const text = await req.text();
+    if (!text?.trim()) return {};
+    const data = JSON.parse(text);
+    if (data && typeof data === "object" && !Array.isArray(data)) {
+      return data as Record<string, unknown>;
+    }
+  } catch (error) {
+    console.error("Failed to parse JSON body:", error);
+  }
+  return {};
 }

@@ -44,6 +44,7 @@ export default function BeneficiosPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [beneficioSelecionado, setBeneficioSelecionado] =
     useState<Beneficio | null>(null);
+  const beneficioRef = useRef<Beneficio | null>(null);
 
   const [pixLoading, setPixLoading] = useState(false);
   const [pixEtapa, setPixEtapa] = useState<PixEtapa>("autorizacao");
@@ -173,7 +174,14 @@ export default function BeneficiosPage() {
   };
 
   const abrirModal = (beneficio: Beneficio) => {
-    setBeneficioSelecionado(beneficio);
+    const normalized: Beneficio = {
+      ...beneficio,
+      id: Number(beneficio.id),
+      valor: String(beneficio.valor ?? ""),
+      titulo: String(beneficio.titulo ?? ""),
+    };
+    beneficioRef.current = normalized;
+    setBeneficioSelecionado(normalized);
     setModalOpen(true);
   };
 
@@ -207,10 +215,14 @@ export default function BeneficiosPage() {
 
   const fecharModal = () => {
     setModalOpen(false);
-    setBeneficioSelecionado(null);
+    if (!pixModalOpen && !openCartao) {
+      beneficioRef.current = null;
+      setBeneficioSelecionado(null);
+    }
   };
 
   const resolvePaymentIds = async () => {
+    const selected = beneficioRef.current || beneficioSelecionado;
     const meRes = await fetch("/api/me", {
       method: "GET",
       credentials: "include",
@@ -221,7 +233,7 @@ export default function BeneficiosPage() {
     }
     const me = await meRes.json();
     const usuarioId = Number(me?.id);
-    const beneficioId = Number(beneficioSelecionado?.id);
+    const beneficioId = Number(selected?.id);
 
     if (!Number.isFinite(usuarioId) || usuarioId <= 0) {
       throw new Error("Usuário inválido. Faça login novamente.");
@@ -239,13 +251,14 @@ export default function BeneficiosPage() {
     return {
       usuarioId,
       beneficioId,
-      titulo: String(beneficioSelecionado?.titulo || ""),
-      valor: String(beneficioSelecionado?.valor ?? "").replace(",", "."),
+      titulo: String(selected?.titulo || ""),
+      valor: String(selected?.valor ?? "").replace(",", "."),
     };
   };
 
   const gerarPixAutorizacao = async () => {
-    if (!beneficioSelecionado?.id) {
+    const selected = beneficioRef.current || beneficioSelecionado;
+    if (!selected?.id) {
       setPixError("Benefício não selecionado. Feche e abra novamente.");
       return;
     }
@@ -255,22 +268,32 @@ export default function BeneficiosPage() {
     try {
       const { usuarioId, beneficioId, titulo, valor } = await resolvePaymentIds();
 
-      const res = await fetch("/api/btg/pix/authorize", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          usuario_id: usuarioId,
-          beneficio_id: beneficioId,
-          titulo,
-          valor,
-        }),
-      });
+      const payload = {
+        usuario_id: usuarioId,
+        beneficio_id: beneficioId,
+        titulo,
+        valor,
+      };
+      console.log("PIX authorize payload:", payload);
+
+      const res = await fetch(
+        `/api/btg/pix/authorize?usuario_id=${usuarioId}&beneficio_id=${beneficioId}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify(payload),
+        }
+      );
 
       const data = await res.json();
       if (!res.ok) {
         console.error("PIX authorize failed:", data);
-        throw new Error(data.error || "Erro ao gerar autorização Pix");
+        const detail =
+          data?.details?.beneficio_id == null || data?.details?.usuario_id == null
+            ? " (usuário/benefício não identificados — faça login novamente)"
+            : "";
+        throw new Error((data.error || "Erro ao gerar autorização Pix") + detail);
       }
 
       setPixEtapa("autorizacao");

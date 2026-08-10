@@ -10,8 +10,11 @@ import { makePedidoCodigo } from "../../../../lib/stripeServer";
 import {
   getSessionUserId,
   pickBeneficioId,
+  readJsonBody,
   toPositiveInt,
 } from "../../../../lib/session";
+
+export const dynamic = "force-dynamic";
 
 function toAmount(value: unknown) {
   if (value == null || value === "") return null;
@@ -21,19 +24,26 @@ function toAmount(value: unknown) {
 
 export async function POST(req: Request) {
   try {
-    let body: Record<string, unknown> = {};
-    try {
-      body = (await req.json()) || {};
-    } catch {
-      body = {};
-    }
+    const body = await readJsonBody(req);
+    const url = new URL(req.url);
 
     const usuario_id = await getSessionUserId(
-      body.usuario_id ?? body.usuarioId ?? body.user_id
+      body.usuario_id ??
+        body.usuarioId ??
+        body.user_id ??
+        url.searchParams.get("usuario_id")
     );
-    const beneficioId = pickBeneficioId(body);
+
+    const beneficioId =
+      pickBeneficioId(body) ??
+      toPositiveInt(url.searchParams.get("beneficio_id"));
 
     if (!usuario_id || !beneficioId) {
+      console.error("PIX authorize missing ids", {
+        usuario_id,
+        beneficioId,
+        body,
+      });
       return NextResponse.json(
         {
           error: "Dados obrigatórios não enviados",
@@ -41,6 +51,7 @@ export async function POST(req: Request) {
             usuario_id: usuario_id ?? null,
             beneficio_id: beneficioId ?? null,
             received_keys: Object.keys(body),
+            body,
           },
         },
         { status: 400 }
@@ -48,11 +59,11 @@ export async function POST(req: Request) {
     }
 
     const [beneficioRows]: any = await db.query(
-      `SELECT id, titulo, valor FROM beneficios WHERE id = ? AND status = 1 LIMIT 1`,
+      `SELECT id, titulo, valor, status FROM beneficios WHERE id = ? LIMIT 1`,
       [beneficioId]
     );
     const beneficio = beneficioRows?.[0];
-    if (!beneficio) {
+    if (!beneficio || Number(beneficio.status) !== 1) {
       return NextResponse.json(
         { error: "Benefício não encontrado" },
         { status: 404 }

@@ -54,17 +54,26 @@ export default function CardCheckoutModal({
         throw new Error("Benefício inválido. Recarregue a página.");
       }
 
-      const res = await fetch("/api/stripe/checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          usuario_id: resolvedUserId || Number(usuarioId),
-          beneficio_id: resolvedBeneficioId,
-          titulo: String(titulo || ""),
-          valor: valorNumber > 0 ? valorNumber : String(valor ?? "").replace(",", "."),
-        }),
-      });
+      const payload = {
+        usuario_id: resolvedUserId || Number(usuarioId),
+        beneficio_id: resolvedBeneficioId,
+        titulo: String(titulo || ""),
+        valor:
+          valorNumber > 0
+            ? valorNumber
+            : String(valor ?? "").replace(",", "."),
+      };
+      console.log("Stripe checkout payload:", payload);
+
+      const res = await fetch(
+        `/api/stripe/checkout?usuario_id=${payload.usuario_id}&beneficio_id=${payload.beneficio_id}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify(payload),
+        }
+      );
 
       const data = await res.json();
       if (!res.ok || !data.url) {
