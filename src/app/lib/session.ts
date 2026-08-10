@@ -50,12 +50,8 @@ function idFromPayload(decoded: JwtPayload): number | null {
   );
 }
 
-/** Read authenticated user from access_token cookie. */
-export async function getSessionUser(): Promise<SessionUser | null> {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("access_token")?.value;
-  if (!token || !process.env.JWT_SECRET) return null;
-
+function userFromToken(token: string): SessionUser | null {
+  if (!process.env.JWT_SECRET) return null;
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET) as JwtPayload;
     const id = idFromPayload(decoded);
@@ -70,10 +66,34 @@ export async function getSessionUser(): Promise<SessionUser | null> {
   }
 }
 
+/** Read authenticated user from access_token cookie and/or Authorization header. */
+export async function getSessionUser(
+  req?: Request
+): Promise<SessionUser | null> {
+  const cookieStore = await cookies();
+  const cookieToken = cookieStore.get("access_token")?.value;
+  if (cookieToken) {
+    const fromCookie = userFromToken(cookieToken);
+    if (fromCookie) return fromCookie;
+  }
+
+  const auth = req?.headers.get("authorization") || "";
+  if (auth.toLowerCase().startsWith("bearer ")) {
+    const bearer = auth.slice(7).trim();
+    if (bearer) {
+      const fromBearer = userFromToken(bearer);
+      if (fromBearer) return fromBearer;
+    }
+  }
+
+  return null;
+}
+
 export async function getSessionUserId(
-  bodyUserId?: unknown
+  bodyUserId?: unknown,
+  req?: Request
 ): Promise<number | null> {
-  const session = await getSessionUser();
+  const session = await getSessionUser(req);
   if (session?.id) return session.id;
   return toPositiveInt(bodyUserId);
 }

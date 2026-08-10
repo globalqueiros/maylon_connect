@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { MapPin, Eye, ReceiptText, MoreVertical, CalendarDays } from "lucide-react";
 import Link from "next/link";
+import { authFetch } from "../../lib/authFetch";
 
 interface Trip {
   pickup_city: string;
@@ -34,23 +35,15 @@ export default function TripsTable() {
   useEffect(() => {
     const fetchTrips = async () => {
       try {
-        const res = await fetch("/api/trips", {
-          credentials: "include",
-          cache: "no-store",
-        });
+        const res = await authFetch("/api/trips");
 
         if (!res.ok) {
-          console.error("Erro API:", res.status);
-          if (res.status === 401) {
-            window.location.href = "/";
-            return;
-          }
+          console.error("Erro API trips:", res.status);
           setRows([]);
           return;
         }
 
         const data = await res.json();
-
         const lista = Array.isArray(data)
           ? data
           : Array.isArray(data?.trips)

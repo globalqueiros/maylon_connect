@@ -3,6 +3,7 @@ import { Eye, MapPin, BriefcaseBusiness, CircleDollarSign, Clock3, ArrowRight, M
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import Image from "next/image";
+import { authFetch } from "../lib/authFetch";
 
 type User = {
   id: number;
@@ -51,51 +52,38 @@ export default function TripsPage() {
   }
 
   useEffect(() => {
-    const fetchUser = async () => {
+    const loadDashboard = async () => {
       try {
-        const res = await fetch("/api/me", { credentials: "include" });
-        if (!res.ok) return;
-        const data = await res.json();
-        setUser(data);
-      } catch (error) {
-        console.error("Erro ao buscar usuário");
-      }
-    };
-
-    fetchUser();
-  }, []);
-
-  useEffect(() => {
-    fetch("/api/banners")
-      .then((res) => res.json())
-      .then((data) => setBanners(Array.isArray(data) ? data : []))
-      .catch(() => console.error("Erro ao buscar banners"));
-  }, []);
-
-  useEffect(() => {
-    const fetchTrips = async () => {
-      try {
-        const res = await fetch("/api/trips", {
-          credentials: "include",
-          cache: "no-store",
-        });
-        if (!res.ok) {
-          console.error("Erro API trips:", res.status);
-          setRows([]);
-          return;
+        const meRes = await authFetch("/api/me");
+        if (meRes.ok) {
+          const me = await meRes.json();
+          if (me?.id) setUser(me);
         }
-        const data = await res.json();
-        const lista = Array.isArray(data) ? data : [];
-        setRows(lista);
+
+        const tripsRes = await authFetch("/api/trips");
+        if (!tripsRes.ok) {
+          console.error("Erro API trips:", tripsRes.status);
+          setRows([]);
+        } else {
+          const data = await tripsRes.json();
+          setRows(Array.isArray(data) ? data : []);
+        }
       } catch (error) {
-        console.error("Erro ao buscar viagens");
+        console.error("Erro ao carregar dashboard:", error);
         setRows([]);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchTrips();
+    loadDashboard();
+  }, []);
+
+  useEffect(() => {
+    fetch("/api/banners", { credentials: "include", cache: "no-store" })
+      .then((res) => res.json())
+      .then((data) => setBanners(Array.isArray(data) ? data : []))
+      .catch(() => console.error("Erro ao buscar banners"));
   }, []);
 
   const hoje = new Date();

@@ -1,10 +1,8 @@
 /** Cookie flags safe for local HTTP and production HTTPS. */
 export function authCookieOptions(maxAgeSeconds: number) {
-  const isProd = process.env.NODE_ENV === "production";
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "";
-  const secure =
-    isProd &&
-    (appUrl.startsWith("https://") || process.env.COOKIE_SECURE === "true");
+  // Only force Secure when explicitly enabled. Using NEXT_PUBLIC_APP_URL=https
+  // while browsing http://localhost drops the session cookie.
+  const secure = process.env.COOKIE_SECURE === "true";
 
   return {
     httpOnly: true,
