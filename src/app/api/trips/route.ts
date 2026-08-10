@@ -1,97 +1,166 @@
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
+import jwt from "jsonwebtoken";
 import { db } from "../../lib/db";
-import { getSessionUser } from "../../lib/session";
+import { toPositiveInt, tokenFromCookieHeader } from "../../lib/session";
 
 export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+
+function resolveUserIdFromToken(token: string): number | null {
+  const secret = process.env.JWT_SECRET?.trim();
+  if (!secret) return null;
+  try {
+    const decoded = jwt.verify(token, secret) as {
+      id?: unknown;
+      userId?: unknown;
+      user_id?: unknown;
+      sub?: unknown;
+    };
+    return (
+      toPositiveInt(decoded.id) ??
+      toPositiveInt(decoded.userId) ??
+      toPositiveInt(decoded.user_id) ??
+      toPositiveInt(decoded.sub)
+    );
+  } catch {
+    return null;
+  }
+}
+
+async function resolveUserId(req: Request): Promise<number | null> {
+  // 1) Raw Cookie header from the incoming request
+  const headerToken = tokenFromCookieHeader(req.headers.get("cookie"));
+  if (headerToken) {
+    const id = resolveUserIdFromToken(headerToken);
+    if (id) return id;
+  }
+
+  // 2) next/headers cookie store
+  try {
+    const store = await cookies();
+    const cookieToken = store.get("access_token")?.value;
+    if (cookieToken) {
+      const id = resolveUserIdFromToken(cookieToken);
+      if (id) return id;
+    }
+  } catch {
+    // ignore
+  }
+
+  // 3) Authorization bearer
+  const auth = req.headers.get("authorization") || "";
+  if (auth.toLowerCase().startsWith("bearer ")) {
+    const id = resolveUserIdFromToken(auth.slice(7).trim());
+    if (id) return id;
+  }
+
+  return null;
+}
 
 async function loadTripsForUser(userId: number) {
-  // Primary: trips table as source of truth (works even without coordinates rows)
-  try {
-    const [rows]: any = await db.query(
-      `
-      SELECT
-        tr.id AS trip_request_id,
-        COALESCE(trc.pickup_address, tr.pickup_address, '') AS pickup_address,
-        COALESCE(
+  const attempts: Array<() => Promise<any[]>> = [
+    async () => {
+      const [rows]: any = await db.query(
+        `
+        SELECT
+          tr.id AS trip_request_id,
+          COALESCE(trc.pickup_address, tr.pickup_address, '') AS pickup_address,
+          COALESCE(
+            trc.destination_address,
+            tr.dropoff_address,
+            tr.destination_address,
+            ''
+          ) AS destination_address,
+          COALESCE(tr.actual_fare, tr.estimated_fare, 0) AS valor,
+          tr.current_status,
+          tr.created_at
+        FROM trip_requests tr
+        LEFT JOIN trip_request_coordinates trc
+          ON trc.trip_request_id = tr.id
+        WHERE tr.customer_id = ? OR tr.driver_id = ?
+        ORDER BY tr.created_at DESC
+        `,
+        [userId, userId]
+      );
+      return Array.isArray(rows) ? rows : [];
+    },
+    async () => {
+      const [rows]: any = await db.query(
+        `
+        SELECT
+          tr.id AS trip_request_id,
+          COALESCE(tr.pickup_address, '') AS pickup_address,
+          COALESCE(tr.dropoff_address, '') AS destination_address,
+          COALESCE(tr.actual_fare, tr.estimated_fare, 0) AS valor,
+          tr.current_status,
+          tr.created_at
+        FROM trip_requests tr
+        WHERE tr.customer_id = ? OR tr.driver_id = ?
+        ORDER BY tr.created_at DESC
+        `,
+        [userId, userId]
+      );
+      return Array.isArray(rows) ? rows : [];
+    },
+    async () => {
+      const [rows]: any = await db.query(
+        `
+        SELECT
+          trc.trip_request_id,
+          trc.pickup_address,
           trc.destination_address,
-          tr.dropoff_address,
-          tr.destination_address,
-          ''
-        ) AS destination_address,
-        COALESCE(tr.actual_fare, tr.estimated_fare, 0) AS valor,
-        tr.current_status,
-        tr.created_at
-      FROM trip_requests tr
-      LEFT JOIN trip_request_coordinates trc
-        ON trc.trip_request_id = tr.id
-      WHERE tr.customer_id = ? OR tr.driver_id = ?
-      ORDER BY tr.created_at DESC
-      `,
-      [userId, userId]
-    );
-    return Array.isArray(rows) ? rows : [];
-  } catch (error: any) {
-    // Fallback if some columns don't exist in this DB schema
-    console.warn("Trips primary query failed, using fallback:", error?.message);
+          COALESCE(tr.actual_fare, tr.estimated_fare, 0) AS valor,
+          tr.current_status,
+          tr.created_at
+        FROM trip_request_coordinates trc
+        INNER JOIN trip_requests tr
+          ON tr.id = trc.trip_request_id
+        WHERE tr.customer_id = ? OR tr.driver_id = ?
+        ORDER BY tr.created_at DESC
+        `,
+        [userId, userId]
+      );
+      return Array.isArray(rows) ? rows : [];
+    },
+  ];
+
+  let lastError: unknown = null;
+  for (const run of attempts) {
+    try {
+      return await run();
+    } catch (error) {
+      lastError = error;
+    }
   }
 
-  try {
-    const [rows]: any = await db.query(
-      `
-      SELECT
-        tr.id AS trip_request_id,
-        COALESCE(tr.pickup_address, '') AS pickup_address,
-        COALESCE(tr.dropoff_address, '') AS destination_address,
-        COALESCE(tr.actual_fare, tr.estimated_fare, 0) AS valor,
-        tr.current_status,
-        tr.created_at
-      FROM trip_requests tr
-      WHERE tr.customer_id = ? OR tr.driver_id = ?
-      ORDER BY tr.created_at DESC
-      `,
-      [userId, userId]
-    );
-    return Array.isArray(rows) ? rows : [];
-  } catch (error: any) {
-    console.warn("Trips fallback query failed:", error?.message);
-  }
-
-  // Last resort: coordinates-driven query (legacy)
-  const [rows]: any = await db.query(
-    `
-    SELECT
-      trc.trip_request_id,
-      trc.pickup_address,
-      trc.destination_address,
-      COALESCE(tr.actual_fare, tr.estimated_fare, 0) AS valor,
-      tr.current_status,
-      tr.created_at
-    FROM trip_request_coordinates trc
-    LEFT JOIN trip_requests tr
-      ON tr.id = trc.trip_request_id
-    WHERE tr.customer_id = ? OR tr.driver_id = ?
-    ORDER BY tr.created_at DESC
-    `,
-    [userId, userId]
-  );
-  return Array.isArray(rows) ? rows : [];
+  throw lastError || new Error("Falha ao consultar viagens");
 }
 
 export async function GET(req: Request) {
   try {
-    const session = await getSessionUser(req);
-    if (!session?.id) {
+    if (!process.env.JWT_SECRET?.trim()) {
+      return NextResponse.json(
+        { error: "JWT_SECRET não configurada no servidor" },
+        { status: 500 }
+      );
+    }
+
+    const userId = await resolveUserId(req);
+    if (!userId) {
       return NextResponse.json(
         {
           error: "Não autorizado",
-          message: "Sessão ausente ou expirada. Faça login novamente.",
+          message: "Sessão ausente ou expirada.",
         },
         { status: 401 }
       );
     }
 
-    const trips = await loadTripsForUser(session.id);
-    return NextResponse.json(trips);
+    const trips = await loadTripsForUser(userId);
+    return NextResponse.json(trips, {
+      headers: { "Cache-Control": "no-store" },
+    });
   } catch (error) {
     console.error("Erro /api/trips:", error);
     return NextResponse.json(

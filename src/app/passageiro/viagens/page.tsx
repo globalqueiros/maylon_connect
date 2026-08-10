@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { MapPin, Eye, ReceiptText, MoreVertical, CalendarDays } from "lucide-react";
 import Link from "next/link";
-import { authFetch } from "../../lib/authFetch";
+import { fetchTripsSafe } from "../../lib/authFetch";
 
 interface Trip {
   pickup_city: string;
@@ -35,22 +35,11 @@ export default function TripsTable() {
   useEffect(() => {
     const fetchTrips = async () => {
       try {
-        const res = await authFetch("/api/trips");
-
-        if (!res.ok) {
-          console.error("Erro API trips:", res.status);
-          setRows([]);
-          return;
+        const { trips, unauthorized } = await fetchTripsSafe();
+        if (unauthorized) {
+          console.error("Erro API trips: sessão não autorizada após refresh");
         }
-
-        const data = await res.json();
-        const lista = Array.isArray(data)
-          ? data
-          : Array.isArray(data?.trips)
-            ? data.trips
-            : [];
-
-        setRows(lista);
+        setRows(trips);
       } catch (error) {
         console.error("Erro ao buscar viagens:", error);
         setRows([]);

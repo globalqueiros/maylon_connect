@@ -3,7 +3,7 @@ import { Eye, MapPin, BriefcaseBusiness, CircleDollarSign, Clock3, ArrowRight, M
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import Image from "next/image";
-import { authFetch } from "../lib/authFetch";
+import { fetchTripsSafe } from "../lib/authFetch";
 
 type User = {
   id: number;
@@ -54,20 +54,9 @@ export default function TripsPage() {
   useEffect(() => {
     const loadDashboard = async () => {
       try {
-        const meRes = await authFetch("/api/me");
-        if (meRes.ok) {
-          const me = await meRes.json();
-          if (me?.id) setUser(me);
-        }
-
-        const tripsRes = await authFetch("/api/trips");
-        if (!tripsRes.ok) {
-          console.error("Erro API trips:", tripsRes.status);
-          setRows([]);
-        } else {
-          const data = await tripsRes.json();
-          setRows(Array.isArray(data) ? data : []);
-        }
+        const { user: me, trips } = await fetchTripsSafe();
+        if (me?.id) setUser(me);
+        setRows(trips);
       } catch (error) {
         console.error("Erro ao carregar dashboard:", error);
         setRows([]);

@@ -50,10 +50,34 @@ function idFromPayload(decoded: JwtPayload): number | null {
   );
 }
 
+/** Pull access_token from a raw Cookie header (most reliable in route handlers). */
+export function tokenFromCookieHeader(cookieHeader: string | null): string | null {
+  if (!cookieHeader) return null;
+  for (const part of cookieHeader.split(";")) {
+    const trimmed = part.trim();
+    if (!trimmed) continue;
+    const eq = trimmed.indexOf("=");
+    if (eq === -1) continue;
+    const key = trimmed.slice(0, eq).trim();
+    if (key !== "access_token") continue;
+    const value = trimmed.slice(eq + 1).trim();
+    try {
+      return decodeURIComponent(value);
+    } catch {
+      return value;
+    }
+  }
+  return null;
+}
+
 function userFromToken(token: string): SessionUser | null {
-  if (!process.env.JWT_SECRET) return null;
+  const secret = process.env.JWT_SECRET?.trim();
+  if (!secret) {
+    console.error("JWT_SECRET missing/empty while resolving session");
+    return null;
+  }
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET) as JwtPayload;
+    const decoded = jwt.verify(token, secret) as JwtPayload;
     const id = idFromPayload(decoded);
     if (!id) return null;
     return {
@@ -61,28 +85,44 @@ function userFromToken(token: string): SessionUser | null {
       user_type: decoded.user_type,
       email: decoded.email,
     };
-  } catch {
+  } catch (error: any) {
+    console.warn("JWT verify failed:", error?.message || error);
     return null;
   }
 }
 
-/** Read authenticated user from access_token cookie and/or Authorization header. */
+/**
+ * Resolve the logged-in user from:
+ * 1) Request Cookie header
+ * 2) next/headers cookies()
+ * 3) Authorization: Bearer
+ */
 export async function getSessionUser(
   req?: Request
 ): Promise<SessionUser | null> {
-  const cookieStore = await cookies();
-  const cookieToken = cookieStore.get("access_token")?.value;
-  if (cookieToken) {
-    const fromCookie = userFromToken(cookieToken);
-    if (fromCookie) return fromCookie;
+  const fromHeader = tokenFromCookieHeader(req?.headers.get("cookie") ?? null);
+  if (fromHeader) {
+    const user = userFromToken(fromHeader);
+    if (user) return user;
+  }
+
+  try {
+    const cookieStore = await cookies();
+    const cookieToken = cookieStore.get("access_token")?.value;
+    if (cookieToken) {
+      const user = userFromToken(cookieToken);
+      if (user) return user;
+    }
+  } catch (error) {
+    console.warn("cookies() unavailable in this context:", error);
   }
 
   const auth = req?.headers.get("authorization") || "";
   if (auth.toLowerCase().startsWith("bearer ")) {
     const bearer = auth.slice(7).trim();
     if (bearer) {
-      const fromBearer = userFromToken(bearer);
-      if (fromBearer) return fromBearer;
+      const user = userFromToken(bearer);
+      if (user) return user;
     }
   }
 
