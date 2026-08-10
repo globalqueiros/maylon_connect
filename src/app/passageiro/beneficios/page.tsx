@@ -195,6 +195,11 @@ export default function BeneficiosPage() {
     setTimeout(() => setPixModalOpen(true), 200);
   };
 
+  const abrirCartaoModal = () => {
+    setModalOpen(false);
+    setTimeout(() => setOpenCartao(true), 200);
+  };
+
   const fecharPixModal = () => {
     resetPixState();
     setPixModalOpen(false);
@@ -206,7 +211,10 @@ export default function BeneficiosPage() {
   };
 
   const gerarPixAutorizacao = async () => {
-    if (!usuario || !beneficioSelecionado) return;
+    if (!usuario?.id || !beneficioSelecionado?.id) {
+      setPixError("Dados do usuário ou benefício indisponíveis. Recarregue a página.");
+      return;
+    }
     setPixLoading(true);
     setPixError(null);
 
@@ -216,10 +224,10 @@ export default function BeneficiosPage() {
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
-          usuario_id: usuario.id,
-          beneficio_id: beneficioSelecionado.id,
-          titulo: beneficioSelecionado.titulo,
-          valor: beneficioSelecionado.valor,
+          usuario_id: Number(usuario.id),
+          beneficio_id: Number(beneficioSelecionado.id),
+          titulo: String(beneficioSelecionado.titulo || ""),
+          valor: String(beneficioSelecionado.valor ?? "").replace(",", "."),
         }),
       });
 
@@ -468,7 +476,7 @@ export default function BeneficiosPage() {
                       ➜
                     </button>
                     <button
-                      onClick={() => setOpenCartao(true)}
+                      onClick={abrirCartaoModal}
                       disabled={loadingId === beneficioSelecionado.id}
                       className="flex cursor-pointer items-center justify-between rounded-2xl border-2 border-gray-200 p-5 transition hover:border-[#009688] hover:bg-teal-50"
                     >
@@ -495,9 +503,12 @@ export default function BeneficiosPage() {
         {usuario && beneficioSelecionado && (
           <CardCheckoutModal
             open={openCartao}
-            onClose={() => setOpenCartao(false)}
-            usuarioId={usuario.id}
-            beneficioId={beneficioSelecionado.id}
+            onClose={() => {
+              setOpenCartao(false);
+              if (beneficioSelecionado) setModalOpen(true);
+            }}
+            usuarioId={Number(usuario.id)}
+            beneficioId={Number(beneficioSelecionado.id)}
             titulo={beneficioSelecionado.titulo}
             valor={beneficioSelecionado.valor}
           />
@@ -505,7 +516,7 @@ export default function BeneficiosPage() {
       </div>
 
       {pixModalOpen && beneficioSelecionado && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/70 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-3xl bg-white p-8">
             <h2 className="text-center text-2xl font-bold">
               Pagamento via PIX

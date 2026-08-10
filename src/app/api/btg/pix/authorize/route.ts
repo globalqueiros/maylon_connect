@@ -10,6 +10,17 @@ import {
 } from "../../../../lib/assinaturaDb";
 import { makePedidoCodigo } from "../../../../lib/stripeServer";
 
+function toPositiveInt(value: unknown) {
+  const n = Number(value);
+  return Number.isFinite(n) && n > 0 ? Math.trunc(n) : null;
+}
+
+function toAmount(value: unknown) {
+  if (value == null || value === "") return null;
+  const n = Number(String(value).replace(",", "."));
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
 export async function POST(req: Request) {
   try {
     const body = await req.json();
@@ -17,28 +28,53 @@ export async function POST(req: Request) {
 
     const cookieStore = await cookies();
     const token = cookieStore.get("access_token")?.value;
-    let usuario_id = Number(bodyUserId);
+    let usuario_id = toPositiveInt(bodyUserId);
 
     if (token) {
       try {
         const decoded = jwt.verify(
           token,
           process.env.JWT_SECRET!
-        ) as { id: number };
-        usuario_id = Number(decoded.id);
+        ) as { id?: number | string };
+        const fromToken = toPositiveInt(decoded?.id);
+        if (fromToken) usuario_id = fromToken;
       } catch {
         // keep body id
       }
     }
 
-    if (!usuario_id || !beneficio_id || valor == null) {
+    const beneficioId = toPositiveInt(beneficio_id);
+
+    if (!usuario_id || !beneficioId) {
       return NextResponse.json(
         { error: "Dados obrigatórios não enviados" },
         { status: 400 }
       );
     }
 
-    const existing = await findActiveOrPending(usuario_id, Number(beneficio_id));
+    const [beneficioRows]: any = await db.query(
+      `SELECT id, titulo, valor FROM beneficios WHERE id = ? AND status = 1 LIMIT 1`,
+      [beneficioId]
+    );
+    const beneficio = beneficioRows?.[0];
+    if (!beneficio) {
+      return NextResponse.json(
+        { error: "Benefício não encontrado" },
+        { status: 404 }
+      );
+    }
+
+    const amount =
+      toAmount(valor) ?? toAmount(beneficio.valor);
+    if (!amount) {
+      return NextResponse.json({ error: "Valor inválido" }, { status: 400 });
+    }
+
+    const beneficioTitulo = String(
+      titulo || beneficio.titulo || "Assinatura Maylon"
+    );
+
+    const existing = await findActiveOrPending(usuario_id, beneficioId);
     if (existing?.status_assinatura === "aprovado" && existing.ativo === 1) {
       return NextResponse.json(
         { error: "Já existe uma assinatura ativa para este benefício" },
@@ -69,20 +105,15 @@ export async function POST(req: Request) {
       );
     }
 
-    const amount = Number(String(valor).replace(",", "."));
-    if (!amount || amount <= 0) {
-      return NextResponse.json({ error: "Valor inválido" }, { status: 400 });
-    }
-
     const pedidoCodigo = makePedidoCodigo("MLP");
-    const contract = `${pedidoCodigo}${beneficio_id}`.slice(0, 35);
+    const contract = `${pedidoCodigo}${beneficioId}`.slice(0, 35);
 
     const auth = await createPixAuthorization({
       contract,
       amount,
       debtorName: user.full_name || user.email || "Cliente",
       debtorTaxId: taxId,
-      description: String(titulo || "Assinatura Maylon").slice(0, 35),
+      description: beneficioTitulo.slice(0, 35),
     });
 
     const emv = auth?.qrCodeInfo?.emv || auth?.emv || null;
@@ -98,7 +129,7 @@ export async function POST(req: Request) {
 
     const assinaturaId = await upsertPendente({
       usuarioId: usuario_id,
-      beneficioId: Number(beneficio_id),
+      beneficioId,
       metodo: "pix_btg",
       pedidoCodigo,
       valor: amount,
@@ -111,7 +142,7 @@ export async function POST(req: Request) {
 
     await logPagamento({
       usuarioId: usuario_id,
-      beneficioId: Number(beneficio_id),
+      beneficioId,
       usuarioBeneficioId: assinaturaId,
       gateway: "btg",
       metodo: "pix",

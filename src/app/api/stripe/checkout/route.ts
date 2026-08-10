@@ -14,6 +14,11 @@ import {
   upsertPendente,
 } from "../../../lib/assinaturaDb";
 
+function toPositiveInt(value: unknown) {
+  const n = Number(value);
+  return Number.isFinite(n) && n > 0 ? Math.trunc(n) : null;
+}
+
 export async function POST(req: Request) {
   try {
     const body = await req.json();
@@ -21,21 +26,44 @@ export async function POST(req: Request) {
 
     const cookieStore = await cookies();
     const token = cookieStore.get("access_token")?.value;
-    let usuario_id = Number(bodyUserId);
+    let usuario_id = toPositiveInt(bodyUserId);
 
     if (token) {
       try {
         const decoded = jwt.verify(
           token,
           process.env.JWT_SECRET!
-        ) as { id: number };
-        usuario_id = Number(decoded.id);
+        ) as { id?: number | string };
+        const fromToken = toPositiveInt(decoded?.id);
+        if (fromToken) usuario_id = fromToken;
       } catch {
         // fall back to body id
       }
     }
 
-    if (!usuario_id || !beneficio_id || !titulo || valor == null) {
+    const beneficioId = toPositiveInt(beneficio_id);
+
+    if (!usuario_id || !beneficioId) {
+      return NextResponse.json(
+        { error: "Dados obrigatórios não enviados" },
+        { status: 400 }
+      );
+    }
+
+    const [beneficioRows]: any = await db.query(
+      `SELECT id, titulo, valor FROM beneficios WHERE id = ? AND status = 1 LIMIT 1`,
+      [beneficioId]
+    );
+    const beneficio = beneficioRows?.[0];
+    if (!beneficio) {
+      return NextResponse.json(
+        { error: "Benefício não encontrado" },
+        { status: 404 }
+      );
+    }
+
+    const beneficioTitulo = String(titulo || beneficio.titulo || "").trim();
+    if (!beneficioTitulo) {
       return NextResponse.json(
         { error: "Dados obrigatórios não enviados" },
         { status: 400 }
@@ -44,10 +72,14 @@ export async function POST(req: Request) {
 
     const appUrl = getAppUrl();
     const stripe = getStripe();
-    const valorCentavos = toCentavos(valor);
+    const valorCentavos = toCentavos(valor ?? beneficio.valor);
     const valorNumber = valorCentavos / 100;
 
-    const existing = await findActiveOrPending(usuario_id, Number(beneficio_id));
+    if (!valorCentavos || valorCentavos <= 0) {
+      return NextResponse.json({ error: "Valor inválido" }, { status: 400 });
+    }
+
+    const existing = await findActiveOrPending(usuario_id, beneficioId);
     if (existing?.status_assinatura === "aprovado" && existing.ativo === 1) {
       return NextResponse.json(
         { error: "Já existe uma assinatura ativa para este benefício" },
@@ -92,7 +124,7 @@ export async function POST(req: Request) {
         {
           price_data: {
             currency: "brl",
-            product_data: { name: String(titulo) },
+            product_data: { name: beneficioTitulo },
             recurring: { interval: "month" },
             unit_amount: valorCentavos,
           },
@@ -104,14 +136,14 @@ export async function POST(req: Request) {
       client_reference_id: String(usuario_id),
       metadata: {
         usuario_id: String(usuario_id),
-        beneficio_id: String(beneficio_id),
+        beneficio_id: String(beneficioId),
         metodo_pagamento: "stripe_recorrente",
         pedido_codigo: pedidoCodigo,
       },
       subscription_data: {
         metadata: {
           usuario_id: String(usuario_id),
-          beneficio_id: String(beneficio_id),
+          beneficio_id: String(beneficioId),
           pedido_codigo: pedidoCodigo,
         },
       },
@@ -123,7 +155,7 @@ export async function POST(req: Request) {
 
     const assinaturaId = await upsertPendente({
       usuarioId: usuario_id,
-      beneficioId: Number(beneficio_id),
+      beneficioId,
       metodo: "stripe_recorrente",
       pedidoCodigo,
       valor: valorNumber,
@@ -134,7 +166,7 @@ export async function POST(req: Request) {
 
     await logPagamento({
       usuarioId: usuario_id,
-      beneficioId: Number(beneficio_id),
+      beneficioId,
       usuarioBeneficioId: assinaturaId,
       gateway: "stripe",
       metodo: "card",
