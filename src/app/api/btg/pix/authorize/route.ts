@@ -1,6 +1,4 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import jwt from "jsonwebtoken";
 import { db } from "../../../../lib/db";
 import { createPixAuthorization } from "../../../../lib/btg";
 import {
@@ -9,11 +7,11 @@ import {
   upsertPendente,
 } from "../../../../lib/assinaturaDb";
 import { makePedidoCodigo } from "../../../../lib/stripeServer";
-
-function toPositiveInt(value: unknown) {
-  const n = Number(value);
-  return Number.isFinite(n) && n > 0 ? Math.trunc(n) : null;
-}
+import {
+  getSessionUserId,
+  pickBeneficioId,
+  toPositiveInt,
+} from "../../../../lib/session";
 
 function toAmount(value: unknown) {
   if (value == null || value === "") return null;
@@ -23,31 +21,28 @@ function toAmount(value: unknown) {
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json();
-    const { beneficio_id, titulo, valor, usuario_id: bodyUserId } = body;
-
-    const cookieStore = await cookies();
-    const token = cookieStore.get("access_token")?.value;
-    let usuario_id = toPositiveInt(bodyUserId);
-
-    if (token) {
-      try {
-        const decoded = jwt.verify(
-          token,
-          process.env.JWT_SECRET!
-        ) as { id?: number | string };
-        const fromToken = toPositiveInt(decoded?.id);
-        if (fromToken) usuario_id = fromToken;
-      } catch {
-        // keep body id
-      }
+    let body: Record<string, unknown> = {};
+    try {
+      body = (await req.json()) || {};
+    } catch {
+      body = {};
     }
 
-    const beneficioId = toPositiveInt(beneficio_id);
+    const usuario_id = await getSessionUserId(
+      body.usuario_id ?? body.usuarioId ?? body.user_id
+    );
+    const beneficioId = pickBeneficioId(body);
 
     if (!usuario_id || !beneficioId) {
       return NextResponse.json(
-        { error: "Dados obrigatórios não enviados" },
+        {
+          error: "Dados obrigatórios não enviados",
+          details: {
+            usuario_id: usuario_id ?? null,
+            beneficio_id: beneficioId ?? null,
+            received_keys: Object.keys(body),
+          },
+        },
         { status: 400 }
       );
     }
@@ -64,14 +59,13 @@ export async function POST(req: Request) {
       );
     }
 
-    const amount =
-      toAmount(valor) ?? toAmount(beneficio.valor);
+    const amount = toAmount(body.valor) ?? toAmount(beneficio.valor);
     if (!amount) {
       return NextResponse.json({ error: "Valor inválido" }, { status: 400 });
     }
 
     const beneficioTitulo = String(
-      titulo || beneficio.titulo || "Assinatura Maylon"
+      body.titulo || beneficio.titulo || "Assinatura Maylon"
     );
 
     const existing = await findActiveOrPending(usuario_id, beneficioId);
@@ -91,7 +85,10 @@ export async function POST(req: Request) {
     );
     const user = userRows?.[0];
     if (!user) {
-      return NextResponse.json({ error: "Usuário não encontrado" }, { status: 404 });
+      return NextResponse.json(
+        { error: "Usuário não encontrado" },
+        { status: 404 }
+      );
     }
 
     const taxId = String(user.identification_number || "").replace(/\D/g, "");
@@ -162,6 +159,8 @@ export async function POST(req: Request) {
       status: auth?.status || "CREATED",
       message:
         "Escaneie o QR Code para autorizar os débitos mensais automáticos via Pix.",
+      usuario_id,
+      beneficio_id: toPositiveInt(beneficio.id) ?? beneficioId,
     });
   } catch (error: any) {
     console.error("Erro Pix authorize:", error);

@@ -44,14 +44,16 @@ export async function POST(req: Request) {
       );
     }
 
+    const userId = Number(user.id);
+
     const accessToken = jwt.sign(
-      { id: user.id, user_type: user.user_type },
+      { id: userId, user_type: user.user_type },
       process.env.JWT_SECRET!,
       { expiresIn: "15m" }
     );
 
     const refreshToken = jwt.sign(
-      { id: user.id },
+      { id: userId },
       process.env.JWT_REFRESH_SECRET!,
       { expiresIn: "7d" }
     );
@@ -72,7 +74,7 @@ export async function POST(req: Request) {
     const res = NextResponse.json({
       success: true,
       user: {
-        id: user.id,
+        id: userId,
         full_name: user.full_name,
         phone: user.phone,
         profile_image: user.profile_image,
@@ -84,14 +86,14 @@ export async function POST(req: Request) {
     res.cookies.set("access_token", accessToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
+      sameSite: "lax",
       path: "/",
     });
 
     res.cookies.set("refresh_token", refreshToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
+      sameSite: "lax",
       path: "/",
     });
 

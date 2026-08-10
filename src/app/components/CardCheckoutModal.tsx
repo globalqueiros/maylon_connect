@@ -35,20 +35,40 @@ export default function CardCheckoutModal({
     setError(null);
 
     try {
+      const meRes = await fetch("/api/me", {
+        method: "GET",
+        credentials: "include",
+        cache: "no-store",
+      });
+      if (!meRes.ok) {
+        throw new Error("Sessão expirada. Faça login novamente.");
+      }
+      const me = await meRes.json();
+      const resolvedUserId = Number(me?.id);
+      const resolvedBeneficioId = Number(beneficioId);
+
+      if (!Number.isFinite(resolvedUserId) || resolvedUserId <= 0) {
+        throw new Error("Usuário inválido. Faça login novamente.");
+      }
+      if (!Number.isFinite(resolvedBeneficioId) || resolvedBeneficioId <= 0) {
+        throw new Error("Benefício inválido. Recarregue a página.");
+      }
+
       const res = await fetch("/api/stripe/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
-          usuario_id: usuarioId,
-          beneficio_id: beneficioId,
-          titulo,
-          valor: valorNumber,
+          usuario_id: resolvedUserId || Number(usuarioId),
+          beneficio_id: resolvedBeneficioId,
+          titulo: String(titulo || ""),
+          valor: valorNumber > 0 ? valorNumber : String(valor ?? "").replace(",", "."),
         }),
       });
 
       const data = await res.json();
       if (!res.ok || !data.url) {
+        console.error("Stripe checkout failed:", data);
         throw new Error(data.error || "Não foi possível iniciar o pagamento");
       }
 

@@ -101,7 +101,18 @@ export async function POST(req: Request) {
       return true;
     });
 
-    return NextResponse.json(filtered);
+    const normalized = filtered.map((b: any) => ({
+      ...b,
+      id: Number(b.id),
+      valor: b.valor == null ? null : String(b.valor),
+      status: Boolean(Number(b.status)),
+      titulo: b.titulo == null ? "" : String(b.titulo),
+      descricao: b.descricao == null ? "" : String(b.descricao),
+      imagem: b.imagem == null ? "" : String(b.imagem),
+      tipo: b.tipo == null ? "" : String(b.tipo),
+    }));
+
+    return NextResponse.json(normalized);
   } catch (error) {
     console.error(error);
     return NextResponse.json(

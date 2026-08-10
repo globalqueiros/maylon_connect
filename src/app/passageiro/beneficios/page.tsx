@@ -210,29 +210,66 @@ export default function BeneficiosPage() {
     setBeneficioSelecionado(null);
   };
 
+  const resolvePaymentIds = async () => {
+    const meRes = await fetch("/api/me", {
+      method: "GET",
+      credentials: "include",
+      cache: "no-store",
+    });
+    if (!meRes.ok) {
+      throw new Error("Sessão expirada. Faça login novamente.");
+    }
+    const me = await meRes.json();
+    const usuarioId = Number(me?.id);
+    const beneficioId = Number(beneficioSelecionado?.id);
+
+    if (!Number.isFinite(usuarioId) || usuarioId <= 0) {
+      throw new Error("Usuário inválido. Faça login novamente.");
+    }
+    if (!Number.isFinite(beneficioId) || beneficioId <= 0) {
+      throw new Error("Benefício inválido. Recarregue a página e tente novamente.");
+    }
+
+    setUsuario((prev) =>
+      prev
+        ? { ...prev, id: usuarioId, tipo: me.user_type || prev.tipo, user_type: me.user_type }
+        : { id: usuarioId, tipo: me.user_type, user_type: me.user_type }
+    );
+
+    return {
+      usuarioId,
+      beneficioId,
+      titulo: String(beneficioSelecionado?.titulo || ""),
+      valor: String(beneficioSelecionado?.valor ?? "").replace(",", "."),
+    };
+  };
+
   const gerarPixAutorizacao = async () => {
-    if (!usuario?.id || !beneficioSelecionado?.id) {
-      setPixError("Dados do usuário ou benefício indisponíveis. Recarregue a página.");
+    if (!beneficioSelecionado?.id) {
+      setPixError("Benefício não selecionado. Feche e abra novamente.");
       return;
     }
     setPixLoading(true);
     setPixError(null);
 
     try {
+      const { usuarioId, beneficioId, titulo, valor } = await resolvePaymentIds();
+
       const res = await fetch("/api/btg/pix/authorize", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
-          usuario_id: Number(usuario.id),
-          beneficio_id: Number(beneficioSelecionado.id),
-          titulo: String(beneficioSelecionado.titulo || ""),
-          valor: String(beneficioSelecionado.valor ?? "").replace(",", "."),
+          usuario_id: usuarioId,
+          beneficio_id: beneficioId,
+          titulo,
+          valor,
         }),
       });
 
       const data = await res.json();
       if (!res.ok) {
+        console.error("PIX authorize failed:", data);
         throw new Error(data.error || "Erro ao gerar autorização Pix");
       }
 

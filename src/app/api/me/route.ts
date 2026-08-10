@@ -46,15 +46,16 @@ export async function GET() {
     }
 
     const user = rows[0];
+    const userId = Number(user.id);
 
     const newToken = jwt.sign(
-      { id: user.id },
+      { id: userId, user_type: user.user_type },
       process.env.JWT_SECRET!,
       { expiresIn: "10d" }
     );
 
     const response = NextResponse.json({
-      id: user.id,
+      id: userId,
       full_name: user.full_name,
       phone: user.phone,
       email: user.email,
