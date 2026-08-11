@@ -23,24 +23,29 @@ export function middleware(req: NextRequest) {
       user_type?: string;
     };
 
-    const userType = decoded.user_type;
+    const userType = String(decoded.user_type || "").toLowerCase();
+    const isDriver = userType === "driver" || userType === "motorista";
+    const isPassenger =
+      userType === "customer" ||
+      userType === "passageiro" ||
+      userType === "passenger";
 
     if (pathname === "/" || pathname.startsWith("/login")) {
-      if (userType === "driver") {
+      if (isDriver) {
         return NextResponse.redirect(new URL("/motorista", req.url));
       }
-      if (userType === "customer") {
+      if (isPassenger) {
         return NextResponse.redirect(new URL("/passageiro", req.url));
       }
       return NextResponse.next();
     }
 
     // Only bounce when role is known AND wrong — never for missing user_type
-    if (pathname.startsWith("/motorista") && userType === "customer") {
+    if (pathname.startsWith("/motorista") && isPassenger) {
       return NextResponse.redirect(new URL("/passageiro", req.url));
     }
 
-    if (pathname.startsWith("/passageiro") && userType === "driver") {
+    if (pathname.startsWith("/passageiro") && isDriver) {
       return NextResponse.redirect(new URL("/motorista", req.url));
     }
 

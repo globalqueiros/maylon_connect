@@ -16,17 +16,33 @@ function getBannerUrl(image: string | null) {
 
 export async function GET() {
   try {
-    const [rows]: any = await db.query(
-      "SELECT * FROM banner_setups WHERE is_active = 1 ORDER BY id DESC"
-    );
+    let rows: any[] = [];
+
+    try {
+      const [result]: any = await db.query(
+        "SELECT * FROM banner_setups WHERE is_active = 1 ORDER BY id DESC"
+      );
+      rows = Array.isArray(result) ? result : [];
+    } catch {
+      try {
+        const [result]: any = await db.query(
+          "SELECT * FROM banners WHERE is_active = 1 ORDER BY id DESC"
+        );
+        rows = Array.isArray(result) ? result : [];
+      } catch {
+        // Local/dev DBs may not have banner tables yet.
+        rows = [];
+      }
+    }
 
     const banners = rows.map((banner: any) => ({
       ...banner,
-      image: getBannerUrl(banner.image),
+      image: getBannerUrl(banner.image ?? banner.imagem ?? null),
     }));
 
     return NextResponse.json(banners);
   } catch (error) {
+    console.error("/api/banners error:", error);
     return NextResponse.json(
       { error: "Erro ao buscar banners" },
       { status: 500 }

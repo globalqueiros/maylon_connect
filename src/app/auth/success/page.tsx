@@ -33,12 +33,17 @@ export default function SuccessPage() {
         const user = await res.json();
 
         setTimeout(() => {
-          if (user.user_type === "driver") {
+          const userType = String(user.user_type || "").toLowerCase();
+          if (userType === "driver" || userType === "motorista") {
             router.replace("/motorista");
-          } else if (user.user_type === "customer") {
+          } else if (
+            userType === "customer" ||
+            userType === "passageiro" ||
+            userType === "passenger"
+          ) {
             router.replace("/passageiro");
           } else {
-            router.replace("/?error=type");
+            router.replace("/passageiro");
           }
         }, 800);
 

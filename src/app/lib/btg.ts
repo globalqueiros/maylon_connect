@@ -41,6 +41,14 @@ export function getBtgConfig() {
   };
 }
 
+export class BtgConfigError extends Error {
+  status = 503;
+  constructor(message: string) {
+    super(message);
+    this.name = "BtgConfigError";
+  }
+}
+
 export function assertBtgReady() {
   const cfg = getBtgConfig();
   const missing: string[] = [];
@@ -50,7 +58,7 @@ export function assertBtgReady() {
   if (!cfg.accountNumber) missing.push("BTG_ACCOUNT_NUMBER");
   if (!cfg.pixKey) missing.push("BTG_PIX_KEY");
   if (missing.length) {
-    throw new Error(
+    throw new BtgConfigError(
       `Configuração BTG incompleta. Informe: ${missing.join(", ")}`
     );
   }
