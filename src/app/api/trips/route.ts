@@ -72,6 +72,35 @@ async function loadTripsForUser(userId: number) {
             tr.destination_address,
             ''
           ) AS destination_address,
+          COALESCE(trc.pickup_city, tr.pickup_city, '') AS pickup_city,
+          COALESCE(trc.pickup_state, tr.pickup_state, '') AS pickup_state,
+          COALESCE(trc.destination_city, tr.dropoff_city, tr.destination_city, '') AS destination_city,
+          COALESCE(trc.destination_state, tr.dropoff_state, tr.destination_state, '') AS destination_state,
+          COALESCE(tr.actual_fare, tr.estimated_fare, 0) AS valor,
+          tr.current_status,
+          tr.created_at
+        FROM trip_requests tr
+        LEFT JOIN trip_request_coordinates trc
+          ON trc.trip_request_id = tr.id
+        WHERE tr.customer_id = ? OR tr.driver_id = ?
+        ORDER BY tr.created_at DESC
+        `,
+        [userId, userId]
+      );
+      return Array.isArray(rows) ? rows : [];
+    },
+    async () => {
+      const [rows]: any = await db.query(
+        `
+        SELECT
+          tr.id AS trip_request_id,
+          COALESCE(trc.pickup_address, tr.pickup_address, '') AS pickup_address,
+          COALESCE(
+            trc.destination_address,
+            tr.dropoff_address,
+            tr.destination_address,
+            ''
+          ) AS destination_address,
           COALESCE(tr.actual_fare, tr.estimated_fare, 0) AS valor,
           tr.current_status,
           tr.created_at
