@@ -35,10 +35,15 @@ export async function GET() {
       }
     }
 
-    const banners = rows.map((banner: any) => ({
-      ...banner,
-      image: getBannerUrl(banner.image ?? banner.imagem ?? null),
-    }));
+    const banners = rows
+      .map((banner: any) => {
+        const image = getBannerUrl(banner.image ?? banner.imagem ?? null);
+        return {
+          ...banner,
+          image,
+        };
+      })
+      .filter((banner: { image: string | null }) => Boolean(banner.image));
 
     return NextResponse.json(banners);
   } catch (error) {

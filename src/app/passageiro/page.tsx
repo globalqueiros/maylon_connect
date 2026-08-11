@@ -62,7 +62,15 @@ export default function PassageiroDashboard() {
   useEffect(() => {
     fetch("/api/banners", { credentials: "include", cache: "no-store" })
       .then((res) => res.json())
-      .then((data) => setBanners(Array.isArray(data) ? data : []))
+      .then((data) => {
+        const list = Array.isArray(data) ? data : [];
+        setBanners(
+          list.filter(
+            (b: Banner) =>
+              typeof b?.image === "string" && b.image.trim().length > 0
+          )
+        );
+      })
       .catch(() => console.error("Erro ao buscar banners"));
   }, []);
 
@@ -138,7 +146,7 @@ export default function PassageiroDashboard() {
         </div>
       </div>
 
-      {banners.length > 0 && (
+      {banners[0]?.image ? (
         <div className="relative aspect-[18/5] w-full overflow-hidden rounded-2xl shadow-lg">
           <Image
             src={banners[0].image}
@@ -148,7 +156,7 @@ export default function PassageiroDashboard() {
             priority
           />
         </div>
-      )}
+      ) : null}
 
       <div className="mt-8 overflow-hidden rounded-3xl bg-white shadow-lg">
         <div className="flex items-center justify-between px-6 py-4">
