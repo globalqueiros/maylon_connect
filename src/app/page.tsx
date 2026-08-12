@@ -48,16 +48,17 @@ function LoginPage() {
       }
       const userType = String(data.user.user_type || "").toLowerCase();
       if (userType === "driver" || userType === "motorista") {
-        window.location.href = "/motorista";
+        window.location.replace("/motorista");
       } else if (
         userType === "customer" ||
         userType === "passageiro" ||
         userType === "passenger"
       ) {
-        window.location.href = "/passageiro";
+        window.location.replace("/passageiro");
       } else {
-        window.location.href = "/passageiro";
+        window.location.replace("/passageiro");
       }
+      return;
     } catch {
       setError("Erro de conexão");
     }

@@ -73,6 +73,23 @@ CREATE TABLE IF NOT EXISTS banner_setups (
   PRIMARY KEY (id)
 );
 
+CREATE TABLE IF NOT EXISTS protocolos (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  usuario_id BIGINT UNSIGNED NOT NULL,
+  codigo VARCHAR(64) NOT NULL,
+  nome VARCHAR(255) NULL,
+  email VARCHAR(255) NULL,
+  assunto VARCHAR(255) NULL,
+  mensagem TEXT NULL,
+  status VARCHAR(40) NOT NULL DEFAULT 'Aberto',
+  criado_em DATETIME NULL,
+  atualizado_em TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uniq_protocolos_codigo (codigo),
+  KEY idx_protocolos_usuario (usuario_id),
+  KEY idx_protocolos_criado (criado_em)
+);
+
 CREATE TABLE IF NOT EXISTS usuario_beneficios (
   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   usuario_id BIGINT UNSIGNED NOT NULL,

@@ -150,14 +150,19 @@ export default function DashboardLayout() {
   useEffect(() => {
     const fetchProtocolos = async () => {
       try {
-        const res = await fetch("/api/protocolo");
-        if (!res.ok) throw new Error();
+        const res = await fetch("/api/protocolo", {
+          credentials: "include",
+          cache: "no-store",
+        });
+        if (!res.ok) {
+          setProtocolos([]);
+          return;
+        }
 
         const data = await res.json();
-        setProtocolos(data);
-
-      } catch (error) {
-        console.error("Erro ao buscar protocolos");
+        setProtocolos(Array.isArray(data) ? data : []);
+      } catch {
+        setProtocolos([]);
       }
     };
 

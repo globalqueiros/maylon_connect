@@ -14,6 +14,26 @@ function envStr(key: string): string | undefined {
   return cleaned;
 }
 
+async function logDbConnection(
+  label: string,
+  pool: mysql.Pool,
+  host?: string,
+  database?: string
+) {
+  try {
+    const conn = await pool.getConnection();
+    await conn.query("SELECT 1");
+    conn.release();
+    console.log(
+      `[DB] ${label}: Connected (host=${host || "n/a"}, database=${database || "n/a"})`
+    );
+  } catch (error: any) {
+    console.error(
+      `[DB] ${label}: Not connected (host=${host || "n/a"}, database=${database || "n/a"}) — ${error?.code || error?.message || "unknown error"}`
+    );
+  }
+}
+
 export const db = mysql.createPool({
   host: envStr("DB_HOST"),
   user: envStr("DB_USER"),
@@ -34,3 +54,5 @@ export const db2 = mysql.createPool({
   queueLimit: 0,
 });
 
+void logDbConnection("db", db, envStr("DB_HOST"), envStr("DB_NAME"));
+void logDbConnection("db2", db2, envStr("DB2_HOST"), envStr("DB2_NAME"));
