@@ -2,10 +2,24 @@ import Stripe from "stripe";
 
 let stripeSingleton: Stripe | null = null;
 
+function cleanEnv(value?: string | null) {
+  if (!value) return "";
+  const cleaned = value.replace(/\r/g, "").trim();
+  if (
+    (cleaned.startsWith('"') && cleaned.endsWith('"')) ||
+    (cleaned.startsWith("'") && cleaned.endsWith("'"))
+  ) {
+    return cleaned.slice(1, -1);
+  }
+  return cleaned;
+}
+
 export function getStripe() {
-  const key = process.env.STRIPE_SECRET_KEY;
+  const key = cleanEnv(process.env.STRIPE_SECRET_KEY);
   if (!key) {
-    throw new Error("STRIPE_SECRET_KEY não configurada");
+    throw Object.assign(new Error("STRIPE_SECRET_KEY não configurada no .env"), {
+      status: 503,
+    });
   }
   if (!stripeSingleton) {
     stripeSingleton = new Stripe(key);

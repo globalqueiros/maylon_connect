@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "../../../../lib/db";
 import { createPixAuthorization } from "../../../../lib/btg";
 import {
+  ensurePaymentColumns,
   findActiveOrPending,
   logPagamento,
   upsertPendente,
@@ -24,6 +25,7 @@ function toAmount(value: unknown) {
 
 export async function POST(req: Request) {
   try {
+    await ensurePaymentColumns();
     const body = await readJsonBody(req);
     const url = new URL(req.url);
 
@@ -31,7 +33,8 @@ export async function POST(req: Request) {
       body.usuario_id ??
         body.usuarioId ??
         body.user_id ??
-        url.searchParams.get("usuario_id")
+        url.searchParams.get("usuario_id"),
+      req
     );
 
     const beneficioId =
@@ -161,6 +164,7 @@ export async function POST(req: Request) {
       payload: auth,
     });
 
+    const isMock = Boolean(auth?.mock);
     return NextResponse.json({
       etapa: "autorizacao",
       pedido_codigo: pedidoCodigo,
@@ -168,8 +172,10 @@ export async function POST(req: Request) {
       emv,
       qr_image: `https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(emv)}`,
       status: auth?.status || "CREATED",
-      message:
-        "Escaneie o QR Code para autorizar os débitos mensais automáticos via Pix.",
+      mock: isMock,
+      message: isMock
+        ? "Modo demonstração PIX (BTG_MOCK). Configure BTG_ACCOUNT_NUMBER e BTG_PIX_KEY no servidor para PIX real."
+        : "Escaneie o QR Code para autorizar os débitos mensais automáticos via Pix.",
       usuario_id,
       beneficio_id: toPositiveInt(beneficio.id) ?? beneficioId,
     });

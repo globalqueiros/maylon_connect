@@ -27,10 +27,27 @@ Ensure the deploy server IP is allowed in MySQL “Remote MySQL” / user grants
 ```bash
 git pull
 npm ci
+# Apply payment columns (ignore "duplicate column" errors)
+# mysql -u USER -p DB_NAME < sql/usuario_beneficios_payments.sql
 npm run build
 npm run start
 # or restart your process manager (pm2 / systemd)
 ```
+
+## PIX + Cartão (required env)
+
+Cartão (Stripe):
+- `STRIPE_SECRET_KEY`
+- `NEXT_PUBLIC_APP_URL` = public site URL
+
+PIX (BTG):
+- `BTG_CLIENT_ID`, `BTG_CLIENT_SECRET`
+- `BTG_COMPANY_ID` (or `BTG_SECRET`)
+- `BTG_ACCOUNT_NUMBER`
+- `BTG_PIX_KEY`
+- User profile must have CPF/CNPJ (`identification_number`)
+
+Without `BTG_ACCOUNT_NUMBER` + `BTG_PIX_KEY`, PIX returns a clear configuration error (not a crash).
 
 ## Client retest checklist
 

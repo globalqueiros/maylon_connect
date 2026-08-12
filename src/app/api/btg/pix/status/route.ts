@@ -5,6 +5,7 @@ import {
   getPixInstantCharge,
 } from "../../../../lib/btg";
 import {
+  ensurePaymentColumns,
   findByAuthorizationId,
   findByPedido,
   findByTxId,
@@ -15,6 +16,7 @@ import { db } from "../../../../lib/db";
 
 export async function GET(req: Request) {
   try {
+    await ensurePaymentColumns();
     const { searchParams } = new URL(req.url);
     const pedido = searchParams.get("pedido");
     const authorizationId = searchParams.get("authorization_id");

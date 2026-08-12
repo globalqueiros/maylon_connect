@@ -1,21 +1,30 @@
 Olá,
 
-Atualizamos o Portal Connect com correções de login/sessão, benefícios, viagens e pagamento (PIX/cartão).
+Atualizamos novamente o Portal Connect com foco em PIX e Cartão (combinado).
 
-Por favor, faça um hard refresh no navegador (Ctrl+Shift+R ou Cmd+Shift+R) e valide:
+Por favor, no servidor:
+1) Faça deploy do código atual
+2) Confirme no .env as chaves Stripe e BTG (ver lista abaixo)
+3) Rode no MySQL o arquivo sql/usuario_beneficios_payments.sql (ignore erros de coluna já existente)
+4) Reinicie o app (npm run build && npm run start / pm2 restart)
 
-1) Login com seu usuário de produção
-2) Dashboard do passageiro (estatísticas e últimas viagens)
-3) Página Viagens (histórico)
-4) Benefícios (lista sem erro 500)
-5) PIX — abrir benefício → Gerar QR de Autorização
-6) Cartão — abrir benefício → modal de cartão deve aparecer na frente
+Chaves obrigatórias no .env do servidor:
+- STRIPE_SECRET_KEY
+- NEXT_PUBLIC_APP_URL (URL pública do site, ex: https://seudominio.com)
+- BTG_CLIENT_ID, BTG_CLIENT_SECRET
+- BTG_COMPANY_ID (ou BTG_SECRET)
+- BTG_ACCOUNT_NUMBER
+- BTG_PIX_KEY
+- (recomendado) BTG_ACCESS_TOKEN / BTG_REFRESH_TOKEN se o BTG exigir
 
-Bugs originais que devem estar resolvidos:
-- “Dados obrigatórios não enviados” no PIX/cartão
-- Modal de cartão atrás do modal principal
-- Logout inesperado / viagens vazias ao navegar
+Depois, hard refresh (Ctrl+Shift+R) e valide:
+1) Login
+2) Benefícios → selecionar plano
+3) PIX → Gerar QR de Autorização (precisa ter CPF no perfil)
+4) Cartão → Pagar (deve abrir o Checkout Stripe)
 
-Se algo falhar, envie print + status do Network da requisição /api/... que falhou.
+Se falhar, envie print + status Network de:
+- /api/btg/pix/authorize
+- /api/stripe/checkout
 
 Obrigado.

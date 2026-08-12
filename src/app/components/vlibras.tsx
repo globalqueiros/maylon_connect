@@ -1,4 +1,4 @@
-"use client"; 
+"use client";
 import { useEffect, useState } from "react";
 import Script from "next/script";
 
@@ -17,10 +17,13 @@ declare global {
 
 export default function VLibras() {
   const [mounted, setMounted] = useState(false);
+  const [enabled, setEnabled] = useState(true);
+
   useEffect(() => {
     setMounted(true);
   }, []);
-  if (!mounted) return null;
+
+  if (!mounted || !enabled) return null;
 
   return (
     <>
@@ -32,13 +35,19 @@ export default function VLibras() {
       </div>
       <Script
         src="https://vlibras.gov.br/app/vlibras-plugin.js"
-        strategy="afterInteractive"
+        strategy="lazyOnload"
         onLoad={() => {
-          if (window.VLibras) {
-            new window.VLibras.Widget(
-              "https://vlibras.gov.br/app"
-            );
+          try {
+            if (window.VLibras) {
+              new window.VLibras.Widget("https://vlibras.gov.br/app");
+            }
+          } catch {
+            // ignore widget init failures
           }
+        }}
+        onError={() => {
+          // Offline / DNS failure — hide widget quietly
+          setEnabled(false);
         }}
       />
     </>

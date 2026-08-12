@@ -319,11 +319,23 @@ export default function BeneficiosPage() {
       const data = await res.json();
       if (!res.ok) {
         console.error("PIX authorize failed:", data);
-        const detail =
-          data?.details?.beneficio_id == null || data?.details?.usuario_id == null
-            ? " (usuário/benefício não identificados — faça login novamente)"
-            : "";
-        throw new Error((data.error || "Erro ao gerar autorização Pix") + detail);
+        let message = data.error || "Erro ao gerar autorização Pix";
+        if (
+          data?.details?.beneficio_id == null ||
+          data?.details?.usuario_id == null
+        ) {
+          message +=
+            " (usuário/benefício não identificados — faça login novamente)";
+        }
+        if (String(message).includes("CPF/CNPJ")) {
+          message +=
+            " Vá em Perfil e salve seu CPF antes de tentar novamente.";
+        }
+        if (String(message).includes("Configuração BTG")) {
+          message +=
+            " Peça ao administrador para preencher BTG_ACCOUNT_NUMBER e BTG_PIX_KEY no .env do servidor.";
+        }
+        throw new Error(message);
       }
 
       setPixEtapa("autorizacao");

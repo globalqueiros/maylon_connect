@@ -7,6 +7,7 @@ import {
   toCentavos,
 } from "../../../lib/stripeServer";
 import {
+  ensurePaymentColumns,
   findActiveOrPending,
   logPagamento,
   upsertPendente,
@@ -22,6 +23,7 @@ export const dynamic = "force-dynamic";
 
 export async function POST(req: Request) {
   try {
+    await ensurePaymentColumns();
     const body = await readJsonBody(req);
     const url = new URL(req.url);
 
@@ -29,7 +31,8 @@ export async function POST(req: Request) {
       body.usuario_id ??
         body.usuarioId ??
         body.user_id ??
-        url.searchParams.get("usuario_id")
+        url.searchParams.get("usuario_id"),
+      req
     );
 
     const beneficioId =
@@ -186,9 +189,19 @@ export async function POST(req: Request) {
     });
   } catch (error: any) {
     console.error("ERRO STRIPE:", error);
+    const raw = String(error?.message || "");
+    let message = raw || "Erro ao criar checkout Stripe";
+    if (
+      /connection|ECONN|ENOTFOUND|ETIMEDOUT|retried|network|fetch failed/i.test(
+        raw
+      )
+    ) {
+      message =
+        "Falha de conexão com a Stripe. Verifique internet/DNS e se STRIPE_SECRET_KEY (test/live) está correta no .env.";
+    }
     return NextResponse.json(
-      { error: error?.message || "Erro ao criar checkout Stripe" },
-      { status: 500 }
+      { error: message },
+      { status: error?.status || 500 }
     );
   }
 }

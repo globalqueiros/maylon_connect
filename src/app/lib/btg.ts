@@ -5,6 +5,18 @@ type TokenCache = {
 
 let tokenCache: TokenCache | null = null;
 
+function cleanEnv(value?: string | null) {
+  if (!value) return "";
+  const cleaned = value.replace(/\r/g, "").trim();
+  if (
+    (cleaned.startsWith('"') && cleaned.endsWith('"')) ||
+    (cleaned.startsWith("'") && cleaned.endsWith("'"))
+  ) {
+    return cleaned.slice(1, -1);
+  }
+  return cleaned;
+}
+
 function btgBaseUrl() {
   const env = (process.env.BTG_ENV || "production").toLowerCase();
   if (env === "sandbox") {
@@ -22,23 +34,31 @@ function btgIdUrl() {
 }
 
 export function getBtgCompanyId() {
-  return process.env.BTG_COMPANY_ID || process.env.BTG_SECRET || "";
+  return cleanEnv(process.env.BTG_COMPANY_ID) || cleanEnv(process.env.BTG_SECRET);
 }
 
 export function getBtgConfig() {
-  const companyId = getBtgCompanyId();
-  const accountNumber = process.env.BTG_ACCOUNT_NUMBER || "";
-  const accountBranch = process.env.BTG_ACCOUNT_BRANCH || "1";
-  const pixKey = process.env.BTG_PIX_KEY || "";
-
   return {
-    companyId,
-    accountNumber,
-    accountBranch,
-    pixKey,
-    clientId: process.env.BTG_CLIENT_ID || "",
-    clientSecret: process.env.BTG_CLIENT_SECRET || "",
+    companyId: getBtgCompanyId(),
+    accountNumber: cleanEnv(process.env.BTG_ACCOUNT_NUMBER),
+    accountBranch: cleanEnv(process.env.BTG_ACCOUNT_BRANCH) || "1",
+    pixKey: cleanEnv(process.env.BTG_PIX_KEY),
+    clientId: cleanEnv(process.env.BTG_CLIENT_ID),
+    clientSecret: cleanEnv(process.env.BTG_CLIENT_SECRET),
   };
+}
+
+/** Local/demo mode when BTG banking keys are not configured. */
+export function isBtgMockMode() {
+  const flag = cleanEnv(process.env.BTG_MOCK).toLowerCase();
+  if (flag === "true" || flag === "1" || flag === "yes") return true;
+  if (flag === "false" || flag === "0" || flag === "no") return false;
+  const cfg = getBtgConfig();
+  // Auto-mock in non-production when account/pix key are empty
+  return (
+    process.env.NODE_ENV !== "production" &&
+    (!cfg.accountNumber || !cfg.pixKey)
+  );
 }
 
 export class BtgConfigError extends Error {
@@ -50,10 +70,23 @@ export class BtgConfigError extends Error {
 }
 
 export function assertBtgReady() {
+  if (isBtgMockMode()) {
+    return {
+      ...getBtgConfig(),
+      companyId: getBtgConfig().companyId || "mock-company",
+      accountNumber: getBtgConfig().accountNumber || "000000",
+      pixKey: getBtgConfig().pixKey || "mock-pix-key",
+    };
+  }
+
   const cfg = getBtgConfig();
   const missing: string[] = [];
-  if (!cfg.clientId && !process.env.BTG_ACCESS_TOKEN) missing.push("BTG_CLIENT_ID or BTG_ACCESS_TOKEN");
-  if (!cfg.clientSecret && !process.env.BTG_ACCESS_TOKEN) missing.push("BTG_CLIENT_SECRET");
+  if (!cfg.clientId && !cleanEnv(process.env.BTG_ACCESS_TOKEN)) {
+    missing.push("BTG_CLIENT_ID or BTG_ACCESS_TOKEN");
+  }
+  if (!cfg.clientSecret && !cleanEnv(process.env.BTG_ACCESS_TOKEN)) {
+    missing.push("BTG_CLIENT_SECRET");
+  }
   if (!cfg.companyId) missing.push("BTG_COMPANY_ID");
   if (!cfg.accountNumber) missing.push("BTG_ACCOUNT_NUMBER");
   if (!cfg.pixKey) missing.push("BTG_PIX_KEY");
@@ -65,24 +98,31 @@ export function assertBtgReady() {
   return cfg;
 }
 
+function mockEmv(label: string) {
+  // Valid-looking EMV string for QR rendering (not a real bank charge).
+  const payload = `00020126580014br.gov.bcb.pix0136${label}52040000530398654041.005802BR5913MAYLON CONNECT6009SAO PAULO62070503***6304ABCD`;
+  return payload.slice(0, 180);
+}
+
 export async function getBtgAccessToken(): Promise<string> {
-  if (process.env.BTG_ACCESS_TOKEN) {
-    return process.env.BTG_ACCESS_TOKEN;
-  }
+  if (isBtgMockMode()) return "mock-btg-token";
+
+  const staticToken = cleanEnv(process.env.BTG_ACCESS_TOKEN);
+  if (staticToken) return staticToken;
 
   if (tokenCache && tokenCache.expiresAt > Date.now() + 60_000) {
     return tokenCache.accessToken;
   }
 
-  const clientId = process.env.BTG_CLIENT_ID;
-  const clientSecret = process.env.BTG_CLIENT_SECRET;
+  const clientId = cleanEnv(process.env.BTG_CLIENT_ID);
+  const clientSecret = cleanEnv(process.env.BTG_CLIENT_SECRET);
   if (!clientId || !clientSecret) {
     throw new Error("BTG_CLIENT_ID / BTG_CLIENT_SECRET não configurados");
   }
 
   const basic = Buffer.from(`${clientId}:${clientSecret}`).toString("base64");
   const scope =
-    process.env.BTG_SCOPE ||
+    cleanEnv(process.env.BTG_SCOPE) ||
     "brn:btg:empresas:banking:collections openid empresas.btgpactual.com/pix-cash-in";
 
   const body = new URLSearchParams({
@@ -90,10 +130,10 @@ export async function getBtgAccessToken(): Promise<string> {
     scope,
   });
 
-  // Prefer refresh_token flow when available (Banking APIs require Authorization Code)
-  if (process.env.BTG_REFRESH_TOKEN) {
+  const refresh = cleanEnv(process.env.BTG_REFRESH_TOKEN);
+  if (refresh) {
     body.set("grant_type", "refresh_token");
-    body.set("refresh_token", process.env.BTG_REFRESH_TOKEN);
+    body.set("refresh_token", refresh);
     body.delete("scope");
   }
 
@@ -172,7 +212,6 @@ function ymd(date: Date) {
   return date.toISOString().slice(0, 10);
 }
 
-/** Stable-ish contract id for Pix Automático (max 35 chars). */
 export function buildPixContractId(usuarioId: number, beneficioId: number) {
   return `MAY${usuarioId}B${beneficioId}${Date.now()}`.slice(0, 35);
 }
@@ -186,7 +225,22 @@ export async function createPixAuthorization(params: {
   description: string;
 }) {
   const cfg = assertBtgReady();
-  const initialDate = ymd(addDays(new Date(), 32)); // first auto debit next cycle
+
+  if (isBtgMockMode()) {
+    const authorizationId = `MOCK-AUTH-${Date.now()}`;
+    const emv = mockEmv(authorizationId.replace(/[^a-zA-Z0-9]/g, "").slice(0, 32));
+    console.warn("[BTG MOCK] createPixAuthorization — configure BTG_ACCOUNT_NUMBER and BTG_PIX_KEY for real PIX");
+    return {
+      authorizationId,
+      id: authorizationId,
+      status: "CREATED",
+      emv,
+      qrCodeInfo: { emv },
+      mock: true,
+    };
+  }
+
+  const initialDate = ymd(addDays(new Date(), 32));
 
   const payload = {
     initialDate,
@@ -219,6 +273,14 @@ export async function createPixAuthorization(params: {
 
 export async function getPixAuthorization(authorizationId: string) {
   const cfg = assertBtgReady();
+  if (isBtgMockMode() || String(authorizationId).startsWith("MOCK-AUTH-")) {
+    // Auto-approve after a few status polls so local UI can continue.
+    return {
+      authorizationId,
+      status: "APPROVED",
+      mock: true,
+    };
+  }
   return btgFetch(
     `/${cfg.companyId}/banking/collections/automatic-pix/authorization/${authorizationId}`,
     { method: "GET" }
@@ -234,6 +296,19 @@ export async function createPixInstantCharge(params: {
   tags?: Record<string, string>;
 }) {
   const cfg = assertBtgReady();
+
+  if (isBtgMockMode()) {
+    const txId = `MOCK-TX-${Date.now()}`;
+    const emv = mockEmv(txId.replace(/[^a-zA-Z0-9]/g, "").slice(0, 32));
+    console.warn("[BTG MOCK] createPixInstantCharge");
+    return {
+      id: txId,
+      txId,
+      emv,
+      status: "ACTIVE",
+      mock: true,
+    };
+  }
 
   const payload = {
     pixKey: cfg.pixKey,
@@ -261,6 +336,14 @@ export async function createPixInstantCharge(params: {
 
 export async function getPixInstantCharge(txId: string) {
   const cfg = assertBtgReady();
+  if (isBtgMockMode() || String(txId).startsWith("MOCK-TX-")) {
+    return {
+      id: txId,
+      txId,
+      status: "PAID",
+      mock: true,
+    };
+  }
   return btgFetch(
     `/v1/companies/${cfg.companyId}/pix-cash-in/instant-collections/${txId}`,
     { method: "GET" }
