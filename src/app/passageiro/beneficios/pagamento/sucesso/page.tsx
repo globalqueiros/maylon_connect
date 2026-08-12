@@ -43,10 +43,12 @@ function PaymentSuccessContent() {
   const [info, setInfo] = useState<PaymentInfo>({
     pedido: pedidoParam || "—",
     amount_formatted: valorParam
-      ? new Intl.NumberFormat("pt-BR", {
-          style: "currency",
-          currency: "BRL",
-        }).format(Number(valorParam))
+      ? (/R\$/.test(String(valorParam))
+          ? String(valorParam)
+          : new Intl.NumberFormat("pt-BR", {
+              style: "currency",
+              currency: "BRL",
+            }).format(Number(String(valorParam).replace(",", "."))))
       : "—",
     method,
     date: new Date().toLocaleString("pt-BR"),
@@ -74,13 +76,14 @@ function PaymentSuccessContent() {
               transaction_id: data.transaction_id,
             });
           }
-        } else if (pedidoParam && method === "pix") {
+        } else if (pedidoParam) {
+          // In-portal card (or PIX): no Stripe Checkout session_id
           const me = await fetch("/api/me", { credentials: "include" });
           const user = me.ok ? await me.json() : null;
           setInfo((prev) => ({
             ...prev,
             pedido: pedidoParam,
-            method: "pix",
+            method,
             customer: {
               name: user?.full_name || "—",
               email: user?.email || "—",

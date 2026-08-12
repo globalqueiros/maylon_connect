@@ -21,7 +21,7 @@ Depois, hard refresh (Ctrl+Shift+R) e valide:
 1) Login
 2) Benefícios → selecionar plano
 3) PIX → Gerar QR de Autorização (precisa ter CPF no perfil)
-4) Cartão → Pagar (deve abrir o Checkout Stripe)
+4) Cartão → Pagar (formulário de cartão DENTRO do portal, sem redirecionar para o site da Stripe)
 
 Se falhar, envie print + status Network de:
 - /api/btg/pix/authorize

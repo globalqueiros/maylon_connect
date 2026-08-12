@@ -21,6 +21,10 @@ import {
 
 export const dynamic = "force-dynamic";
 
+/**
+ * Creates an Embedded Checkout Session so the card form stays inside the portal
+ * (no redirect to checkout.stripe.com).
+ */
 export async function POST(req: Request) {
   try {
     await ensurePaymentColumns();
@@ -40,11 +44,6 @@ export async function POST(req: Request) {
       toPositiveInt(url.searchParams.get("beneficio_id"));
 
     if (!usuario_id || !beneficioId) {
-      console.error("Stripe checkout missing ids", {
-        usuario_id,
-        beneficioId,
-        body,
-      });
       return NextResponse.json(
         {
           error: "Dados obrigatórios não enviados",
@@ -52,7 +51,6 @@ export async function POST(req: Request) {
             usuario_id: usuario_id ?? null,
             beneficio_id: beneficioId ?? null,
             received_keys: Object.keys(body),
-            body,
           },
         },
         { status: 400 }
@@ -97,13 +95,19 @@ export async function POST(req: Request) {
       [usuario_id]
     );
     const user = userRows?.[0];
+    if (!user?.email) {
+      return NextResponse.json(
+        { error: "Usuário sem e-mail cadastrado" },
+        { status: 400 }
+      );
+    }
 
     const pedidoCodigo = makePedidoCodigo("MLS");
 
     let customerId: string | undefined;
     if (existing?.stripe_customer_id) {
       customerId = existing.stripe_customer_id;
-    } else if (user?.email) {
+    } else {
       const customers = await stripe.customers.list({
         email: user.email,
         limit: 1,
@@ -121,9 +125,9 @@ export async function POST(req: Request) {
     }
 
     const session = await stripe.checkout.sessions.create({
+      ui_mode: "embedded_page",
       mode: "subscription",
       customer: customerId,
-      customer_email: customerId ? undefined : user?.email || undefined,
       payment_method_types: ["card"],
       line_items: [
         {
@@ -136,8 +140,7 @@ export async function POST(req: Request) {
           quantity: 1,
         },
       ],
-      success_url: `${appUrl}/passageiro/beneficios/pagamento/sucesso?method=card&session_id={CHECKOUT_SESSION_ID}&pedido=${pedidoCodigo}`,
-      cancel_url: `${appUrl}/passageiro/beneficios/pagamento/recusado?method=card&pedido=${pedidoCodigo}&reason=canceled&valor=${encodeURIComponent(String(valorNumber))}`,
+      return_url: `${appUrl}/passageiro/beneficios/pagamento/sucesso?method=card&session_id={CHECKOUT_SESSION_ID}&pedido=${encodeURIComponent(pedidoCodigo)}`,
       client_reference_id: String(usuario_id),
       metadata: {
         usuario_id: String(usuario_id),
@@ -154,8 +157,10 @@ export async function POST(req: Request) {
       },
     });
 
-    if (!session.url) {
-      throw new Error("Não foi possível gerar a URL do checkout");
+    if (!session.client_secret) {
+      throw new Error(
+        "Stripe não retornou client_secret do Embedded Checkout"
+      );
     }
 
     const assinaturaId = await upsertPendente({
@@ -175,22 +180,25 @@ export async function POST(req: Request) {
       usuarioBeneficioId: assinaturaId,
       gateway: "stripe",
       metodo: "card",
-      status: "checkout_created",
+      status: "embedded_checkout_created",
       amount: valorNumber,
       externalId: session.id,
       pedidoCodigo,
-      payload: { sessionId: session.id },
+      payload: { sessionId: session.id, ui_mode: "embedded" },
     });
 
     return NextResponse.json({
-      url: session.url,
+      clientSecret: session.client_secret,
       session_id: session.id,
       pedido_codigo: pedidoCodigo,
+      assinatura_id: assinaturaId,
+      inline: true,
+      embedded: true,
     });
   } catch (error: any) {
     console.error("ERRO STRIPE:", error);
     const raw = String(error?.message || "");
-    let message = raw || "Erro ao criar checkout Stripe";
+    let message = raw || "Erro ao criar pagamento Stripe";
     if (
       /connection|ECONN|ENOTFOUND|ETIMEDOUT|retried|network|fetch failed/i.test(
         raw

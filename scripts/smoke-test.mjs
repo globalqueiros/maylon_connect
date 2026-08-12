@@ -115,12 +115,14 @@ async function main() {
       beneficio_id: beneficioId || 1,
     },
   });
-  const cardOk = card.status < 500;
+  const cardOk =
+    card.status < 500 &&
+    (Boolean(card.json?.clientSecret) || Boolean(card.json?.url) || card.status === 400);
   if (
     !pass(
-      "card/stripe checkout",
+      "card/stripe checkout (in-portal)",
       cardOk,
-      `status=${card.status}${card.json?.error ? `, error=${card.json.error}` : ""}`
+      `status=${card.status}${card.json?.clientSecret ? ", has_clientSecret" : ""}${card.json?.error ? `, error=${card.json.error}` : ""}`
     )
   ) {
     failed++;
