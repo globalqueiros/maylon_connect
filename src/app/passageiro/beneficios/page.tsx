@@ -30,6 +30,23 @@ type Usuario = {
 
 type PixEtapa = "autorizacao" | "pagamento" | "pago";
 
+function dedupeBeneficios(lista: Beneficio[]): Beneficio[] {
+  const map = new Map<number, Beneficio>();
+  for (const item of lista) {
+    const id = Number(item.id);
+    if (!Number.isFinite(id)) continue;
+    const next = { ...item, id };
+    const prev = map.get(id);
+    if (!prev) {
+      map.set(id, next);
+      continue;
+    }
+    // Prefer active (!status) so a leftover "disponível" row cannot duplicate
+    if (!next.status && prev.status) map.set(id, next);
+  }
+  return Array.from(map.values());
+}
+
 export default function BeneficiosPage() {
   const [alerta, setAlerta] = useState<{
     tipo: "success" | "error" | "warning";
@@ -54,72 +71,151 @@ export default function BeneficiosPage() {
   const [pixAuthId, setPixAuthId] = useState("");
   const [pixMessage, setPixMessage] = useState("");
   const [pixError, setPixError] = useState<string | null>(null);
+  const [cancelandoId, setCancelandoId] = useState<number | null>(null);
+  const [beneficioCancelar, setBeneficioCancelar] = useState<Beneficio | null>(
+    null
+  );
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  useEffect(() => {
-    const carregarUsuario = async () => {
-      try {
-        let res = await fetch("/api/me", {
+  const carregarUsuario = async () => {
+    setLoadingUser(true);
+    try {
+      let res = await fetch("/api/me", {
+        method: "GET",
+        credentials: "include",
+        cache: "no-store",
+      });
+
+      // One refresh attempt before giving up (avoids false logouts)
+      if (res.status === 401) {
+        await fetch("/api/refresh", {
+          method: "POST",
+          credentials: "include",
+          cache: "no-store",
+        });
+        res = await fetch("/api/me", {
           method: "GET",
           credentials: "include",
           cache: "no-store",
         });
+      }
 
-        // One refresh attempt before giving up (avoids false logouts)
-        if (res.status === 401) {
-          await fetch("/api/refresh", {
-            method: "POST",
-            credentials: "include",
-            cache: "no-store",
-          });
-          res = await fetch("/api/me", {
-            method: "GET",
-            credentials: "include",
-            cache: "no-store",
-          });
-        }
+      if (res.status === 401) {
+        window.location.href = "/";
+        return;
+      }
 
-        if (res.status === 401) {
-          window.location.href = "/";
-          return;
-        }
-
-        if (!res.ok) {
-          console.error("Erro /api/me:", res.status);
-          setAlerta({
-            tipo: "error",
-            mensagem: "Não foi possível carregar sua sessão. Tente novamente.",
-          });
-          return;
-        }
-
-        const data = await res.json();
-        if (!data?.id) {
-          setAlerta({
-            tipo: "error",
-            mensagem: "Sessão inválida. Recarregue a página.",
-          });
-          return;
-        }
-
-        setUsuario({
-          id: Number(data.id),
-          tipo: data.user_type || data.tipo,
-          user_type: data.user_type,
-        });
-      } catch (error) {
-        console.error("Erro ao buscar usuário:", error);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        console.error("Erro /api/me:", res.status, err);
+        setUsuario(null);
         setAlerta({
           tipo: "error",
-          mensagem: "Erro de conexão ao carregar benefícios.",
+          mensagem:
+            err?.message ||
+            "Não foi possível carregar sua sessão. Tente novamente ou faça login de novo.",
         });
-      } finally {
-        setLoadingUser(false);
+        return;
       }
-    };
 
-    carregarUsuario();
+      const data = await res.json();
+      if (!data?.id) {
+        setUsuario(null);
+        setAlerta({
+          tipo: "error",
+          mensagem: "Sessão inválida. Faça login novamente.",
+        });
+        return;
+      }
+
+      setAlerta(null);
+      setUsuario({
+        id: Number(data.id),
+        tipo: data.user_type || data.tipo,
+        user_type: data.user_type,
+      });
+    } catch (error) {
+      console.error("Erro ao buscar usuário:", error);
+      setUsuario(null);
+      setAlerta({
+        tipo: "error",
+        mensagem: "Erro de conexão ao carregar benefícios.",
+      });
+    } finally {
+      setLoadingUser(false);
+    }
+  };
+
+  useEffect(() => {
+    void carregarUsuario();
   }, []);
+
+  const cancelarComReembolso = async (beneficio: Beneficio) => {
+    if (!usuario?.id) return;
+
+    setCancelandoId(beneficio.id);
+    setAlerta(null);
+    try {
+      const res = await fetch("/api/beneficios/cancelar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          usuario_id: usuario.id,
+          beneficio_id: beneficio.id,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Falha ao cancelar o serviço");
+      }
+
+      setBeneficioCancelar(null);
+      setOpenCartao(false);
+      setPixModalOpen(false);
+      resetPixState();
+      setModalOpen(false);
+      beneficioRef.current = null;
+      setBeneficioSelecionado(null);
+
+      setAlerta({
+        tipo: "success",
+        mensagem: data.message || "Serviço cancelado. Reembolso em andamento.",
+      });
+
+      const reload = await fetch("/api/beneficios", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          usuario_id: usuario.id,
+          tipo: usuario.tipo,
+        }),
+      });
+      const lista = await reload.json();
+      if (Array.isArray(lista)) {
+        setBeneficios(
+          dedupeBeneficios(
+            lista.filter(
+              (b: Beneficio) =>
+                b.tipo === "passageiro" ||
+                b.tipo === "customer" ||
+                b.tipo === "ambos" ||
+                b.tipo === "assinatura" ||
+                !b.tipo
+            )
+          )
+        );
+      }
+    } catch (error: any) {
+      setAlerta({
+        tipo: "error",
+        mensagem: error?.message || "Erro ao cancelar serviço",
+      });
+    } finally {
+      setCancelandoId(null);
+    }
+  };
 
   useEffect(() => {
     if (!usuario) return;
@@ -142,11 +238,15 @@ export default function BeneficiosPage() {
       else if (Array.isArray(data.data)) lista = data.data;
 
       setBeneficios(
-        lista.filter(
-          (b) =>
-            b.tipo === "passageiro" ||
-            b.tipo === "customer" ||
-            b.tipo === "ambos"
+        dedupeBeneficios(
+          lista.filter(
+            (b) =>
+              b.tipo === "passageiro" ||
+              b.tipo === "customer" ||
+              b.tipo === "ambos" ||
+              b.tipo === "assinatura" ||
+              !b.tipo
+          )
         )
       );
     };
@@ -229,13 +329,16 @@ export default function BeneficiosPage() {
 
   const abrirPixModal = () => {
     setModalOpen(false);
+    setOpenCartao(false);
     resetPixState();
-    setTimeout(() => setPixModalOpen(true), 200);
+    setPixModalOpen(true);
   };
 
   const abrirCartaoModal = () => {
     setModalOpen(false);
-    setTimeout(() => setOpenCartao(true), 200);
+    setPixModalOpen(false);
+    resetPixState();
+    setOpenCartao(true);
   };
 
   const fecharPixModal = () => {
@@ -397,14 +500,20 @@ export default function BeneficiosPage() {
           </p>
           <button
             type="button"
-            onClick={() => window.location.reload()}
+            onClick={() => void carregarUsuario()}
             className="mt-4 w-full rounded-xl bg-[#009688] py-2 font-semibold text-white"
           >
             Tentar novamente
           </button>
           <a
-            href="/passageiro"
+            href="/"
             className="mt-3 block text-sm text-teal-700 underline"
+          >
+            Fazer login novamente
+          </a>
+          <a
+            href="/passageiro"
+            className="mt-2 block text-sm text-teal-700 underline"
           >
             Voltar ao Dashboard
           </a>
@@ -466,6 +575,23 @@ export default function BeneficiosPage() {
                 <p className="mt-1 text-sm text-gray-500">
                   Status: {b.status_assinatura || "ativo"}
                 </p>
+                <p className="mt-1 text-sm font-semibold text-gray-800">
+                  {new Intl.NumberFormat("pt-BR", {
+                    style: "currency",
+                    currency: "BRL",
+                  }).format(Number(String(b.valor || 0).replace(",", ".")))}
+                  /mês
+                </p>
+                <button
+                  type="button"
+                  disabled={cancelandoId === b.id}
+                  onClick={() => setBeneficioCancelar(b)}
+                  className="mt-4 w-full rounded-xl border border-red-300 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-100 disabled:opacity-60"
+                >
+                  {cancelandoId === b.id
+                    ? "Cancelando..."
+                    : "Cancelar para voltar o dinheiro"}
+                </button>
               </div>
             ))}
           </div>
@@ -530,6 +656,91 @@ export default function BeneficiosPage() {
             </div>
           ))}
         </div>
+
+        {beneficioCancelar && (
+          <div
+            className="fixed inset-0 z-[10001] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+            onClick={() => {
+              if (cancelandoId == null) setBeneficioCancelar(null);
+            }}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-md overflow-hidden rounded-3xl bg-white shadow-2xl"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="cancelar-beneficio-titulo"
+            >
+              <div className="bg-gradient-to-br from-[#004d47] to-[#009688] px-6 py-5 text-white">
+                <div className="flex h-11 w-11 items-center justify-center rounded-full bg-white/15">
+                  <AlertTriangle className="h-6 w-6" />
+                </div>
+                <h3
+                  id="cancelar-beneficio-titulo"
+                  className="mt-3 text-xl font-bold"
+                >
+                  Cancelar benefício?
+                </h3>
+                <p className="mt-1 text-sm text-white/85">
+                  Esta ação encerra o serviço e solicita a devolução do valor.
+                </p>
+              </div>
+
+              <div className="space-y-4 px-6 py-5">
+                <div className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    Plano
+                  </p>
+                  <p className="mt-1 font-semibold text-gray-900">
+                    {beneficioCancelar.titulo}
+                  </p>
+                  <p className="mt-1 text-sm text-gray-600">
+                    {new Intl.NumberFormat("pt-BR", {
+                      style: "currency",
+                      currency: "BRL",
+                    }).format(
+                      Number(
+                        String(beneficioCancelar.valor || 0).replace(",", ".")
+                      )
+                    )}
+                    /mês
+                  </p>
+                </div>
+
+                <p className="text-sm leading-6 text-gray-600">
+                  Para pagamento com cartão (Stripe), o reembolso é iniciado
+                  automaticamente. O valor costuma voltar em alguns dias úteis.
+                </p>
+
+                <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                  <button
+                    type="button"
+                    disabled={cancelandoId === beneficioCancelar.id}
+                    onClick={() => setBeneficioCancelar(null)}
+                    className="rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:opacity-60"
+                  >
+                    Manter benefício
+                  </button>
+                  <button
+                    type="button"
+                    disabled={cancelandoId === beneficioCancelar.id}
+                    onClick={() => void cancelarComReembolso(beneficioCancelar)}
+                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-red-700 disabled:opacity-60"
+                  >
+                    {cancelandoId === beneficioCancelar.id ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Cancelando...
+                      </>
+                    ) : (
+                      "Cancelar e devolver o dinheiro"
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {modalOpen && beneficioSelecionado && (
           <div

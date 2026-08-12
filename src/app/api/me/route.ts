@@ -7,6 +7,18 @@ import { authCookieOptions } from "../../lib/authCookies";
 
 export const dynamic = "force-dynamic";
 
+function cleanSecret(value?: string) {
+  if (!value) return "";
+  const cleaned = value.replace(/\r/g, "").trim();
+  if (
+    (cleaned.startsWith('"') && cleaned.endsWith('"')) ||
+    (cleaned.startsWith("'") && cleaned.endsWith("'"))
+  ) {
+    return cleaned.slice(1, -1);
+  }
+  return cleaned;
+}
+
 export async function GET() {
   try {
     const cookieStore = await cookies();
@@ -19,7 +31,8 @@ export async function GET() {
       );
     }
 
-    if (!process.env.JWT_SECRET) {
+    const jwtSecret = cleanSecret(process.env.JWT_SECRET);
+    if (!jwtSecret) {
       return NextResponse.json(
         { message: "JWT_SECRET não configurada" },
         { status: 500 }
@@ -36,7 +49,7 @@ export async function GET() {
     };
 
     try {
-      decoded = jwt.verify(token, process.env.JWT_SECRET) as typeof decoded;
+      decoded = jwt.verify(token, jwtSecret) as typeof decoded;
     } catch {
       return NextResponse.json(
         { message: "Token inválido ou expirado" },
@@ -101,17 +114,22 @@ export async function GET() {
         );
         rows = byEmail;
       }
-    } catch (dbError) {
+    } catch (dbError: any) {
       console.error("/api/me database error:", dbError);
-      return NextResponse.json(
-        { message: "Erro ao carregar usuário" },
-        { status: 500 }
-      );
+      const code = String(dbError?.code || "");
+      const dbHint =
+        code === "ER_ACCESS_DENIED_ERROR" || code === "ECONNREFUSED"
+          ? "Falha na conexão com o banco. Verifique DB_HOST/DB_USER/DB_PASSWORD no .env."
+          : "Erro ao carregar usuário no banco de dados.";
+      return NextResponse.json({ message: dbHint }, { status: 500 });
     }
 
     if (!rows.length) {
       return NextResponse.json(
-        { message: "Usuário não encontrado" },
+        {
+          message:
+            "Usuário não encontrado neste banco. Faça login novamente com uma conta existente.",
+        },
         { status: 401 }
       );
     }
@@ -125,7 +143,7 @@ export async function GET() {
         user_type: user.user_type,
         email: user.email,
       },
-      process.env.JWT_SECRET,
+      jwtSecret,
       { expiresIn: "10d" }
     );
 

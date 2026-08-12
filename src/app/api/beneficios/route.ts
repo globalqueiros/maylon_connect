@@ -5,6 +5,8 @@ import { toPositiveInt } from "../../lib/session";
 type TipoUsuario = "motorista" | "passageiro" | "ambos";
 
 async function loadBeneficios(usuarioId: number) {
+  // Join only the latest usuario_beneficios row per benefit so history
+  // (cancelado + novo pendente, etc.) never duplicates catalog rows.
   const attempts = [
     `
       SELECT
@@ -15,17 +17,28 @@ async function loadBeneficios(usuarioId: number) {
         b.valor,
         b.tipo,
         CASE
-          WHEN ub.id IS NOT NULL
-            AND ub.ativo = 1
-            AND (ub.status_assinatura = 'aprovado' OR ub.status_assinatura IS NULL)
-          THEN 0
+          WHEN EXISTS (
+            SELECT 1
+            FROM usuario_beneficios ubx
+            WHERE ubx.usuario_id = ?
+              AND ubx.beneficio_id = b.id
+              AND ubx.ativo = 1
+              AND (
+                ubx.status_assinatura IN ('aprovado', 'autorizado')
+                OR ubx.status_assinatura IS NULL
+              )
+          ) THEN 0
           ELSE 1
         END AS status,
         COALESCE(ub.status_assinatura, 'disponivel') AS status_assinatura
       FROM beneficios b
       LEFT JOIN usuario_beneficios ub
-        ON ub.beneficio_id = b.id
-        AND ub.usuario_id = ?
+        ON ub.id = (
+          SELECT MAX(ub2.id)
+          FROM usuario_beneficios ub2
+          WHERE ub2.usuario_id = ?
+            AND ub2.beneficio_id = b.id
+        )
       WHERE b.status = 1
     `,
     `
@@ -37,17 +50,26 @@ async function loadBeneficios(usuarioId: number) {
         b.valor,
         b.tipo,
         CASE
-          WHEN ub.id IS NOT NULL AND ub.ativo = 1 THEN 0
+          WHEN EXISTS (
+            SELECT 1
+            FROM usuario_beneficios ubx
+            WHERE ubx.usuario_id = ?
+              AND ubx.beneficio_id = b.id
+              AND ubx.ativo = 1
+          ) THEN 0
           ELSE 1
         END AS status,
         CASE
-          WHEN ub.id IS NOT NULL AND ub.ativo = 1 THEN 'aprovado'
+          WHEN EXISTS (
+            SELECT 1
+            FROM usuario_beneficios ubx
+            WHERE ubx.usuario_id = ?
+              AND ubx.beneficio_id = b.id
+              AND ubx.ativo = 1
+          ) THEN 'aprovado'
           ELSE 'disponivel'
         END AS status_assinatura
       FROM beneficios b
-      LEFT JOIN usuario_beneficios ub
-        ON ub.beneficio_id = b.id
-        AND ub.usuario_id = ?
       WHERE b.status = 1
     `,
     `
@@ -77,16 +99,41 @@ async function loadBeneficios(usuarioId: number) {
     `,
   ];
 
+  const paramsByAttempt = [
+    [usuarioId, usuarioId],
+    [usuarioId, usuarioId],
+    [],
+    [],
+  ];
+
   let lastError: unknown = null;
-  for (const sql of attempts) {
+  for (let i = 0; i < attempts.length; i++) {
     try {
-      const [rows]: any = await db.query(sql, [usuarioId]);
+      const [rows]: any = await db.query(attempts[i], paramsByAttempt[i]);
       return Array.isArray(rows) ? rows : [];
     } catch (error) {
       lastError = error;
     }
   }
   throw lastError;
+}
+
+function dedupeById(rows: any[]) {
+  const map = new Map<number, any>();
+  for (const row of rows) {
+    const id = Number(row.id);
+    if (!Number.isFinite(id)) continue;
+    const prev = map.get(id);
+    if (!prev) {
+      map.set(id, row);
+      continue;
+    }
+    // Prefer "ativo" (status 0 / false) over available duplicates
+    const prevActive = Number(prev.status) === 0 || prev.status === false;
+    const nextActive = Number(row.status) === 0 || row.status === false;
+    if (nextActive && !prevActive) map.set(id, row);
+  }
+  return Array.from(map.values());
 }
 
 export async function POST(req: Request) {
@@ -140,9 +187,13 @@ export async function POST(req: Request) {
       if (!t || t === "assinatura") return true;
       if (tipo === "ambos") return true;
       if (tipo === "passageiro") {
-        return ["passageiro", "customer", "ambos", "both", "assinatura"].includes(
-          t
-        );
+        return [
+          "passageiro",
+          "customer",
+          "ambos",
+          "both",
+          "assinatura",
+        ].includes(t);
       }
       if (tipo === "motorista") {
         return ["motorista", "driver", "ambos", "both", "assinatura"].includes(
@@ -152,7 +203,7 @@ export async function POST(req: Request) {
       return true;
     });
 
-    const normalized = filtered.map((b: any) => ({
+    const normalized = dedupeById(filtered).map((b: any) => ({
       ...b,
       id: Number(b.id),
       valor: b.valor == null ? null : String(b.valor),
@@ -161,6 +212,10 @@ export async function POST(req: Request) {
       descricao: b.descricao == null ? "" : String(b.descricao),
       imagem: b.imagem == null ? "" : String(b.imagem),
       tipo: b.tipo == null ? "" : String(b.tipo),
+      status_assinatura:
+        Number(b.status) === 0
+          ? b.status_assinatura || "aprovado"
+          : "disponivel",
     }));
 
     return NextResponse.json(normalized);
