@@ -1,436 +1,371 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import jwt from "jsonwebtoken";
-
 import { db } from "../../lib/db";
-import { toPositiveInt } from "../../lib/session";
-import { authCookieOptions } from "../../lib/authCookies";
 
 export const dynamic = "force-dynamic";
-export const runtime = "nodejs";
 
-type JwtPayloadCustom = jwt.JwtPayload & {
-  id?: unknown;
-  userId?: unknown;
-  user_id?: unknown;
-  sub?: unknown;
-  email?: unknown;
-  user_type?: unknown;
-  matricula?: unknown;
-};
+type DbRow = Record<string, any>;
 
-function cleanSecret(value?: string): string {
-  if (!value) return "";
-
-  const cleaned = value.replace(/\r/g, "").trim();
-
-  if (
-    (cleaned.startsWith('"') && cleaned.endsWith('"')) ||
-    (cleaned.startsWith("'") && cleaned.endsWith("'"))
-  ) {
-    return cleaned.slice(1, -1);
-  }
-
-  return cleaned;
+function hasColumn(columns: string[], names: string[]) {
+  return names.find((name) => columns.includes(name));
 }
 
-function decodeUserToken(
-  token: string
-): JwtPayloadCustom | null {
-  const jwtSecret = cleanSecret(process.env.JWT_SECRET);
-
-  if (!jwtSecret || !token) {
-    return null;
-  }
-
+export async function GET() {
   try {
-    return jwt.verify(token, jwtSecret) as JwtPayloadCustom;
-  } catch (error) {
-    console.error("❌ JWT inválido ou expirado:", error);
-    return null;
-  }
-}
+    const [tripRequestColumnsRows] = await db.query(`
+      SELECT COLUMN_NAME
+      FROM INFORMATION_SCHEMA.COLUMNS
+      WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME = 'trip_requests'
+    `);
 
-async function findUserIdByEmail(
-  email: string
-): Promise<number | null> {
-  if (!email) return null;
+    const [tripFareColumnsRows] = await db.query(`
+      SELECT COLUMN_NAME
+      FROM INFORMATION_SCHEMA.COLUMNS
+      WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME = 'trip_fares'
+    `);
 
-  try {
-    const [rows]: any = await db.query(
-      `
-        SELECT id
-        FROM users
-        WHERE LOWER(email) = LOWER(?)
-        LIMIT 1
-      `,
-      [email]
+    const [tripStatusColumnsRows] = await db.query(`
+      SELECT COLUMN_NAME
+      FROM INFORMATION_SCHEMA.COLUMNS
+      WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME = 'trip_status'
+    `);
+
+    const [tripCoordinatesColumnsRows] = await db.query(`
+      SELECT COLUMN_NAME
+      FROM INFORMATION_SCHEMA.COLUMNS
+      WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME = 'trip_request_coordinates'
+    `);
+
+    const requestColumns = (tripRequestColumnsRows as DbRow[]).map((row) =>
+      String(row.COLUMN_NAME)
     );
 
-    if (!Array.isArray(rows) || rows.length === 0) {
-      return null;
+    const fareColumns = (tripFareColumnsRows as DbRow[]).map((row) =>
+      String(row.COLUMN_NAME)
+    );
+
+    const statusColumns = (tripStatusColumnsRows as DbRow[]).map((row) =>
+      String(row.COLUMN_NAME)
+    );
+
+    const coordinateColumns = (
+      tripCoordinatesColumnsRows as DbRow[]
+    ).map((row) => String(row.COLUMN_NAME));
+
+    const requestIdColumn = hasColumn(requestColumns, [
+      "id",
+      "trip_request_id",
+      "request_id",
+    ]);
+
+    if (!requestIdColumn) {
+      throw new Error(
+        "A tabela trip_requests não possui uma coluna de ID compatível."
+      );
     }
 
-    return toPositiveInt(rows[0]?.id) || null;
-  } catch (error) {
-    console.error("❌ Erro ao procurar usuário:", error);
-    throw error;
-  }
-}
+    const coordinateRequestColumn = hasColumn(coordinateColumns, [
+      "trip_request_id",
+      "trip_request",
+      "request_id",
+    ]);
 
-async function resolveUserIdFromToken(
-  token: string
-): Promise<{
-  userId: number | null;
-  decoded: JwtPayloadCustom | null;
-}> {
-  const decoded = decodeUserToken(token);
+    let coordinateJoin = "";
 
-  if (!decoded) {
-    return { userId: null, decoded: null };
-  }
-
-  const possibleIds = [
-    decoded.id,
-    decoded.userId,
-    decoded.user_id,
-    decoded.sub,
-  ];
-
-  for (const value of possibleIds) {
-    const userId = toPositiveInt(value);
-
-    if (userId) {
-      return { userId, decoded };
+    if (coordinateRequestColumn) {
+      coordinateJoin = `
+        LEFT JOIN trip_request_coordinates tc
+          ON tc.${coordinateRequestColumn} = tr.${requestIdColumn}
+      `;
     }
-  }
 
-  const email =
-    typeof decoded.email === "string"
-      ? decoded.email.trim().toLowerCase()
-      : "";
+    const hasPickupAddress = coordinateColumns.includes("pickup_address");
+    const hasDestinationAddress = coordinateColumns.includes(
+      "destination_address"
+    );
 
-  if (email) {
-    const userId = await findUserIdByEmail(email);
+    let originSelect = "NULL AS origin";
+    let destinationSelect = "NULL AS destination";
 
-    if (userId) {
-      return { userId, decoded };
+    if (coordinateJoin && hasPickupAddress) {
+      originSelect = "tc.pickup_address AS origin";
     }
-  }
 
-  return { userId: null, decoded };
-}
+    if (coordinateJoin && hasDestinationAddress) {
+      destinationSelect = "tc.destination_address AS destination";
+    }
 
-async function getTokenFromRequest(
-  req: Request
-): Promise<string | null> {
-  const cookieHeader = req.headers.get("cookie");
+    const statusRequestColumn = hasColumn(statusColumns, [
+      "trip_request_id",
+      "trip_request",
+      "request_id",
+    ]);
 
-  if (cookieHeader) {
-    const cookiesList = cookieHeader.split(";");
+    let statusJoin = "";
 
-    for (const item of cookiesList) {
-      const separator = item.indexOf("=");
+    if (statusRequestColumn) {
+      statusJoin = `
+        LEFT JOIN trip_status ts
+          ON ts.${statusRequestColumn} = tr.${requestIdColumn}
+      `;
+    }
 
-      if (separator === -1) continue;
+    let fareJoin = "";
 
-      const name = item.slice(0, separator).trim();
-      const value = item.slice(separator + 1).trim();
+    if (fareColumns.includes("trip_request_id")) {
+      fareJoin = `
+        LEFT JOIN trip_fares tf
+          ON tf.trip_request_id = tr.${requestIdColumn}
+      `;
+    } else if (
+      requestColumns.includes("trip_fare_id") &&
+      fareColumns.includes("id")
+    ) {
+      fareJoin = `
+        LEFT JOIN trip_fares tf
+          ON tf.id = tr.trip_fare_id
+      `;
+    } else if (
+      requestColumns.includes("zone_wise_default_trip_fare_id") &&
+      fareColumns.includes("zone_wise_default_trip_fare_id")
+    ) {
+      fareJoin = `
+        LEFT JOIN trip_fares tf
+          ON tf.zone_wise_default_trip_fare_id =
+             tr.zone_wise_default_trip_fare_id
+      `;
+    } else if (
+      requestColumns.includes("default_trip_fare_id") &&
+      fareColumns.includes("id")
+    ) {
+      fareJoin = `
+        LEFT JOIN trip_fares tf
+          ON tf.id = tr.default_trip_fare_id
+      `;
+    }
 
-      if (name === "access_token" && value) {
-        return value;
+    const fareColumn = hasColumn(fareColumns, [
+      "base_fare",
+      "total_fare",
+      "fare",
+      "amount",
+      "total",
+      "price",
+      "cost",
+      "estimated_fare",
+      "final_fare",
+      "actual_fare",
+      "fare_amount",
+    ]);
+
+    const requestFareColumn = hasColumn(requestColumns, [
+      "base_fare",
+      "total_fare",
+      "fare",
+      "amount",
+      "total",
+      "price",
+      "cost",
+      "estimated_fare",
+      "final_fare",
+      "actual_fare",
+      "fare_amount",
+      "trip_fare",
+    ]);
+
+    let fareSelect = "NULL AS fare";
+
+    if (fareJoin && fareColumn) {
+      fareSelect = `tf.${fareColumn} AS fare`;
+    } else if (requestFareColumn) {
+      fareSelect = `tr.${requestFareColumn} AS fare`;
+    }
+
+    const directStatusColumn = hasColumn(statusColumns, [
+      "status",
+      "trip_status",
+      "current_status",
+    ]);
+
+    let statusSelect = "NULL AS status";
+
+    if (directStatusColumn && statusRequestColumn) {
+      statusSelect = `ts.${directStatusColumn} AS status`;
+    } else if (statusRequestColumn) {
+      const statusCases: string[] = [];
+
+      if (statusColumns.includes("returned")) {
+        statusCases.push("WHEN ts.returned = 1 THEN 'returned'");
+      }
+
+      if (statusColumns.includes("returning")) {
+        statusCases.push("WHEN ts.returning = 1 THEN 'returning'");
+      }
+
+      if (statusColumns.includes("completed")) {
+        statusCases.push("WHEN ts.completed = 1 THEN 'completed'");
+      }
+
+      if (statusColumns.includes("cancelled")) {
+        statusCases.push("WHEN ts.cancelled = 1 THEN 'cancelled'");
+      }
+
+      if (statusColumns.includes("failed")) {
+        statusCases.push("WHEN ts.failed = 1 THEN 'failed'");
+      }
+
+      if (statusColumns.includes("ongoing")) {
+        statusCases.push("WHEN ts.ongoing = 1 THEN 'ongoing'");
+      }
+
+      if (statusColumns.includes("picked_up")) {
+        statusCases.push("WHEN ts.picked_up = 1 THEN 'picked_up'");
+      }
+
+      if (statusColumns.includes("out_for_pickup")) {
+        statusCases.push(
+          "WHEN ts.out_for_pickup = 1 THEN 'out_for_pickup'"
+        );
+      }
+
+      if (statusColumns.includes("accepted")) {
+        statusCases.push("WHEN ts.accepted = 1 THEN 'accepted'");
+      }
+
+      if (statusColumns.includes("pending")) {
+        statusCases.push("WHEN ts.pending = 1 THEN 'pending'");
+      }
+
+      if (statusCases.length > 0) {
+        statusSelect = `
+          CASE
+            ${statusCases.join("\n")}
+            ELSE NULL
+          END AS status
+        `;
       }
     }
-  }
 
-  try {
-    const cookieStore = await cookies();
+    const requestStatusColumn = hasColumn(requestColumns, [
+      "status",
+      "trip_status",
+      "current_status",
+    ]);
 
-    const accessToken =
-      cookieStore.get("access_token")?.value;
-
-    if (accessToken) {
-      return accessToken;
+    if (
+      requestStatusColumn &&
+      !directStatusColumn &&
+      !statusRequestColumn
+    ) {
+      statusSelect = `tr.${requestStatusColumn} AS status`;
     }
-  } catch (error) {
-    console.error("⚠️ Erro ao acessar cookies:", error);
-  }
 
-  const authorization = req.headers.get("authorization");
-
-  if (authorization?.toLowerCase().startsWith("bearer ")) {
-    const token = authorization.slice(7).trim();
-
-    if (token) {
-      return token;
-    }
-  }
-
-  return null;
-}
-
-async function getAuthenticatedUser(
-  req: Request
-): Promise<{
-  userId: number;
-  decoded: JwtPayloadCustom;
-} | null> {
-  const token = await getTokenFromRequest(req);
-
-  if (!token) {
-    return null;
-  }
-
-  const { userId, decoded } =
-    await resolveUserIdFromToken(token);
-
-  if (!userId || !decoded) {
-    return null;
-  }
-
-  return { userId, decoded };
-}
-
-/**
- * Busca as viagens do usuário.
- *
- * IMPORTANTE:
- * Os endereços NÃO estão em trip_requests.
- * Eles estão em trip_request_coordinates.
- */
-async function loadTripsForUser(userId: number) {
-  const [rows]: any = await db.query(
-    `
+    const [rows] = await db.query(`
       SELECT
-        tr.id AS trip_request_id,
-
-        tr.ref_id,
-        tr.customer_id,
-        tr.driver_id,
-        tr.vehicle_category_id,
-        tr.vehicle_id,
-        tr.zone_id,
-        tr.area_id,
-
-        COALESCE(
-          tr.actual_fare,
-          tr.estimated_fare,
-          0
-        ) AS valor,
-
-        tr.estimated_fare,
-        tr.actual_fare,
-        tr.estimated_distance,
-        tr.paid_fare,
-        tr.return_fee,
-        tr.cancellation_fee,
-        tr.extra_fare_fee,
-        tr.extra_fare_amount,
-        tr.surge_percentage,
-        tr.return_time,
-        tr.due_amount,
-        tr.actual_distance,
-        tr.encoded_polyline,
-        tr.accepted_by,
-        tr.payment_method,
-        tr.payment_status,
-        tr.coupon_id,
-        tr.coupon_amount,
-        tr.discount_id,
-        tr.discount_amount,
-        tr.note,
-        tr.entrance,
-        tr.otp,
-        tr.rise_request_count,
-        tr.type,
-        tr.ride_request_type,
-        tr.scheduled_at,
-        tr.current_status,
-        tr.is_notification_sent,
-        tr.sending_notification_at,
-        tr.checked,
-        tr.tips,
-        tr.deleted_at,
-        tr.created_at,
-        tr.updated_at,
-        tr.is_paused,
-        tr.map_screenshot,
-        tr.trip_cancellation_reason,
-
-        /* ENDEREÇOS REAIS */
-        c.pickup_address,
-        c.destination_address,
-
-        /* COORDENADAS */
-        c.pickup_coordinates,
-        c.destination_coordinates,
-
-        /* DESTINO ALCANÇADO */
-        c.is_reached_destination,
-
-        /* PARADAS INTERMEDIÁRIAS */
-        c.intermediate_coordinates,
-        c.int_coordinate_1,
-        c.is_reached_1,
-        c.int_coordinate_2,
-        c.is_reached_2,
-        c.intermediate_addresses,
-
-        /* COORDENADAS ADICIONAIS */
-        c.start_coordinates,
-        c.drop_coordinates,
-        c.driver_accept_coordinates,
-        c.customer_request_coordinates
-
+        tr.*,
+        ${originSelect},
+        ${destinationSelect},
+        ${fareSelect},
+        ${statusSelect}
       FROM trip_requests tr
-
-      LEFT JOIN trip_request_coordinates c
-        ON c.trip_request_id = tr.id
-
-      WHERE
-        (
-          tr.customer_id = ?
-          OR tr.driver_id = ?
-        )
-
-        AND tr.deleted_at IS NULL
-
+      ${coordinateJoin}
+      ${fareJoin}
+      ${statusJoin}
       ORDER BY tr.created_at DESC
-    `,
-    [userId, userId]
-  );
+    `);
 
-  if (!Array.isArray(rows)) {
-    return [];
-  }
+    const trips: DbRow[] = (rows as DbRow[]).map(
+      (trip: DbRow): DbRow => {
+        const id =
+          trip.id ??
+          trip.trip_request_id ??
+          trip.request_id ??
+          null;
 
-  return rows;
-}
+        const origin =
+          trip.origin ??
+          trip.pickup_address ??
+          trip.pickup_location ??
+          trip.pickup ??
+          null;
 
-function createAccessToken(
-  userId: number,
-  decoded: JwtPayloadCustom
-): string | null {
-  const jwtSecret = cleanSecret(process.env.JWT_SECRET);
+        const destination =
+          trip.destination ??
+          trip.destination_address ??
+          trip.dropoff_address ??
+          trip.dropoff_location ??
+          trip.dropoff ??
+          null;
 
-  if (!jwtSecret) {
-    return null;
-  }
+        const rawFare =
+          trip.fare ??
+          trip.base_fare ??
+          trip.total_fare ??
+          trip.amount ??
+          trip.total ??
+          trip.price ??
+          trip.cost ??
+          trip.estimated_fare ??
+          trip.final_fare ??
+          trip.actual_fare ??
+          trip.fare_amount ??
+          null;
 
-  const email =
-    typeof decoded.email === "string"
-      ? decoded.email
-      : undefined;
+        let fare: number | null = null;
 
-  const userType =
-    typeof decoded.user_type === "string"
-      ? decoded.user_type
-      : undefined;
+        if (
+          rawFare !== null &&
+          rawFare !== undefined &&
+          rawFare !== ""
+        ) {
+          const parsed = Number(rawFare);
 
-  return jwt.sign(
-    {
-      id: userId,
-      user_type: userType,
-      email,
-    },
-    jwtSecret,
-    {
-      expiresIn: "10d",
-    }
-  );
-}
+          if (!Number.isNaN(parsed)) {
+            fare = parsed;
+          }
+        }
 
-/**
- * GET /api/trips
- */
-export async function GET(req: Request) {
-  try {
-    const jwtSecret = cleanSecret(process.env.JWT_SECRET);
+        const rawStatus =
+          trip.status ??
+          trip.trip_status ??
+          trip.current_status ??
+          null;
 
-    if (!jwtSecret) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "JWT_SECRET não configurada no servidor.",
-        },
-        { status: 500 }
-      );
-    }
-
-    const authenticated =
-      await getAuthenticatedUser(req);
-
-    if (!authenticated) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Não autorizado",
-          message: "Sessão ausente ou expirada.",
-        },
-        { status: 401 }
-      );
-    }
-
-    const { userId, decoded } = authenticated;
-
-    const trips = await loadTripsForUser(userId);
-
-    const ultimasViagens = trips.slice(0, 5);
-
-    const tokenId = toPositiveInt(decoded.id);
-
-    const needsTokenRefresh = tokenId !== userId;
-
-    const newToken = needsTokenRefresh
-      ? createAccessToken(userId, decoded)
-      : null;
-
-    const response = NextResponse.json(
-      {
-        success: true,
-        userId,
-        trips,
-        viagens: trips,
-        totalViagens: trips.length,
-        ultimasViagens,
-      },
-      { status: 200 }
+        return {
+          ...trip,
+          id,
+          trip_request_id: trip.trip_request_id ?? id,
+          origin,
+          destination,
+          fare,
+          amount: fare,
+          status:
+            rawStatus !== null && rawStatus !== undefined
+              ? String(rawStatus)
+              : null,
+        };
+      }
     );
 
-    if (newToken) {
-      response.cookies.set(
-        "access_token",
-        newToken,
-        authCookieOptions(60 * 60 * 24 * 10)
-      );
-    }
-
-    response.headers.set(
-      "Cache-Control",
-      "no-store, no-cache, must-revalidate, proxy-revalidate"
-    );
-
-    response.headers.set("Pragma", "no-cache");
-    response.headers.set("Expires", "0");
-
-    return response;
-  } catch (error: any) {
-    console.error("❌ ERRO COMPLETO /api/trips:", error);
-
+    return NextResponse.json({
+      success: true,
+      trips,
+    });
+  } catch (error) {
     return NextResponse.json(
       {
         success: false,
-        error: "Erro ao buscar viagens.",
+        trips: [],
         message:
           error instanceof Error
             ? error.message
-            : "Erro desconhecido.",
+            : "Erro ao carregar viagens.",
       },
       {
         status: 500,
-        headers: {
-          "Cache-Control": "no-store",
-        },
       }
     );
   }

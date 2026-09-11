@@ -73,260 +73,291 @@ export async function POST(req: Request) {
       to: emailDestino,
       subject: `Recibo da viagem #${pedido || "—"} - Maylon`,
       html: `
-        <!DOCTYPE html>
-        <html lang="pt-BR">
-          <head>
-            <meta charset="UTF-8" />
-            <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-            <title>Recibo Maylon</title>
-          </head>
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Recibo Maylon</title>
+</head>
 
-          <body
-            style="
-              margin: 0;
-              padding: 0;
-              background: #f4f7f9;
-              font-family: Arial, Helvetica, sans-serif;
-              color: #1f2937;
-            "
-          >
-            <div style="padding: 40px 20px;">
-              <div
-                style="
-                  max-width: 600px;
-                  margin: 0 auto;
-                  background: #ffffff;
-                  border-radius: 18px;
-                  overflow: hidden;
-                  border: 1px solid #e5e7eb;
-                "
-              >
+<body style="
+  margin:0;
+  padding:0;
+  background:#042f2e;
+  font-family:Arial,Helvetica,sans-serif;
+  color:#0f172a;
+">
 
-                <!-- Cabeçalho -->
-                <div
-                  style="
-                    padding: 32px;
-                    text-align: center;
-                    border-bottom: 1px solid #e5e7eb;
-                  "
-                >
-                  <div
-                    style="
-                      display: inline-block;
-                      padding: 10px 18px;
-                      border-radius: 12px;
-                      background: #073b70;
-                      color: #ffffff;
-                      font-size: 18px;
-                      font-weight: bold;
-                    "
-                  >
-                    MAYLON
-                  </div>
+  <div style="padding:32px 14px;background:linear-gradient(135deg,#042f2e 0%,#115e59 55%,#0f766e 100%);">
 
-                  <h1
-                    style="
-                      margin: 20px 0 8px;
-                      font-size: 24px;
-                      color: #111827;
-                    "
-                  >
-                    Pagamento Confirmado
-                  </h1>
+    <div style="
+      max-width:620px;
+      margin:0 auto;
+      background:#ffffff;
+      border:1px solid #ccfbf1;
+      border-radius:28px;
+      overflow:hidden;
+      box-shadow:0 24px 70px rgba(0,0,0,.30);
+    ">
 
-                  <p
-                    style="
-                      margin: 0;
-                      color: #6b7280;
-                      font-size: 14px;
-                    "
-                  >
-                    Seu pagamento foi aprovado com sucesso.
-                  </p>
-                </div>
+      <!-- Cabeçalho -->
+      <div style="
+        position:relative;
+        padding:38px 28px 34px;
+        text-align:center;
+        background:linear-gradient(135deg,#0f766e,#0d9488,#14b8a6);
+        color:#ffffff;
+      ">
 
-                <!-- Cliente -->
-                <div style="padding: 28px 32px;">
-                  <p style="margin: 0 0 8px; color: #6b7280; font-size: 13px;">
-                    Olá,
-                  </p>
+        <div style="
+          display:inline-block;
+          padding:10px 18px;
+          border-radius:14px;
+          background:rgba(255,255,255,.16);
+          border:1px solid rgba(255,255,255,.25);
+          color:#ffffff;
+          font-size:18px;
+          font-weight:800;
+          letter-spacing:1px;
+        ">
+          MAYLON
+        </div>
 
-                  <p
-                    style="
-                      margin: 0;
-                      font-size: 18px;
-                      font-weight: bold;
-                      color: #111827;
-                    "
-                  >
-                    ${nome || "Cliente"}
-                  </p>
+        <div style="
+          width:64px;
+          height:64px;
+          margin:22px auto 14px;
+          border-radius:20px;
+          background:#ffffff;
+          text-align:center;
+          line-height:64px;
+          font-size:32px;
+          font-weight:bold;
+          color:#0f766e;
+        ">
+          ✓
+        </div>
 
-                  <p
-                    style="
-                      margin: 6px 0 0;
-                      color: #6b7280;
-                      font-size: 14px;
-                    "
-                  >
-                    ${emailDestino}
-                  </p>
-                </div>
+        <h1 style="
+          margin:0;
+          font-size:26px;
+          line-height:1.25;
+          color:#ffffff;
+        ">
+          Pagamento Confirmado
+        </h1>
 
-                <!-- Dados do pagamento -->
-                <div
-                  style="
-                    margin: 0 32px;
-                    padding: 24px;
-                    background: #f8fafc;
-                    border-radius: 14px;
-                  "
-                >
-                  <div
-                    style="
-                      display: flex;
-                      justify-content: space-between;
-                      padding-bottom: 14px;
-                      margin-bottom: 14px;
-                      border-bottom: 1px solid #e5e7eb;
-                    "
-                  >
-                    <span style="color: #6b7280;">
-                      Pedido
-                    </span>
+        <p style="
+          margin:10px 0 0;
+          color:#ccfbf1;
+          font-size:14px;
+          line-height:1.6;
+        ">
+          Seu pagamento foi aprovado com sucesso.
+        </p>
+      </div>
 
-                    <strong style="color: #111827;">
-                      #${pedido || "—"}
-                    </strong>
-                  </div>
+      <!-- Cliente -->
+      <div style="padding:28px 30px 22px;">
 
-                  <div
-                    style="
-                      display: flex;
-                      justify-content: space-between;
-                      padding-bottom: 14px;
-                      margin-bottom: 14px;
-                      border-bottom: 1px solid #e5e7eb;
-                    "
-                  >
-                    <span style="color: #6b7280;">
-                      Valor
-                    </span>
+        <p style="
+          margin:0 0 7px;
+          color:#64748b;
+          font-size:13px;
+        ">
+          Olá,
+        </p>
 
-                    <strong style="color: #073b70;">
-                      ${valor || "—"}
-                    </strong>
-                  </div>
+        <p style="
+          margin:0;
+          font-size:19px;
+          font-weight:800;
+          color:#0f172a;
+        ">
+          ${nome || "Cliente"}
+        </p>
 
-                  <div
-                    style="
-                      display: flex;
-                      justify-content: space-between;
-                      padding-bottom: 14px;
-                      margin-bottom: 14px;
-                      border-bottom: 1px solid #e5e7eb;
-                    "
-                  >
-                    <span style="color: #6b7280;">
-                      Método de pagamento
-                    </span>
+        <p style="
+          margin:6px 0 0;
+          color:#64748b;
+          font-size:14px;
+        ">
+          ${emailDestino}
+        </p>
+      </div>
 
-                    <strong style="color: #111827;">
-                      ${metodo || "—"}
-                    </strong>
-                  </div>
+      <!-- Dados do pagamento -->
+      <div style="
+        margin:0 30px;
+        padding:22px;
+        background:#f0fdfa;
+        border:1px solid #ccfbf1;
+        border-radius:22px;
+      ">
 
-                  <div
-                    style="
-                      display: flex;
-                      justify-content: space-between;
-                      padding-bottom: 14px;
-                      margin-bottom: 14px;
-                      border-bottom: 1px solid #e5e7eb;
-                    "
-                  >
-                    <span style="color: #6b7280;">
-                      Data
-                    </span>
+        <div style="
+          padding:0 0 14px;
+          margin-bottom:14px;
+          border-bottom:1px solid #ccfbf1;
+        ">
+          <span style="display:block;color:#64748b;font-size:12px;margin-bottom:5px;">
+            Pedido
+          </span>
+          <strong style="font-size:16px;color:#0f172a;">
+            #${pedido || "—"}
+          </strong>
+        </div>
 
-                    <strong style="color: #111827;">
-                      ${data || "—"}
-                    </strong>
-                  </div>
+        <div style="
+          padding:0 0 14px;
+          margin-bottom:14px;
+          border-bottom:1px solid #ccfbf1;
+        ">
+          <span style="display:block;color:#64748b;font-size:12px;margin-bottom:5px;">
+            Valor
+          </span>
+          <strong style="font-size:21px;color:#0f766e;">
+            ${valor || "—"}
+          </strong>
+        </div>
 
-                  <div
-                    style="
-                      display: flex;
-                      justify-content: space-between;
-                    "
-                  >
-                    <span style="color: #6b7280;">
-                      Status
-                    </span>
+        <div style="
+          padding:0 0 14px;
+          margin-bottom:14px;
+          border-bottom:1px solid #ccfbf1;
+        ">
+          <span style="display:block;color:#64748b;font-size:12px;margin-bottom:5px;">
+            Método de pagamento
+          </span>
+          <strong style="font-size:14px;color:#0f172a;">
+            ${metodo || "—"}
+          </strong>
+        </div>
 
-                    <strong style="color: #059669;">
-                      ${status || "PAGO"}
-                    </strong>
-                  </div>
-                </div>
+        <div style="
+          padding:0 0 14px;
+          margin-bottom:14px;
+          border-bottom:1px solid #ccfbf1;
+        ">
+          <span style="display:block;color:#64748b;font-size:12px;margin-bottom:5px;">
+            Data e hora
+          </span>
+          <strong style="font-size:14px;color:#0f172a;">
+            ${data || "—"}
+          </strong>
+        </div>
 
-                <!-- Transação -->
-                <div style="padding: 28px 32px;">
-                  <p
-                    style="
-                      margin: 0 0 6px;
-                      color: #6b7280;
-                      font-size: 13px;
-                    "
-                  >
-                    ID da transação
-                  </p>
+        <div>
+          <span style="display:block;color:#64748b;font-size:12px;margin-bottom:6px;">
+            Status
+          </span>
 
-                  <p
-                    style="
-                      margin: 0;
-                      color: #111827;
-                      font-size: 13px;
-                      word-break: break-all;
-                    "
-                  >
-                    ${transaction_id || pedido || "—"}
-                  </p>
-                </div>
+          <span style="
+            display:inline-block;
+            padding:7px 12px;
+            border-radius:999px;
+            background:#ccfbf1;
+            color:#0f766e;
+            font-size:12px;
+            font-weight:800;
+          ">
+            ${status || "PAGO"}
+          </span>
+        </div>
 
-                <!-- Rodapé -->
-                <div
-                  style="
-                    padding: 24px 32px;
-                    background: #f8fafc;
-                    border-top: 1px solid #e5e7eb;
-                    text-align: center;
-                  "
-                >
-                  <p
-                    style="
-                      margin: 0;
-                      color: #6b7280;
-                      font-size: 12px;
-                      line-height: 1.6;
-                    "
-                  >
-                    Este é um e-mail automático enviado pela Maylon.
-                    <br />
-                    Não responda diretamente a esta mensagem.
-                  </p>
-                </div>
+      </div>
 
-              </div>
-            </div>
-          </body>
-        </html>
+      <!-- Transação -->
+      <div style="padding:28px 30px;">
+
+        <div style="
+          padding:18px;
+          border:1px solid #e2e8f0;
+          border-radius:18px;
+          background:#ffffff;
+        ">
+
+          <p style="
+            margin:0 0 7px;
+            color:#64748b;
+            font-size:12px;
+            font-weight:700;
+            text-transform:uppercase;
+            letter-spacing:.5px;
+          ">
+            ID da transação
+          </p>
+
+          <p style="
+            margin:0;
+            color:#334155;
+            font-size:12px;
+            line-height:1.6;
+            word-break:break-all;
+          ">
+            ${transaction_id || pedido || "—"}
+          </p>
+
+        </div>
+      </div>
+
+      <!-- Segurança -->
+      <div style="
+        margin:0 30px 28px;
+        padding:16px 18px;
+        border-radius:18px;
+        background:#f8fafc;
+        border:1px solid #e2e8f0;
+      ">
+        <p style="
+          margin:0;
+          color:#475569;
+          font-size:12px;
+          line-height:1.6;
+          text-align:center;
+        ">
+          ✓ Pagamento processado com segurança pela Maylon.
+        </p>
+      </div>
+
+      <!-- Rodapé -->
+      <div style="
+        padding:24px 28px;
+        background:#042f2e;
+        text-align:center;
+      ">
+
+        <p style="
+          margin:0;
+          color:#99f6e4;
+          font-size:12px;
+          line-height:1.7;
+        ">
+          Este é um e-mail automático enviado pela Maylon.
+          <br />
+          Não responda diretamente a esta mensagem.
+        </p>
+
+        <p style="
+          margin:12px 0 0;
+          color:#5eead4;
+          font-size:11px;
+        ">
+          © ${new Date().getFullYear()} Maylon
+        </p>
+
+      </div>
+
+    </div>
+  </div>
+
+</body>
+</html>
       `,
     });
 
-    console.log(
-      `Recibo enviado com sucesso para ${emailDestino}`
-    );
+    console.log(`Recibo enviado com sucesso para ${emailDestino}`);
 
     return NextResponse.json({
       success: true,

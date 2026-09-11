@@ -407,7 +407,7 @@ export default function DashboardLayout() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#f3f6f9] px-4">
+      <div className="flex min-h-screen items-center justify-center">
         <div className="w-full max-w-sm rounded-[30px] border border-gray-200 bg-white p-10 text-center shadow-xl shadow-[#073b70]/10">
           <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-[#edf3f9]">
             <div className="h-8 w-8 animate-spin rounded-full border-[3px] border-[#073b70] border-t-transparent" />

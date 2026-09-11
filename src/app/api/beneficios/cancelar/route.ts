@@ -6,7 +6,10 @@ import {
   readJsonBody,
   toPositiveInt,
 } from "../../../lib/session";
-import { logPagamento, updateAssinaturaById } from "../../../lib/assinaturaDb";
+import {
+  logPagamento,
+  updateAssinaturaById,
+} from "../../../lib/assinaturaDb";
 
 export const dynamic = "force-dynamic";
 
@@ -16,8 +19,8 @@ async function refundStripeSubscription(subscriptionId: string) {
     expand: ["latest_invoice.payment_intent", "latest_invoice.charge"],
   });
 
-  // Cancel first so no new renewals charge the client
   let canceledSub = subscription;
+
   if (subscription.status !== "canceled") {
     canceledSub = await stripe.subscriptions.cancel(subscriptionId, {
       invoice_now: false,
@@ -31,6 +34,7 @@ async function refundStripeSubscription(subscriptionId: string) {
 
   try {
     let invoice: any = canceledSub.latest_invoice;
+
     if (typeof invoice === "string") {
       invoice = await stripe.invoices.retrieve(invoice, {
         expand: ["payment_intent", "charge"],
@@ -52,6 +56,7 @@ async function refundStripeSubscription(subscriptionId: string) {
         payment_intent: paymentIntentId,
         reason: "requested_by_customer",
       });
+
       refundId = refund.id;
       refundAmount = refund.amount;
       refundStatus = refund.status;
@@ -60,26 +65,30 @@ async function refundStripeSubscription(subscriptionId: string) {
         charge: chargeId,
         reason: "requested_by_customer",
       });
+
       refundId = refund.id;
       refundAmount = refund.amount;
       refundStatus = refund.status;
     } else {
-      // Fallback: latest paid charge for this customer
       const customerId =
         typeof canceledSub.customer === "string"
           ? canceledSub.customer
           : canceledSub.customer?.id;
+
       if (customerId) {
         const charges = await stripe.charges.list({
           customer: customerId,
           limit: 5,
         });
+
         const paid = charges.data.find((c) => c.paid && !c.refunded);
+
         if (paid) {
           const refund = await stripe.refunds.create({
             charge: paid.id,
             reason: "requested_by_customer",
           });
+
           refundId = refund.id;
           refundAmount = refund.amount;
           refundStatus = refund.status;
@@ -87,7 +96,10 @@ async function refundStripeSubscription(subscriptionId: string) {
       }
     }
   } catch (refundError: any) {
-    console.warn("Stripe refund warning:", refundError?.message || refundError);
+    console.warn(
+      "Stripe refund warning:",
+      refundError?.message || refundError
+    );
   }
 
   return {
@@ -101,10 +113,12 @@ async function refundStripeSubscription(subscriptionId: string) {
 export async function POST(req: Request) {
   try {
     const body = await readJsonBody(req);
+
     const usuario_id = await getSessionUserId(
       body.usuario_id ?? body.usuarioId ?? body.user_id,
       req
     );
+
     const beneficio_id =
       toPositiveInt(body.beneficio_id) ?? toPositiveInt(body.beneficioId);
 
@@ -116,16 +130,14 @@ export async function POST(req: Request) {
     }
 
     const [rows]: any = await db.query(
-      `
-      SELECT * FROM usuario_beneficios
-      WHERE usuario_id = ?
-        AND beneficio_id = ?
-        AND (
-          ativo = 1
-          OR status_assinatura IN ('aprovado', 'autorizado', 'pendente')
-        )
-      ORDER BY id DESC
-      `,
+      `SELECT * FROM usuario_beneficios
+       WHERE usuario_id = ?
+         AND beneficio_id = ?
+         AND (
+           ativo = 1
+           OR status_assinatura IN ('aprovado','autorizado','pendente')
+         )
+       ORDER BY id DESC`,
       [usuario_id, beneficio_id]
     );
 
@@ -136,8 +148,6 @@ export async function POST(req: Request) {
       );
     }
 
-    // Prefer Stripe/active row for refund messaging; cancel every open row
-    // so leftover PIX "pendente" cannot keep the benefit visible twice.
     const beneficio =
       rows.find(
         (r: any) =>
@@ -159,9 +169,13 @@ export async function POST(req: Request) {
 
     const metodo = String(beneficio.metodo_pagamento || "");
     const stripeIds = new Set<string>();
+
     for (const row of rows) {
       const sid = row.stripe_subscription_id;
-      if (sid) stripeIds.add(String(sid));
+
+      if (sid) {
+        stripeIds.add(String(sid));
+      }
     }
 
     for (const subscriptionId of stripeIds) {
@@ -183,14 +197,17 @@ export async function POST(req: Request) {
       usuarioBeneficioId: Number(beneficio.id),
       gateway: metodo.includes("pix") ? "btg" : "stripe",
       metodo: metodo.includes("pix") ? "pix" : "card",
-      status: refundInfo.refundId ? "cancelado_com_reembolso" : "cancelado",
+      status: refundInfo.refundId
+        ? "cancelado_com_reembolso"
+        : "cancelado",
       amount:
         refundInfo.refundAmount != null
           ? refundInfo.refundAmount / 100
           : beneficio.valor_cobrado != null
             ? Number(beneficio.valor_cobrado)
             : undefined,
-      externalId: refundInfo.refundId || beneficio.stripe_subscription_id,
+      externalId:
+        refundInfo.refundId || beneficio.stripe_subscription_id,
       pedidoCodigo: beneficio.pedido_codigo || undefined,
       payload: refundInfo,
     });
@@ -211,6 +228,7 @@ export async function POST(req: Request) {
     });
   } catch (error: any) {
     console.error("Erro ao cancelar assinatura:", error);
+
     return NextResponse.json(
       {
         error: error?.message || "Erro ao cancelar assinatura",

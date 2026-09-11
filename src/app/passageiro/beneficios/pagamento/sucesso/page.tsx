@@ -81,7 +81,7 @@ function PaymentSuccessContent() {
             });
           }
         } else if (pedidoParam) {
-          // In-portal card (or PIX): no Stripe Checkout session_id
+
           const me = await fetch("/api/me", { credentials: "include" });
           const user = me.ok ? await me.json() : null;
           setInfo((prev) => ({
@@ -136,8 +136,8 @@ function PaymentSuccessContent() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-emerald-600" />
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-teal-950 via-teal-900 to-slate-950">
+        <Loader2 className="h-8 w-8 animate-spin text-teal-600" />
       </div>
     );
   }
@@ -212,11 +212,11 @@ function PaymentSuccessContent() {
 
   return (
     <>
-      <div className="flex min-h-screen items-center justify-center p-6">
+      <div className="relative flex min-h-screen items-center justify-center overflow-hidden py-4">
         {alert && (
           <div
             className={`fixed right-6 top-6 z-[9999] rounded-xl px-5 py-4 shadow-xl ${alert.type === "success"
-                ? "bg-emerald-600 text-white"
+                ? "bg-teal-600 text-white"
                 : "bg-red-600 text-white"
               }`}
           >
@@ -235,18 +235,18 @@ function PaymentSuccessContent() {
         )}
         <div
           ref={receiptRef}
-          className="w-full max-w-md overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-xl"
+          className="relative w-full max-w-lg overflow-hidden rounded-[32px] border border-white/60 bg-white/95 shadow-[0_30px_90px_rgba(0,0,0,0.28)] backdrop-blur-xl"
         >
-          <div className="border-b px-8 py-8 text-center">
-            <CheckCircle2 className="mx-auto h-16 w-16 text-emerald-500" />
-            <h1 className="mt-4 text-2xl font-bold text-gray-900">
+          <div className="relative overflow-hidden border-b border-slate-100 bg-gradient-to-br from-teal-50 via-white to-emerald-50 px-6 py-10 text-center sm:px-8">
+            <CheckCircle2 className="mx-auto h-16 w-16 text-teal-500 drop-shadow-[0_8px_20px_rgba(13,148,136,0.25)]" />
+            <h1 className="mt-4 text-3xl font-extrabold tracking-tight text-slate-950">
               Pagamento Confirmado
             </h1>
-            <p className="mt-2 text-sm text-gray-500">
+            <p className="mt-2 text-sm text-slate-500">
               Obrigado! Seu pagamento foi aprovado.
             </p>
           </div>
-          <div className="space-y-3 border-b p-6 text-sm">
+          <div className="space-y-3 border-b border-slate-100 p-5 sm:p-6 text-sm">
             <Info
               icon={<Receipt className="h-5 w-5" />}
               label="Pedido"
@@ -267,31 +267,31 @@ function PaymentSuccessContent() {
               label="Data e Hora"
               value={info.date}
             />
-            <div className="flex items-center justify-between">
-              <span className="text-gray-500">Status de Pagamento</span>
-              <span className="rounded-lg bg-emerald-100 px-3 py-1 text-sm font-semibold text-emerald-700">
+            <div className="flex items-center justify-between gap-4 rounded-2xl border border-slate-100 bg-slate-50/60 px-4 py-3">
+              <span className="text-slate-500">Status de Pagamento</span>
+              <span className="rounded-lg bg-teal-100 px-3 py-1 text-sm font-semibold text-teal-700">
                 Pago
               </span>
             </div>
           </div>
 
-          <div className="border-b p-6">
+          <div className="border-b border-slate-100 p-5 sm:p-6">
             <h2 className="mb-2 font-semibold">Cliente</h2>
             <div className="flex items-start gap-3">
-              <User className="mt-1 h-5 w-5 text-gray-400" />
+              <User className="mt-1 h-5 w-5 text-slate-400" />
               <div>
                 <p className="font-medium">{info.customer.name}</p>
-                <p className="text-sm text-gray-500">{info.customer.email}</p>
+                <p className="text-sm text-slate-500">{info.customer.email}</p>
               </div>
             </div>
           </div>
 
           {info.method === "card" && (
-            <div className="border-b p-6">
+            <div className="border-b border-slate-100 p-5 sm:p-6">
               <h2 className="mb-4 font-semibold">Cartão</h2>
-              <div className="rounded-lg bg-gray-50 p-4">
+              <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
                 <p className="font-medium">{cardLabel}</p>
-                <p className="text-sm text-gray-500">
+                <p className="text-sm text-slate-500">
                   Salvo para cobranças futuras
                 </p>
               </div>
@@ -299,20 +299,20 @@ function PaymentSuccessContent() {
           )}
 
           {info.method === "pix" && (
-            <div className="border-b p-6">
+            <div className="border-b border-slate-100 p-5 sm:p-6">
               <h2 className="mb-4 font-semibold">PIX</h2>
-              <div className="rounded-lg bg-emerald-50 p-4">
-                <p className="font-semibold text-sm text-emerald-700">PIX Recebido</p>
+              <div className="rounded-2xl border border-teal-100 bg-teal-50/80 p-4">
+                <p className="font-semibold text-sm text-teal-700">PIX Recebido</p>
               </div>
             </div>
           )}
         </div>
 
-        <div className="fixed bottom-6 right-6 flex flex-col gap-3">
+        <div className="fixed bottom-4 left-1/2 z-50 flex w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 flex-col gap-3 sm:bottom-6 sm:left-auto sm:right-6 sm:w-auto sm:translate-x-0">
           <button
             onClick={handleDownloadReceipt}
             disabled={loadingPdf}
-            className="flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-emerald-600 px-6 py-3 font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-70"
+            className="flex cursor-pointer items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-teal-600 to-teal-500 px-6 py-3.5 shadow-lg shadow-teal-900/20 font-semibold text-white transition hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-70"
           >
             <Download size={18} />
             {loadingPdf ? "Aguarde..." : "Baixar Recibo PDF"}
@@ -321,14 +321,14 @@ function PaymentSuccessContent() {
             type="button"
             onClick={enviarReciboEmail}
             disabled={enviandoRecibo}
-            className="flex items-center cursor-pointer justify-center gap-2 rounded-xl border bg-white px-6 py-3 font-semibold transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+            className="flex items-center cursor-pointer justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-6 py-3.5 shadow-lg shadow-slate-950/5 font-semibold transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
           >
             <Mail size={18} />
             {enviandoRecibo ? "Enviando..." : "Enviar Recibo por Email"}
           </button>
           <Link
             href="/passageiro/beneficios"
-            className="flex items-center justify-center gap-2 rounded-xl bg-gray-100 px-6 py-3 font-semibold hover:bg-gray-200"
+            className="flex items-center justify-center gap-2 rounded-2xl bg-slate-100 px-6 py-3.5 font-semibold hover:bg-slate-200"
           >
             <Home size={18} />
             Voltar para Benefícios
@@ -359,8 +359,8 @@ export default function PaymentSuccess() {
   return (
     <Suspense
       fallback={
-        <div className="flex min-h-screen items-center justify-center">
-          <Loader2 className="h-8 w-8 animate-spin text-emerald-600" />
+        <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-teal-950 via-teal-900 to-slate-950">
+          <Loader2 className="h-8 w-8 animate-spin text-teal-600" />
         </div>
       }
     >
@@ -377,12 +377,12 @@ interface InfoProps {
 
 function Info({ icon, label, value }: InfoProps) {
   return (
-    <div className="flex items-center justify-between">
-      <div className="flex items-center gap-2 text-gray-500">
+    <div className="flex items-center justify-between gap-4 rounded-2xl border border-slate-100 bg-slate-50/60 px-4 py-3">
+      <div className="flex items-center gap-2 text-slate-500">
         {icon}
         <span>{label}</span>
       </div>
-      <span className="font-medium text-gray-900">{value}</span>
+      <span className="font-medium text-slate-900">{value}</span>
     </div>
   );
 }

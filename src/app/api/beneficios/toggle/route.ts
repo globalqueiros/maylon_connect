@@ -1,10 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "../../../lib/db";
 
-/**
- * Toggle is only for free/admin activation.
- * Paid Stripe/Pix subscriptions must go through checkout APIs.
- */
 export async function POST(req: Request) {
   try {
     const { usuario_id, beneficio_id, metodo_pagamento } = await req.json();
@@ -86,6 +82,7 @@ export async function POST(req: Request) {
 
     if (rows.length > 0) {
       const row = rows[0];
+
       if (
         row.ativo &&
         (row.metodo_pagamento === "stripe_recorrente" ||
@@ -101,6 +98,7 @@ export async function POST(req: Request) {
       }
 
       const novoStatus = row.ativo ? 0 : 1;
+
       await db.query(
         "UPDATE usuario_beneficios SET ativo = ? WHERE id = ?",
         [novoStatus, row.id]
@@ -127,6 +125,7 @@ export async function POST(req: Request) {
     });
   } catch (error) {
     console.error("Erro na API:", error);
+
     return NextResponse.json(
       { error: "Erro interno ao atualizar benefício" },
       { status: 500 }
