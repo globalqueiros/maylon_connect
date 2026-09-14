@@ -148,7 +148,7 @@ export default function ViagensPage() {
               type="button"
               onClick={() => void loadTrips()}
               disabled={loading}
-              className="group inline-flex cursor-pointer items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-600 shadow-sm transition-all hover:border-[#35a989] hover:text-[#35a989] disabled:cursor-not-allowed disabled:opacity-50"
+              className="group cursor-pointer inline-flex cursor-pointer items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-600 shadow-sm transition-all hover:border-[#35a989] hover:text-[#35a989] disabled:cursor-not-allowed disabled:opacity-50"
             >
               <RefreshCw
                 size={14}

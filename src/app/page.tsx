@@ -193,7 +193,7 @@ function LoginPage() {
           <form onSubmit={handleLogin} className="flex flex-col gap-2">
             <label className="text-white">Email</label>
             <input
-              type="text"
+              type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="Email"

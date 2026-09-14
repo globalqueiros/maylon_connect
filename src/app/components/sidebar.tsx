@@ -10,6 +10,7 @@ import {
   ShoppingBasket,
   Car,
   CarFront,
+  ShoppingCart,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -19,7 +20,7 @@ const menuMotorista = [
   { name: "Dashboard", icon: LayoutDashboard, href: "/motorista" },
   { name: "Relatório", icon: FilePenLine, href: "/motorista/relatorio" },
   { name: "Benefícios", icon: HandCoins, href: "/motorista/beneficios" },
-  { name: "Shopping", icon: ShoppingBasket, href: "/motorista/shopping" },
+  { name: "Shopping", icon: ShoppingCart, href: "/motorista/shopping" },
   { name: "Carros", icon: Car, href: "/motorista/carros" },
   { name: "Imposto de Renda", icon: Percent, href: "/motorista/impostos" },
   { name: "Sair", icon: LogOut, href: "/saindo" },

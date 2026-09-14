@@ -1,107 +1,218 @@
-import { NextResponse } from "next/server";
-import { db } from "../../lib/db";
+import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import { db } from "../../lib/db";
 
-export async function POST(req: Request) {
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+function limparSecret(value?: string) {
+  if (!value) return "";
+  const cleaned = value.replace(/\r/g, "").trim();
+  if (
+    (cleaned.startsWith('"') && cleaned.endsWith('"')) ||
+    (cleaned.startsWith("'") && cleaned.endsWith("'"))
+  ) {
+    return cleaned.slice(1, -1);
+  }
+  return cleaned;
+}
+
+export async function POST(request: NextRequest) {
   try {
-    const { email, password } = await req.json();
+    const body = await request.json();
+    const email = String(body?.email || "").trim().toLowerCase();
+    const password = String(body?.password || "");
 
-    const forwarded = req.headers.get("x-forwarded-for");
-
-    let ip =
-      req.headers.get("cf-connecting-ip") ||
-      (forwarded ? forwarded.split(",")[0].trim() : null) ||
-      req.headers.get("x-real-ip") ||
-      "unknown";
-      
-    if (ip === "::1" || ip?.includes("::1")) {
-      ip = "127.0.0.1";
+    if (!email || !password) {
+      return NextResponse.json(
+        { success: false, error: "Informe o e-mail e a senha." },
+        { status: 400 }
+      );
     }
 
-    const userAgent = req.headers.get("user-agent") || "unknown";
-
-    const [rows]: any = await db.query(
-      "SELECT * FROM users WHERE email = ?",
+    const [rows] = await db.query(
+      `
+      SELECT
+        id,
+        email,
+        password,
+        user_type,
+        full_name
+      FROM users
+      WHERE LOWER(email) = ?
+      LIMIT 1
+      `,
       [email]
     );
 
-    if (!rows || rows.length === 0) {
+    const users = rows as any[];
+
+    if (!users || users.length === 0) {
       return NextResponse.json(
-        { error: "Usuário ou senha inválida" },
+        { success: false, error: "E-mail ou senha inválidos." },
         { status: 401 }
       );
     }
 
-    const user = rows[0];
+    const user = users[0];
+    const userId = String(user.id || "").trim();
 
-    const valid = await bcrypt.compare(password, user.password);
-
-    if (!valid) {
+    if (!userId) {
+      console.error("ID DO USUÁRIO INVÁLIDO:", user);
       return NextResponse.json(
-        { error: "Usuário ou senha inválida" },
+        {
+          success: false,
+          error: "ID do usuário inválido no banco de dados.",
+        },
+        { status: 500 }
+      );
+    }
+
+    if (!user.password) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Usuário sem senha cadastrada.",
+        },
+        { status: 500 }
+      );
+    }
+
+    const senhaCorreta = await bcrypt.compare(
+      password,
+      String(user.password)
+    );
+
+    if (!senhaCorreta) {
+      return NextResponse.json(
+        { success: false, error: "E-mail ou senha inválidos." },
         { status: 401 }
+      );
+    }
+
+    const userType = String(user.user_type || "")
+      .trim()
+      .toLowerCase();
+
+    const isCustomer =
+      userType === "customer" ||
+      userType === "passageiro" ||
+      userType === "passenger";
+
+    const isDriver =
+      userType === "driver" ||
+      userType === "motorista";
+
+    if (!isCustomer && !isDriver) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Tipo de usuário não configurado.",
+        },
+        { status: 403 }
+      );
+    }
+
+    const secret = limparSecret(process.env.JWT_SECRET);
+
+    if (!secret) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "JWT_SECRET não configurado no servidor.",
+        },
+        { status: 500 }
       );
     }
 
     const accessToken = jwt.sign(
-      { id: user.id, user_type: user.user_type },
-      process.env.JWT_SECRET!,
-      { expiresIn: "15m" }
-    );
-
-    const refreshToken = jwt.sign(
-      { id: user.id },
-      process.env.JWT_REFRESH_SECRET!,
+      {
+        id: userId,
+        email: user.email,
+        user_type: userType,
+      },
+      secret,
       { expiresIn: "7d" }
     );
 
-    const now = new Date();
-    const nowSP = new Date(
-      now.toLocaleString("en-US", { timeZone: "America/Sao_Paulo" })
-    )
-      .toISOString()
-      .slice(0, 19)
-      .replace("T", " ");
-
-    await db.query(
-      "INSERT INTO sessions (user_id, ip, user_agent, refresh_token, created_at) VALUES (?, ?, ?, ?, ?)",
-      [user.id, ip, userAgent, refreshToken, nowSP]
+    const refreshToken = jwt.sign(
+      {
+        id: userId,
+        type: "refresh",
+      },
+      secret,
+      { expiresIn: "30d" }
     );
 
-    const res = NextResponse.json({
+    const forwardedFor = request.headers.get("x-forwarded-for");
+    const realIp = request.headers.get("x-real-ip");
+
+    let ip = "unknown";
+
+    if (forwardedFor) {
+      ip = forwardedFor.split(",")[0].trim();
+    } else if (realIp) {
+      ip = realIp.trim();
+    }
+
+    const userAgent =
+      request.headers.get("user-agent") || "unknown";
+
+    await db.query(
+      `
+      INSERT INTO sessions (
+        user_id,
+        ip,
+        user_agent,
+        refresh_token,
+        created_at
+      )
+      VALUES (?, ?, ?, ?, NOW())
+      `,
+      [userId, ip, userAgent, refreshToken]
+    );
+
+    const response = NextResponse.json({
       success: true,
+      message: "Login realizado com sucesso.",
       user: {
-        id: user.id,
-        full_name: user.full_name,
-        phone: user.phone,
-        profile_image: user.profile_image,
+        id: userId,
         email: user.email,
-        user_type: user.user_type,
+        nome: user.full_name || "",
+        user_type: userType,
       },
+      redirect: isDriver ? "/motorista" : "/passageiro",
     });
 
-    res.cookies.set("access_token", accessToken, {
+    response.cookies.set("access_token", accessToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
+      sameSite: "lax",
       path: "/",
+      maxAge: 60 * 60 * 24 * 7,
     });
 
-    res.cookies.set("refresh_token", refreshToken, {
+    response.cookies.set("refresh_token", refreshToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
+      sameSite: "lax",
       path: "/",
+      maxAge: 60 * 60 * 24 * 30,
     });
 
-    return res;
-
-  } catch (error) {
-    console.error("Erro no login:", error);
+    return response;
+  } catch (error: any) {
+    console.error("ERRO NO LOGIN:", error);
 
     return NextResponse.json(
-      { error: "Erro interno no servidor" },
+      {
+        success: false,
+        error:
+          process.env.NODE_ENV === "development"
+            ? String(error?.message || error)
+            : "Não foi possível realizar o login.",
+      },
       { status: 500 }
     );
   }

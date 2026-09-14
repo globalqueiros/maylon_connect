@@ -7,10 +7,6 @@ import { toPositiveInt } from "../../lib/session";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-/* =========================================================
-   DATA / HORA DE SÃO PAULO
-========================================================= */
-
 function getDataSP() {
     const data = new Date();
 
@@ -21,70 +17,34 @@ function getDataSP() {
     );
 
     const yyyy = sp.getFullYear();
-
-    const mm = String(
-        sp.getMonth() + 1
-    ).padStart(2, "0");
-
-    const dd = String(
-        sp.getDate()
-    ).padStart(2, "0");
-
-    const hh = String(
-        sp.getHours()
-    ).padStart(2, "0");
-
-    const min = String(
-        sp.getMinutes()
-    ).padStart(2, "0");
-
-    const ss = String(
-        sp.getSeconds()
-    ).padStart(2, "0");
+    const mm = String(sp.getMonth() + 1).padStart(2, "0");
+    const dd = String(sp.getDate()).padStart(2, "0");
+    const hh = String(sp.getHours()).padStart(2, "0");
+    const min = String(sp.getMinutes()).padStart(2, "0");
+    const ss = String(sp.getSeconds()).padStart(2, "0");
 
     return `${yyyy}-${mm}-${dd} ${hh}:${min}:${ss}`;
 }
 
-/* =========================================================
-   LIMPA JWT SECRET
-========================================================= */
-
-function cleanSecret(
-    value?: string
-) {
+function cleanSecret(value?: string) {
     if (!value) {
         return "";
     }
 
-    const cleaned = value
-        .replace(/\r/g, "")
-        .trim();
+    const cleaned = value.replace(/\r/g, "").trim();
 
     if (
-        (cleaned.startsWith('"') &&
-            cleaned.endsWith('"')) ||
-        (cleaned.startsWith("'") &&
-            cleaned.endsWith("'"))
+        (cleaned.startsWith('"') && cleaned.endsWith('"')) ||
+        (cleaned.startsWith("'") && cleaned.endsWith("'"))
     ) {
-        return cleaned.slice(
-            1,
-            -1
-        );
+        return cleaned.slice(1, -1);
     }
 
     return cleaned;
 }
 
-/* =========================================================
-   VERIFICA UUID
-========================================================= */
-
-function isUuid(
-    value: unknown
-): boolean {
-    if (
-        typeof value !== "string"
-    ) {
+function isUuid(value: unknown): boolean {
+    if (typeof value !== "string") {
         return false;
     }
 
@@ -93,71 +53,104 @@ function isUuid(
     );
 }
 
-/* =========================================================
-   STRING SEGURA
-========================================================= */
-
-function safeString(
-    value: unknown
-): string {
-    if (
-        value === null ||
-        value === undefined
-    ) {
+function safeString(value: unknown): string {
+    if (value === null || value === undefined) {
         return "";
     }
 
     return String(value).trim();
 }
 
-/* =========================================================
-   JWT
-========================================================= */
-
-type JwtPayloadCustom =
-    jwt.JwtPayload & {
-        id?: unknown;
-        userId?: unknown;
-        user_id?: unknown;
-        usuario_id?: unknown;
-        sub?: unknown;
-        email?: unknown;
-        user_type?: unknown;
-    };
-
-/* =========================================================
-   PROCURA UUID DO USUÁRIO
-========================================================= */
+type JwtPayloadCustom = jwt.JwtPayload & {
+    id?: unknown;
+    userId?: unknown;
+    user_id?: unknown;
+    usuario_id?: unknown;
+    sub?: unknown;
+    email?: unknown;
+    user_type?: unknown;
+};
 
 async function findUserUuid(
     numericUserId: number,
     email: string
 ): Promise<string | null> {
     try {
-        console.log(
-            "🔎 Procurando UUID relacionado ao usuário:",
-            numericUserId
-        );
+        const [candidates]: any = await db.query(`
+            SELECT
+                c1.TABLE_NAME AS table_name,
+                c1.COLUMN_NAME AS id_column,
+                c2.COLUMN_NAME AS user_column
+            FROM INFORMATION_SCHEMA.COLUMNS c1
+            INNER JOIN INFORMATION_SCHEMA.COLUMNS c2
+                ON c1.TABLE_SCHEMA = c2.TABLE_SCHEMA
+                AND c1.TABLE_NAME = c2.TABLE_NAME
+            WHERE c1.TABLE_SCHEMA = DATABASE()
+              AND c1.COLUMN_NAME = 'id'
+              AND c2.COLUMN_NAME IN (
+                  'user_id',
+                  'usuario_id'
+              )
+              AND c1.DATA_TYPE IN (
+                  'char',
+                  'varchar'
+              )
+              AND c1.CHARACTER_MAXIMUM_LENGTH >= 36
+              AND c1.TABLE_NAME <> 'users'
+            ORDER BY
+                CASE
+                    WHEN LOWER(c1.TABLE_NAME) LIKE '%customer%' THEN 1
+                    WHEN LOWER(c1.TABLE_NAME) LIKE '%cliente%' THEN 2
+                    WHEN LOWER(c1.TABLE_NAME) LIKE '%usuario%' THEN 3
+                    WHEN LOWER(c1.TABLE_NAME) LIKE '%profile%' THEN 4
+                    ELSE 5
+                END
+        `);
 
-        /* -------------------------------------------------
-           PRIMEIRO:
-           procura tabelas que tenham:
+        if (Array.isArray(candidates)) {
+            for (const table of candidates) {
+                const tableName = safeString(table.table_name);
+                const idColumn = safeString(table.id_column);
+                const userColumn = safeString(table.user_column);
 
-           id = UUID
+                if (!tableName || !idColumn || !userColumn) {
+                    continue;
+                }
 
-           e
+                try {
+                    const [rows]: any = await db.query(
+                        `
+                        SELECT
+                            \`${idColumn}\` AS uuid
+                        FROM \`${tableName}\`
+                        WHERE \`${userColumn}\` = ?
+                        LIMIT 1
+                        `,
+                        [numericUserId]
+                    );
 
-           user_id / usuario_id = 6
-        ------------------------------------------------- */
+                    if (
+                        Array.isArray(rows) &&
+                        rows.length
+                    ) {
+                        const uuid = safeString(rows[0]?.uuid);
 
-        const [
-            candidates,
-        ]: any =
-            await db.query(`
+                        if (isUuid(uuid)) {
+                            return uuid;
+                        }
+                    }
+                } catch {
+                    continue;
+                }
+            }
+        }
+
+        if (email) {
+            const [emailCandidates]: any = await db.query(`
                 SELECT
                     c1.TABLE_NAME AS table_name,
                     c1.COLUMN_NAME AS id_column,
-                    c2.COLUMN_NAME AS user_column
+                    c2.COLUMN_NAME AS email_column
                 FROM INFORMATION_SCHEMA.COLUMNS c1
                 INNER JOIN INFORMATION_SCHEMA.COLUMNS c2
                     ON c1.TABLE_SCHEMA = c2.TABLE_SCHEMA
@@ -165,8 +158,8 @@ async function findUserUuid(
                 WHERE c1.TABLE_SCHEMA = DATABASE()
                   AND c1.COLUMN_NAME = 'id'
                   AND c2.COLUMN_NAME IN (
-                      'user_id',
-                      'usuario_id'
+                      'email',
+                      'email_address'
                   )
                   AND c1.DATA_TYPE IN (
                       'char',
@@ -174,171 +167,13 @@ async function findUserUuid(
                   )
                   AND c1.CHARACTER_MAXIMUM_LENGTH >= 36
                   AND c1.TABLE_NAME <> 'users'
-                ORDER BY
-                    CASE
-                        WHEN LOWER(c1.TABLE_NAME) LIKE '%customer%' THEN 1
-                        WHEN LOWER(c1.TABLE_NAME) LIKE '%cliente%' THEN 2
-                        WHEN LOWER(c1.TABLE_NAME) LIKE '%usuario%' THEN 3
-                        WHEN LOWER(c1.TABLE_NAME) LIKE '%profile%' THEN 4
-                        ELSE 5
-                    END
             `);
 
-        if (
-            Array.isArray(
-                candidates
-            )
-        ) {
-            for (
-                const table of candidates
-            ) {
-                const tableName =
-                    safeString(
-                        table.table_name
-                    );
-
-                const idColumn =
-                    safeString(
-                        table.id_column
-                    );
-
-                const userColumn =
-                    safeString(
-                        table.user_column
-                    );
-
-                if (
-                    !tableName ||
-                    !idColumn ||
-                    !userColumn
-                ) {
-                    continue;
-                }
-
-                try {
-                    const [
-                        rows,
-                    ]: any =
-                        await db.query(
-                            `
-                            SELECT
-                                \`${idColumn}\` AS uuid
-                            FROM \`${tableName}\`
-                            WHERE \`${userColumn}\` = ?
-                            LIMIT 1
-                            `,
-                            [
-                                numericUserId,
-                            ]
-                        );
-
-                    if (
-                        Array.isArray(
-                            rows
-                        ) &&
-                        rows.length
-                    ) {
-                        const uuid =
-                            safeString(
-                                rows[0]?.uuid
-                            );
-
-                        if (
-                            isUuid(
-                                uuid
-                            )
-                        ) {
-                            console.log(
-                                "✅ UUID encontrado:",
-                                {
-                                    tabela:
-                                        tableName,
-                                    coluna:
-                                        idColumn,
-                                    relacionamento:
-                                        userColumn,
-                                    user_id:
-                                        numericUserId,
-                                    uuid,
-                                }
-                            );
-
-                            return uuid;
-                        }
-                    }
-                } catch (
-                    tableError
-                ) {
-                    console.warn(
-                        `⚠️ Não foi possível consultar ${tableName}:`,
-                        tableError
-                    );
-                }
-            }
-        }
-
-        /* -------------------------------------------------
-           SEGUNDO:
-           procura uma tabela que tenha:
-
-           id = UUID
-           email = e-mail do usuário
-        ------------------------------------------------- */
-
-        if (email) {
-            console.log(
-                "🔎 Procurando UUID pelo e-mail:",
-                email
-            );
-
-            const [
-                emailCandidates,
-            ]: any =
-                await db.query(`
-                    SELECT
-                        c1.TABLE_NAME AS table_name,
-                        c1.COLUMN_NAME AS id_column,
-                        c2.COLUMN_NAME AS email_column
-                    FROM INFORMATION_SCHEMA.COLUMNS c1
-                    INNER JOIN INFORMATION_SCHEMA.COLUMNS c2
-                        ON c1.TABLE_SCHEMA = c2.TABLE_SCHEMA
-                        AND c1.TABLE_NAME = c2.TABLE_NAME
-                    WHERE c1.TABLE_SCHEMA = DATABASE()
-                      AND c1.COLUMN_NAME = 'id'
-                      AND c2.COLUMN_NAME IN (
-                          'email',
-                          'email_address'
-                      )
-                      AND c1.DATA_TYPE IN (
-                          'char',
-                          'varchar'
-                      )
-                      AND c1.CHARACTER_MAXIMUM_LENGTH >= 36
-                      AND c1.TABLE_NAME <> 'users'
-                `);
-
-            if (
-                Array.isArray(
-                    emailCandidates
-                )
-            ) {
-                for (
-                    const table of emailCandidates
-                ) {
-                    const tableName =
-                        safeString(
-                            table.table_name
-                        );
-
-                    const idColumn =
-                        safeString(
-                            table.id_column
-                        );
-
-                    const emailColumn =
-                        safeString(
-                            table.email_column
-                        );
+            if (Array.isArray(emailCandidates)) {
+                for (const table of emailCandidates) {
+                    const tableName = safeString(table.table_name);
+                    const idColumn = safeString(table.id_column);
+                    const emailColumn = safeString(table.email_column);
 
                     if (
                         !tableName ||
@@ -349,167 +184,68 @@ async function findUserUuid(
                     }
 
                     try {
-                        const [
-                            rows,
-                        ]: any =
-                            await db.query(
-                                `
-                                SELECT
-                                    \`${idColumn}\` AS uuid
-                                FROM \`${tableName}\`
-                                WHERE LOWER(\`${emailColumn}\`) = LOWER(?)
-                                LIMIT 1
-                                `,
-                                [
-                                    email,
-                                ]
-                            );
+                        const [rows]: any = await db.query(
+                            `
+                            SELECT
+                                \`${idColumn}\` AS uuid
+                            FROM \`${tableName}\`
+                            WHERE LOWER(\`${emailColumn}\`) = LOWER(?)
+                            LIMIT 1
+                            `,
+                            [email]
+                        );
 
                         if (
-                            Array.isArray(
-                                rows
-                            ) &&
+                            Array.isArray(rows) &&
                             rows.length
                         ) {
-                            const uuid =
-                                safeString(
-                                    rows[0]?.uuid
-                                );
+                            const uuid = safeString(rows[0]?.uuid);
 
-                            if (
-                                isUuid(
-                                    uuid
-                                )
-                            ) {
-                                console.log(
-                                    "✅ UUID encontrado pelo e-mail:",
-                                    {
-                                        tabela:
-                                            tableName,
-                                        uuid,
-                                    }
-                                );
-
+                            if (isUuid(uuid)) {
                                 return uuid;
                             }
                         }
-                    } catch (
-                        tableError
-                    ) {
-                        console.warn(
-                            `⚠️ Erro consultando ${tableName}:`,
-                            tableError
-                        );
+                    } catch {
+                        continue;
                     }
                 }
             }
         }
 
-        console.error(
-            "❌ Não foi encontrado UUID para o usuário:",
-            numericUserId
-        );
-
         return null;
-    } catch (error) {
-        console.error(
-            "❌ Erro ao procurar UUID:",
-            error
-        );
-
+    } catch {
         return null;
     }
 }
 
-/* =========================================================
-   USUÁRIO AUTENTICADO
-========================================================= */
-
 async function getUserFromToken() {
     try {
-        const cookieStore =
-            await cookies();
+        const cookieStore = await cookies();
 
-        const token =
-            cookieStore.get(
-                "access_token"
-            )?.value;
+        const token = cookieStore.get("access_token")?.value;
 
         if (!token) {
-            console.error(
-                "❌ access_token não encontrado."
-            );
-
             return null;
         }
 
-        const jwtSecret =
-            cleanSecret(
-                process.env.JWT_SECRET
-            );
-
-        if (!jwtSecret) {
-            console.error(
-                "❌ JWT_SECRET não configurada."
-            );
-
-            return null;
-        }
-
-        let decoded:
-            JwtPayloadCustom;
-
-        try {
-            decoded =
-                jwt.verify(
-                    token,
-                    jwtSecret
-                ) as JwtPayloadCustom;
-        } catch (error) {
-            console.error(
-                "❌ JWT inválido ou expirado:",
-                error
-            );
-
-            return null;
-        }
-
-        console.log(
-            "🔐 JWT /api/protocolo:",
-            {
-                id:
-                    decoded.id ??
-                    null,
-
-                userId:
-                    decoded.userId ??
-                    null,
-
-                user_id:
-                    decoded.user_id ??
-                    null,
-
-                usuario_id:
-                    decoded.usuario_id ??
-                    null,
-
-                sub:
-                    decoded.sub ??
-                    null,
-
-                email:
-                    decoded.email ??
-                    null,
-
-                user_type:
-                    decoded.user_type ??
-                    null,
-            }
+        const jwtSecret = cleanSecret(
+            process.env.JWT_SECRET
         );
 
-        /* -------------------------------------------------
-           SE O JWT JÁ TIVER UUID
-        ------------------------------------------------- */
+        if (!jwtSecret) {
+            return null;
+        }
+
+        let decoded: JwtPayloadCustom;
+
+        try {
+            decoded = jwt.verify(
+                token,
+                jwtSecret
+            ) as JwtPayloadCustom;
+        } catch {
+            return null;
+        }
 
         const uuidCandidates = [
             decoded.usuario_id,
@@ -518,136 +254,57 @@ async function getUserFromToken() {
             decoded.sub,
         ];
 
-        for (
-            const candidate of
-                uuidCandidates
-        ) {
-            const value =
-                safeString(
-                    candidate
-                );
+        for (const candidate of uuidCandidates) {
+            const value = safeString(candidate);
 
-            if (
-                isUuid(value)
-            ) {
-                console.log(
-                    "✅ UUID encontrado diretamente no JWT:",
-                    value
-                );
-
+            if (isUuid(value)) {
                 return {
-                    id:
-                        toPositiveInt(
-                            decoded.id
-                        ),
-
-                    usuario_id:
-                        value,
-
+                    id: toPositiveInt(decoded.id),
+                    usuario_id: value,
                     email:
-                        typeof decoded.email ===
-                        "string"
-                            ? decoded.email
-                                  .trim()
-                                  .toLowerCase()
+                        typeof decoded.email === "string"
+                            ? decoded.email.trim().toLowerCase()
                             : "",
                 };
             }
         }
 
-        /* -------------------------------------------------
-           PEGA ID NUMÉRICO
-        ------------------------------------------------- */
-
         const numericUserId =
-            toPositiveInt(
-                decoded.id
-            ) ??
-            toPositiveInt(
-                decoded.userId
-            ) ??
-            toPositiveInt(
-                decoded.user_id
-            );
+            toPositiveInt(decoded.id) ??
+            toPositiveInt(decoded.userId) ??
+            toPositiveInt(decoded.user_id);
 
         const email =
-            typeof decoded.email ===
-            "string"
-                ? decoded.email
-                      .trim()
-                      .toLowerCase()
+            typeof decoded.email === "string"
+                ? decoded.email.trim().toLowerCase()
                 : "";
 
-        if (
-            !numericUserId
-        ) {
-            console.error(
-                "❌ Nenhum ID válido encontrado no JWT."
-            );
-
+        if (!numericUserId) {
             return null;
         }
 
-        /* -------------------------------------------------
-           PROCURA UUID
-        ------------------------------------------------- */
-
-        const uuid =
-            await findUserUuid(
-                numericUserId,
-                email
-            );
+        const uuid = await findUserUuid(
+            numericUserId,
+            email
+        );
 
         if (!uuid) {
-            console.error(
-                "❌ Não foi possível encontrar o UUID do usuário."
-            );
-
             return null;
         }
 
-        console.log(
-            "✅ Usuário autenticado:",
-            {
-                id:
-                    numericUserId,
-
-                usuario_id:
-                    uuid,
-
-                email,
-            }
-        );
-
         return {
-            id:
-                numericUserId,
-
-            usuario_id:
-                uuid,
-
+            id: numericUserId,
+            usuario_id: uuid,
             email,
         };
-    } catch (error) {
-        console.error(
-            "❌ Erro getUserFromToken:",
-            error
-        );
-
+    } catch {
         return null;
     }
 }
 
-/* =========================================================
-   POST /api/protocolo
-========================================================= */
-
-export async function POST(
-    req: Request
-) {
+export async function POST(req: Request) {
     try {
-        const user =
-            await getUserFromToken();
+        const user = await getUserFromToken();
 
         if (!user) {
             return NextResponse.json(
@@ -662,66 +319,143 @@ export async function POST(
             );
         }
 
-        let body:
-            Record<
-                string,
-                unknown
-            > = {};
+        let body: Record<string, unknown> = {};
 
         try {
-            body =
-                (await req.json()) ||
-                {};
+            body = (await req.json()) || {};
         } catch {
             body = {};
         }
 
-        const nome =
-            safeString(
-                body.nome
+        const codigo = safeString(body.codigo);
+        const respostaUsuario = safeString(
+            body.resposta_usuario || body.resposta
+        );
+
+        if (codigo && respostaUsuario) {
+            const [protocolos]: any = await db.query(
+                `
+                SELECT
+                    id,
+                    usuario_id,
+                    codigo,
+                    nome,
+                    email,
+                    categoria,
+                    assunto,
+                    mensagem,
+                    documento_url,
+                    status,
+                    resposta,
+                    resposta_usuario,
+                    resposta_usuario_em,
+                    criado_em,
+                    atualizado_em
+                FROM protocolos
+                WHERE codigo = ?
+                  AND usuario_id = ?
+                LIMIT 1
+                `,
+                [
+                    codigo,
+                    user.usuario_id,
+                ]
             );
 
-        const email =
-            safeString(
-                body.email
+            if (
+                !Array.isArray(protocolos) ||
+                protocolos.length === 0
+            ) {
+                return NextResponse.json(
+                    {
+                        success: false,
+                        error:
+                            "Protocolo não encontrado.",
+                    },
+                    {
+                        status: 404,
+                    }
+                );
+            }
+
+            await db.query(
+                `
+                UPDATE protocolos
+                SET
+                    resposta_usuario = ?,
+                    resposta_usuario_em = ?,
+                    atualizado_em = ?
+                WHERE codigo = ?
+                  AND usuario_id = ?
+                `,
+                [
+                    respostaUsuario,
+                    getDataSP(),
+                    getDataSP(),
+                    codigo,
+                    user.usuario_id,
+                ]
             );
 
-        const categoria =
-            safeString(
-                body.categoria
+            const [rows]: any = await db.query(
+                `
+                SELECT
+                    id,
+                    usuario_id,
+                    codigo,
+                    nome,
+                    email,
+                    categoria,
+                    assunto,
+                    mensagem,
+                    documento_url,
+                    status,
+                    resposta,
+                    resposta_usuario,
+                    resposta_usuario_em,
+                    criado_em,
+                    atualizado_em
+                FROM protocolos
+                WHERE codigo = ?
+                  AND usuario_id = ?
+                LIMIT 1
+                `,
+                [
+                    codigo,
+                    user.usuario_id,
+                ]
             );
 
-        const assunto =
-            safeString(
-                body.assunto
+            return NextResponse.json(
+                {
+                    success: true,
+                    message:
+                        "Resposta enviada com sucesso.",
+                    protocolo:
+                        rows?.[0] || null,
+                },
+                {
+                    status: 200,
+                }
             );
+        }
 
-        const mensagem =
-            safeString(
-                body.mensagem
-            );
+        const nome = safeString(body.nome);
+        const email = safeString(body.email);
+        const categoria = safeString(body.categoria);
+        const assunto = safeString(body.assunto);
+        const mensagem = safeString(body.mensagem);
+        const documentoUrl =
+            safeString(body.documento_url) || null;
 
         const codigoFinal =
-            safeString(
-                body.codigo
-            ) ||
-            `PRT-${Date.now()}`;
-
-        const documentoUrl =
-            safeString(
-                body.documento_url
-            ) || null;
-
-        /* -------------------------------------------------
-           VALIDAÇÃO
-        ------------------------------------------------- */
+            codigo || `PRT-${Date.now()}`;
 
         if (!assunto) {
             return NextResponse.json(
                 {
                     success: false,
-                    error:
-                        "Informe o assunto.",
+                    error: "Informe o assunto.",
                 },
                 {
                     status: 400,
@@ -733,8 +467,7 @@ export async function POST(
             return NextResponse.json(
                 {
                     success: false,
-                    error:
-                        "Informe a mensagem.",
+                    error: "Informe a mensagem.",
                 },
                 {
                     status: 400,
@@ -742,26 +475,7 @@ export async function POST(
             );
         }
 
-        /* -------------------------------------------------
-           INSERT
-        ------------------------------------------------- */
-
-        console.log(
-            "📨 Criando protocolo:",
-            {
-                codigo:
-                    codigoFinal,
-
-                usuario_id:
-                    user.usuario_id,
-
-                id:
-                    user.id,
-
-                email:
-                    user.email,
-            }
-        );
+        const dataAtual = getDataSP();
 
         await db.query(
             `
@@ -771,61 +485,52 @@ export async function POST(
                 codigo,
                 nome,
                 email,
+                categoria,
                 assunto,
                 mensagem,
+                documento_url,
                 status,
-                criado_em
+                resposta,
+                resposta_usuario,
+                resposta_usuario_em,
+                criado_em,
+                atualizado_em
             )
             VALUES
-            (?, ?, ?, ?, ?, ?, ?, ?)
+            (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             `,
             [
                 user.usuario_id,
                 codigoFinal,
                 nome || null,
                 email || null,
+                categoria || null,
                 assunto,
                 mensagem,
+                documentoUrl,
                 "Aberto",
-                getDataSP(),
+                null,
+                null,
+                null,
+                dataAtual,
+                dataAtual,
             ]
-        );
-
-        console.log(
-            "✅ Protocolo salvo com UUID:",
-            user.usuario_id
         );
 
         return NextResponse.json(
             {
                 success: true,
-
-                codigo:
-                    codigoFinal,
-
-                usuario_id:
-                    user.usuario_id,
-
-                criado_em:
-                    getDataSP(),
-
-                status:
-                    "Aberto",
+                codigo: codigoFinal,
+                usuario_id: user.usuario_id,
+                criado_em: dataAtual,
+                status: "Aberto",
             },
             {
                 status: 201,
             }
         );
     } catch (error: any) {
-        console.error(
-            "❌ /api/protocolo POST error:",
-            error
-        );
-
-        if (
-            error?.code ===
-            "ER_DUP_ENTRY"
-        ) {
+        if (error?.code === "ER_DUP_ENTRY") {
             return NextResponse.json(
                 {
                     success: false,
@@ -842,7 +547,10 @@ export async function POST(
             {
                 success: false,
                 error:
-                    "Erro ao criar protocolo.",
+                    process.env.NODE_ENV === "development"
+                        ? error?.message ||
+                          "Erro ao processar protocolo."
+                        : "Erro ao processar protocolo.",
             },
             {
                 status: 500,
@@ -851,21 +559,15 @@ export async function POST(
     }
 }
 
-/* =========================================================
-   GET /api/protocolo
-========================================================= */
-
 export async function GET() {
     try {
-        const user =
-            await getUserFromToken();
+        const user = await getUserFromToken();
 
         if (!user) {
             return NextResponse.json(
                 {
                     success: false,
-                    error:
-                        "Não autenticado",
+                    error: "Não autenticado",
                 },
                 {
                     status: 401,
@@ -873,78 +575,53 @@ export async function GET() {
             );
         }
 
-        console.log(
-            "📋 Buscando protocolos do UUID:",
-            user.usuario_id
-        );
-
-        const [
-            rows,
-        ]: any =
-            await db.query(
-                `
-                SELECT
-                    id,
-                    usuario_id,
-                    codigo,
-                    nome,
-                    email,
-                    assunto,
-                    mensagem,
-                    status,
-                    criado_em,
-                    atualizado_em
-                FROM protocolos
-                WHERE usuario_id = ?
-                ORDER BY
-                    criado_em DESC,
-                    id DESC
-                `,
-                [
-                    user.usuario_id,
-                ]
-            );
-
-        console.log(
-            "✅ Protocolos encontrados:",
-            Array.isArray(rows)
-                ? rows.length
-                : 0
+        const [rows]: any = await db.query(
+            `
+            SELECT
+                id,
+                usuario_id,
+                codigo,
+                nome,
+                email,
+                categoria,
+                assunto,
+                mensagem,
+                documento_url,
+                status,
+                resposta,
+                resposta_usuario,
+                resposta_usuario_em,
+                criado_em,
+                atualizado_em
+            FROM protocolos
+            WHERE usuario_id = ?
+            ORDER BY
+                criado_em DESC,
+                id DESC
+            `,
+            [user.usuario_id]
         );
 
         return NextResponse.json(
-            Array.isArray(rows)
-                ? rows
-                : [],
+            Array.isArray(rows) ? rows : [],
             {
                 status: 200,
                 headers: {
                     "Cache-Control":
                         "no-store, no-cache, must-revalidate",
-                    Pragma:
-                        "no-cache",
-                    Expires:
-                        "0",
+                    Pragma: "no-cache",
+                    Expires: "0",
                 },
             }
         );
     } catch (error: any) {
-        console.error(
-            "❌ /api/protocolo GET error:",
-            error
-        );
-
-        if (
-            error?.code ===
-            "ER_NO_SUCH_TABLE"
-        ) {
+        if (error?.code === "ER_NO_SUCH_TABLE") {
             return NextResponse.json(
                 [],
                 {
                     status: 200,
                     headers: {
-                        "Cache-Control":
-                            "no-store",
+                        "Cache-Control": "no-store",
                     },
                 }
             );
@@ -954,7 +631,10 @@ export async function GET() {
             {
                 success: false,
                 error:
-                    "Erro ao buscar protocolos",
+                    process.env.NODE_ENV === "development"
+                        ? error?.message ||
+                          "Erro ao buscar protocolos."
+                        : "Erro ao buscar protocolos.",
             },
             {
                 status: 500,

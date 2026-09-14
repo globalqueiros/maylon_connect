@@ -41,7 +41,7 @@ export default function DashboardLayout({
             setCollapsed((prev) => !prev)
           }
         />
-        <main className="p-6 bg-gray-50 min-h-screen">
+        <main className="p-4 min-h-screen bg-gradient-to-b from-[#0B6F68] via-[#35A78D] via-40% to-white">
           {children}
         </main>
       </div>

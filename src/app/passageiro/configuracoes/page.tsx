@@ -1,7 +1,22 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Bell, CircleX, Monitor, Save, UserRound, Check } from "lucide-react";
+import {
+  Bell,
+  CircleX,
+  Monitor,
+  Save,
+  UserRound,
+  Check,
+  Mail,
+  Smartphone,
+  MessageSquare,
+  MapPin,
+  Gift,
+  Navigation,
+  ShieldCheck,
+  ChevronRight,
+} from "lucide-react";
 
 type Preferencias = {
   email: boolean;
@@ -29,10 +44,12 @@ const defaultPreferencias: Preferencias = {
 export default function ConfiguracoesPage() {
   const [loading, setLoading] = useState(true);
   const [salvando, setSalvando] = useState(false);
-  const [usuarioId, setUsuarioId] = useState<number | null>(null);
+  const [usuarioId, setUsuarioId] = useState<string | null>(null);
   const [preferencias, setPreferencias] =
     useState<Preferencias>(defaultPreferencias);
   const [mensagem, setMensagem] = useState<Mensagem | null>(null);
+  const [modalLocalizacao, setModalLocalizacao] = useState(false);
+  const [solicitandoLocalizacao, setSolicitandoLocalizacao] = useState(false);
 
   const handleChange = (campo: keyof Preferencias) => {
     setPreferencias((prev) => ({
@@ -41,12 +58,90 @@ export default function ConfiguracoesPage() {
     }));
   };
 
+  const handleLocalizacaoChange = () => {
+    if (preferencias.compartilhar_localizacao) {
+      setPreferencias((prev) => ({
+        ...prev,
+        compartilhar_localizacao: false,
+      }));
+
+      setMensagem({
+        tipo: "success",
+        texto: "Compartilhamento de localização desativado.",
+      });
+
+      return;
+    }
+
+    setModalLocalizacao(true);
+  };
+
+  const permitirLocalizacao = () => {
+    if (!navigator.geolocation) {
+      setModalLocalizacao(false);
+      setMensagem({
+        tipo: "error",
+        texto: "Seu navegador não suporta localização.",
+      });
+      return;
+    }
+
+    setSolicitandoLocalizacao(true);
+
+    navigator.geolocation.getCurrentPosition(
+      () => {
+        setPreferencias((prev) => ({
+          ...prev,
+          compartilhar_localizacao: true,
+        }));
+
+        setSolicitandoLocalizacao(false);
+        setModalLocalizacao(false);
+
+        setMensagem({
+          tipo: "success",
+          texto:
+            "Localização autorizada. Clique em salvar para confirmar.",
+        });
+      },
+      (error) => {
+        setSolicitandoLocalizacao(false);
+        setModalLocalizacao(false);
+
+        let texto = "Não foi possível obter sua localização.";
+
+        if (error.code === error.PERMISSION_DENIED) {
+          texto =
+            "A permissão de localização foi negada. Você pode permitir o acesso nas configurações do navegador.";
+        } else if (error.code === error.POSITION_UNAVAILABLE) {
+          texto = "Sua localização não está disponível no momento.";
+        } else if (error.code === error.TIMEOUT) {
+          texto =
+            "A solicitação de localização demorou demais. Tente novamente.";
+        }
+
+        setMensagem({
+          tipo: "error",
+          texto,
+        });
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0,
+      }
+    );
+  };
+
   useEffect(() => {
     let ativo = true;
 
     async function carregarDados() {
       try {
+        setLoading(true);
+
         const res = await fetch("/api/me", {
+          method: "GET",
           credentials: "include",
           cache: "no-store",
           headers: {
@@ -54,16 +149,37 @@ export default function ConfiguracoesPage() {
           },
         });
 
+        const usuario = await res.json().catch(() => null);
+
         if (!res.ok) {
-          window.location.href = "/";
+          if (ativo) {
+            setMensagem({
+              tipo: "error",
+              texto: "Sua sessão expirou. Faça login novamente.",
+            });
+          }
+
+          setLoading(false);
           return;
         }
 
-        const usuario = await res.json();
-        const id = Number(usuario?.id);
+        const id = String(
+          usuario?.id ||
+            usuario?.user?.id ||
+            usuario?.usuario?.id ||
+            ""
+        ).trim();
 
         if (!id) {
-          window.location.href = "/";
+          if (ativo) {
+            setMensagem({
+              tipo: "error",
+              texto:
+                "Não foi possível identificar o usuário logado.",
+            });
+          }
+
+          setLoading(false);
           return;
         }
 
@@ -71,27 +187,29 @@ export default function ConfiguracoesPage() {
 
         setUsuarioId(id);
 
-        const prefsRes = await fetch(`/api/notificacoes?usuario_id=${id}`, {
-          credentials: "include",
-          cache: "no-store",
-          headers: {
-            Accept: "application/json",
-          },
-        });
+        const prefsRes = await fetch(
+          `/api/notificacoes?usuario_id=${encodeURIComponent(id)}`,
+          {
+            method: "GET",
+            credentials: "include",
+            cache: "no-store",
+            headers: {
+              Accept: "application/json",
+            },
+          }
+        );
 
-        if (!prefsRes.ok) return;
+        if (prefsRes.ok) {
+          const prefsData = await prefsRes.json().catch(() => null);
 
-        const prefsData = await prefsRes.json();
-
-        if (prefsData?.preferencias && ativo) {
-          setPreferencias({
-            ...defaultPreferencias,
-            ...prefsData.preferencias,
-          });
+          if (prefsData?.preferencias && ativo) {
+            setPreferencias({
+              ...defaultPreferencias,
+              ...prefsData.preferencias,
+            });
+          }
         }
-      } catch (error) {
-        console.error(error);
-
+      } catch {
         if (ativo) {
           setMensagem({
             tipo: "error",
@@ -117,7 +235,7 @@ export default function ConfiguracoesPage() {
 
     const timer = window.setTimeout(() => {
       setMensagem(null);
-    }, 4000);
+    }, 5000);
 
     return () => window.clearTimeout(timer);
   }, [mensagem]);
@@ -152,7 +270,9 @@ export default function ConfiguracoesPage() {
 
       if (!response.ok || !data?.success) {
         throw new Error(
-          data?.message || "Erro ao salvar as configurações."
+          data?.message ||
+            data?.error ||
+            "Erro ao salvar as configurações."
         );
       }
 
@@ -165,11 +285,10 @@ export default function ConfiguracoesPage() {
 
       setMensagem({
         tipo: "success",
-        texto: data?.message || "Configurações salvas com sucesso!",
+        texto:
+          data?.message || "Configurações salvas com sucesso!",
       });
     } catch (error) {
-      console.error(error);
-
       setMensagem({
         tipo: "error",
         texto:
@@ -182,13 +301,64 @@ export default function ConfiguracoesPage() {
     }
   };
 
+  const totalAtivas = Object.values(preferencias).filter(Boolean).length;
+
+  const preferenciasConta = [
+    {
+      campo: "notificacoes_viagens" as const,
+      titulo: "Notificações de viagens",
+      descricao: "Receba atualizações sobre suas viagens.",
+      icon: Navigation,
+    },
+    {
+      campo: "compartilhar_localizacao" as const,
+      titulo: "Compartilhar localização",
+      descricao: "Permita o compartilhamento durante a viagem.",
+      icon: MapPin,
+    },
+    {
+      campo: "receber_promocoes" as const,
+      titulo: "Promoções e benefícios",
+      descricao: "Receba ofertas e benefícios exclusivos Maylon.",
+      icon: Gift,
+    },
+  ];
+
+  const canais = [
+    {
+      campo: "email" as const,
+      titulo: "E-mail",
+      descricao: "Comunicações e atualizações importantes.",
+      icon: Mail,
+    },
+    {
+      campo: "push" as const,
+      titulo: "Notificações Push",
+      descricao: "Alertas diretamente no seu dispositivo.",
+      icon: Smartphone,
+    },
+    {
+      campo: "sms" as const,
+      titulo: "SMS",
+      descricao: "Mensagens importantes por SMS.",
+      icon: MessageSquare,
+    },
+  ];
+
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
-        <div className="rounded-3xl border border-gray-100 bg-white px-10 py-9 shadow-lg">
-          <div className="mx-auto h-11 w-11 animate-spin rounded-full border-4 border-[#149C8B] border-t-transparent" />
-          <p className="mt-4 text-center text-sm font-medium text-gray-600">
-            Carregando configurações...
+        <div className="w-full max-w-[380px] rounded-[32px] border border-gray-200/80 bg-white p-10 text-center shadow-[0_25px_80px_rgba(15,118,110,0.10)]">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-[20px] bg-[#0f766e] shadow-xl shadow-[#0f766e]/20">
+            <div className="h-7 w-7 animate-spin rounded-full border-[3px] border-white/30 border-t-white" />
+          </div>
+
+          <h2 className="mt-6 text-lg font-black tracking-tight text-[#0f766e]">
+            Carregando as configurações
+          </h2>
+
+          <p className="mt-2 text-sm text-gray-400">
+            Aguarde um momento...
           </p>
         </div>
       </div>
@@ -197,243 +367,331 @@ export default function ConfiguracoesPage() {
 
   return (
     <div className="min-h-screen">
-      <div className="mx-auto w-full max-w-8xl space-y-6">
-        <header className="relative overflow-hidden rounded-[28px] bg-white shadow-sm ring-1 ring-black/[0.04]">
-          <div className="absolute right-0 top-0 h-40 w-40 rounded-full bg-[#149C8B]/10 blur-3xl" />
-          <div className="absolute bottom-0 left-1/3 h-24 w-24 rounded-full bg-[#35A78D]/10 blur-2xl" />
+      <div className="mx-auto w-full max-w-8xl">
+        <header className="relative mb-6 overflow-hidden rounded-[30px] bg-gradient-to-br from-[#149C8B] via-[#159F8E] to-[#0E8274] shadow-xl shadow-[#149C8B]/20">
+          <div className="absolute -right-16 -top-20 h-64 w-64 rounded-full bg-white/10 blur-3xl" />
+          <div className="absolute -bottom-20 left-1/3 h-52 w-52 rounded-full bg-[#7DE0CF]/20 blur-3xl" />
 
-          <div className="relative flex flex-col justify-between gap-5 px-6 py-7 sm:px-8 sm:py-8 lg:flex-row lg:items-center">
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight text-gray-900 sm:text-3xl">
-                Configurações
-              </h1>
+          <div className="relative flex flex-col gap-6 p-6 sm:p-8 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex items-center gap-5">
+              <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-white/15 ring-1 ring-white/20 backdrop-blur-sm">
+                <UserRound className="h-8 w-8 text-white" />
+              </div>
 
-              <p className="mt-1 max-w-2xl text-sm leading-6 text-gray-500 sm:text-base">
-                Personalize suas preferências e escolha como deseja receber
-                informações da Maylon.
-              </p>
+              <div>
+                <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">
+                  Configurações
+                </h1>
+
+                <p className="mt-0 max-w-xl text-sm leading-6 text-white/75">
+                  Personalize sua experiência e escolha como deseja
+                  receber informações da Maylon.
+                </p>
+              </div>
             </div>
 
-            <div className="hidden h-16 w-16 items-center justify-center rounded-2xl bg-[#149C8B]/10 lg:flex">
-              <UserRound className="h-8 w-8 text-[#149C8B]" />
+            <div className="flex w-fit items-center gap-3 rounded-2xl bg-white/15 px-4 py-3 ring-1 ring-white/15 backdrop-blur-sm">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/20">
+                <Check className="h-5 w-5 text-white" />
+              </div>
+
+              <div>
+                <p className="text-xs font-medium text-white/70">
+                  Preferências ativas
+                </p>
+
+                <p className="text-lg font-bold text-white">
+                  {totalAtivas} de 6
+                </p>
+              </div>
             </div>
           </div>
         </header>
 
         {mensagem && (
           <div
-            className={`flex items-center gap-3 rounded-2xl border px-5 py-4 text-sm font-semibold shadow-sm ${
+            className={`mb-6 flex items-center gap-3 rounded-2xl border px-5 py-4 text-sm font-semibold shadow-sm ${
               mensagem.tipo === "success"
-                ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                ? "border-[#A8DED5] bg-[#E8F7F4] text-[#0B7568]"
                 : "border-red-200 bg-red-50 text-red-700"
             }`}
           >
-            {mensagem.tipo === "success" ? (
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-100">
+            <div
+              className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${
+                mensagem.tipo === "success"
+                  ? "bg-[#D2F0EA]"
+                  : "bg-red-100"
+              }`}
+            >
+              {mensagem.tipo === "success" ? (
                 <Check className="h-4 w-4" />
-              </div>
-            ) : (
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-red-100">
+              ) : (
                 <CircleX className="h-4 w-4" />
-              </div>
-            )}
-            {mensagem.texto}
+              )}
+            </div>
+
+            <span>{mensagem.texto}</span>
           </div>
         )}
 
-        <section className="rounded-[28px] border border-gray-100 bg-white p-5 shadow-sm sm:p-7">
-          <div className="flex flex-col gap-6">
-            <div className="flex items-start gap-4">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#149C8B]/10">
-                <UserRound className="h-6 w-6 text-[#149C8B]" />
-              </div>
-
-              <div>
-                <h2 className="text-xl font-bold text-gray-900">
-                  Preferências do Passageiro
-                </h2>
-                <p className="mt-0 text-sm text-gray-500">
-                  Controle os recursos e permissões da sua experiência.
-                </p>
-              </div>
-            </div>
-
-            <div className="grid gap-3 md:grid-cols-2">
-              <label
-                className={`group flex cursor-pointer items-center justify-between gap-4 rounded-2xl border p-5 transition ${
-                  preferencias.notificacoes_viagens
-                    ? "border-[#149C8B]/30 bg-[#149C8B]/5"
-                    : "border-gray-100 bg-gray-50 hover:border-[#149C8B]/20 hover:bg-[#149C8B]/5"
-                }`}
-              >
-                <div>
-                  <p className="text-sm font-semibold text-gray-800">
-                    Notificações de viagens
-                  </p>
-                  <p className="mt-1 text-xs leading-5 text-gray-500">
-                    Receba atualizações sobre suas viagens.
-                  </p>
-                </div>
-
-                <input
-                  type="checkbox"
-                  checked={preferencias.notificacoes_viagens}
-                  onChange={() => handleChange("notificacoes_viagens")}
-                  className="h-5 w-5 cursor-pointer rounded border-gray-300 text-[#149C8B] focus:ring-[#149C8B]"
-                />
-              </label>
-
-              <label
-                className={`group flex cursor-pointer items-center justify-between gap-4 rounded-2xl border p-5 transition ${
-                  preferencias.compartilhar_localizacao
-                    ? "border-[#149C8B]/30 bg-[#149C8B]/5"
-                    : "border-gray-100 bg-gray-50 hover:border-[#149C8B]/20 hover:bg-[#149C8B]/5"
-                }`}
-              >
-                <div>
-                  <p className="text-sm font-semibold text-gray-800">
-                    Compartilhar localização
-                  </p>
-                  <p className="mt-1 text-xs leading-5 text-gray-500">
-                    Permita o compartilhamento durante a viagem.
-                  </p>
-                </div>
-
-                <input
-                  type="checkbox"
-                  checked={preferencias.compartilhar_localizacao}
-                  onChange={() => handleChange("compartilhar_localizacao")}
-                  className="h-5 w-5 cursor-pointer rounded border-gray-300 text-[#149C8B] focus:ring-[#149C8B]"
-                />
-              </label>
-
-              <label
-                className={`group flex cursor-pointer items-center justify-between gap-4 rounded-2xl border p-5 transition md:col-span-2 ${
-                  preferencias.receber_promocoes
-                    ? "border-[#149C8B]/30 bg-[#149C8B]/5"
-                    : "border-gray-100 bg-gray-50 hover:border-[#149C8B]/20 hover:bg-[#149C8B]/5"
-                }`}
-              >
-                <div>
-                  <p className="text-sm font-semibold text-gray-800">
-                    Promoções e benefícios
-                  </p>
-                  <p className="mt-1 text-xs leading-5 text-gray-500">
-                    Receba novidades, ofertas e benefícios exclusivos Maylon.
-                  </p>
-                </div>
-
-                <input
-                  type="checkbox"
-                  checked={preferencias.receber_promocoes}
-                  onChange={() => handleChange("receber_promocoes")}
-                  className="h-5 w-5 cursor-pointer rounded border-gray-300 text-[#149C8B] focus:ring-[#149C8B]"
-                />
-              </label>
-            </div>
-          </div>
-        </section>
-
-        <section className="rounded-[28px] border border-gray-100 bg-white p-5 shadow-sm sm:p-7">
-          <div className="flex flex-col gap-6">
-            <div className="flex items-start gap-4">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#149C8B]/10">
-                <Bell className="h-6 w-6 text-[#149C8B]" />
-              </div>
-
-              <div>
-                <h2 className="text-xl font-bold text-gray-900">
-                  Canais de notificação
-                </h2>
-                <p className="mt-0 text-sm text-gray-500">
-                  Escolha onde deseja receber as comunicações.
-                </p>
-              </div>
-            </div>
-
-            <div className="grid gap-3 md:grid-cols-3">
-              {[
-                {
-                  campo: "email" as const,
-                  titulo: "E-mail",
-                  descricao: "Comunicações por e-mail.",
-                },
-                {
-                  campo: "push" as const,
-                  titulo: "Push",
-                  descricao: "Alertas diretamente no dispositivo.",
-                },
-                {
-                  campo: "sms" as const,
-                  titulo: "SMS",
-                  descricao: "Mensagens importantes por SMS.",
-                },
-              ].map((item) => (
-                <label
-                  key={item.campo}
-                  className={`flex cursor-pointer items-center justify-between gap-4 rounded-2xl border p-5 transition ${
-                    preferencias[item.campo]
-                      ? "border-[#149C8B]/30 bg-[#149C8B]/5"
-                      : "border-gray-100 bg-gray-50 hover:border-[#149C8B]/20 hover:bg-[#149C8B]/5"
-                  }`}
-                >
-                  <div>
-                    <p className="text-sm font-semibold text-gray-800">
-                      {item.titulo}
-                    </p>
-                    <p className="mt-1 text-xs text-gray-500">
-                      {item.descricao}
-                    </p>
+        <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
+          <main className="space-y-6">
+            <section className="overflow-hidden rounded-[28px] border border-[#DCEDEA] bg-white shadow-sm">
+              <div className="border-b border-[#E7F1EF] px-6 py-6 sm:px-7">
+                <div className="flex items-center gap-4">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#149C8B]/10">
+                    <Bell className="h-6 w-6 text-[#149C8B]" />
                   </div>
 
-                  <input
-                    type="checkbox"
-                    checked={preferencias[item.campo]}
-                    onChange={() => handleChange(item.campo)}
-                    className="h-5 w-5 cursor-pointer rounded border-gray-300 text-[#149C8B] focus:ring-[#149C8B]"
-                  />
-                </label>
-              ))}
-            </div>
-          </div>
-        </section>
+                  <div>
+                    <h2 className="text-lg font-bold text-[#173B3A]">
+                      Experiência da conta
+                    </h2>
 
-        <section className="rounded-[28px] border border-gray-100 bg-white p-5 shadow-sm sm:p-7">
-          <div className="flex flex-col justify-between gap-6 lg:flex-row lg:items-center">
-            <div className="flex items-start gap-4">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#149C8B]/10">
-                <Monitor className="h-6 w-6 text-[#149C8B]" />
+                    <p className="mt-1 text-sm text-[#66807D]">
+                      Controle como a Maylon interage com você.
+                    </p>
+                  </div>
+                </div>
               </div>
 
-              <div>
-                <h2 className="text-xl font-bold text-gray-900">
-                  Dispositivos acessados
-                </h2>
-                <p className="mt-0 max-w-2xl text-sm leading-6 text-gray-500">
-                  Veja onde sua conta está conectada e gerencie suas sessões.
+              <div className="grid gap-3 p-4 sm:p-5">
+                {preferenciasConta.map((item) => {
+                  const Icon = item.icon;
+                  const ativo = preferencias[item.campo];
+
+                  return (
+                    <label
+                      key={item.campo}
+                      className={`group flex cursor-pointer items-center gap-4 rounded-2xl border p-4 transition-all duration-200 ${
+                        ativo
+                          ? "border-[#149C8B]/40 bg-[#149C8B]/[0.08] shadow-sm shadow-[#149C8B]/5"
+                          : "border-[#DCEDEA] bg-[#F8FCFB] hover:border-[#149C8B]/30 hover:bg-[#F2FBF9]"
+                      }`}
+                    >
+                      <div
+                        className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl transition ${
+                          ativo
+                            ? "bg-[#149C8B] text-white shadow-md shadow-[#149C8B]/20"
+                            : "bg-white text-[#7D9995] ring-1 ring-[#DCEDEA]"
+                        }`}
+                      >
+                        <Icon className="h-5 w-5" />
+                      </div>
+
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-bold text-[#254744]">
+                          {item.titulo}
+                        </p>
+
+                        <p className="mt-1 text-xs leading-5 text-[#718B88]">
+                          {item.descricao}
+                        </p>
+                      </div>
+
+                      <div className="relative shrink-0">
+                        <input
+                          type="checkbox"
+                          checked={ativo}
+                          onChange={() =>
+                            item.campo === "compartilhar_localizacao"
+                              ? handleLocalizacaoChange()
+                              : handleChange(item.campo)
+                          }
+                          className="peer sr-only"
+                        />
+
+                        <div
+                          className={`h-7 w-12 rounded-full p-1 transition ${
+                            ativo ? "bg-[#149C8B]" : "bg-[#DCE7E5]"
+                          }`}
+                        >
+                          <div
+                            className={`h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${
+                              ativo ? "translate-x-5" : "translate-x-0"
+                            }`}
+                          />
+                        </div>
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
+            </section>
+
+            <section className="overflow-hidden rounded-[28px] border border-[#DCEDEA] bg-white shadow-sm">
+              <div className="border-b border-[#E7F1EF] px-6 py-6 sm:px-7">
+                <div className="flex items-center gap-4">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#149C8B]/10">
+                    <Smartphone className="h-6 w-6 text-[#149C8B]" />
+                  </div>
+
+                  <div>
+                    <h2 className="text-lg font-bold text-[#173B3A]">
+                      Canais de comunicação
+                    </h2>
+
+                    <p className="mt-1 text-sm text-[#66807D]">
+                      Escolha onde deseja receber suas mensagens.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid gap-3 p-4 sm:grid-cols-3 sm:p-5">
+                {canais.map((item) => {
+                  const Icon = item.icon;
+                  const ativo = preferencias[item.campo];
+
+                  return (
+                    <label
+                      key={item.campo}
+                      className={`group cursor-pointer rounded-2xl border p-5 transition-all duration-200 ${
+                        ativo
+                          ? "border-[#149C8B]/40 bg-[#149C8B]/[0.08] shadow-sm shadow-[#149C8B]/5"
+                          : "border-[#DCEDEA] bg-[#F8FCFB] hover:border-[#149C8B]/30 hover:bg-[#F2FBF9]"
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div
+                          className={`flex h-11 w-11 items-center justify-center rounded-xl ${
+                            ativo
+                              ? "bg-[#149C8B] text-white shadow-md shadow-[#149C8B]/20"
+                              : "bg-white text-[#7D9995] ring-1 ring-[#DCEDEA]"
+                          }`}
+                        >
+                          <Icon className="h-5 w-5" />
+                        </div>
+
+                        <div className="relative">
+                          <input
+                            type="checkbox"
+                            checked={ativo}
+                            onChange={() => handleChange(item.campo)}
+                            className="peer sr-only"
+                          />
+
+                          <div
+                            className={`h-7 w-12 rounded-full p-1 transition ${
+                              ativo ? "bg-[#149C8B]" : "bg-[#DCE7E5]"
+                            }`}
+                          >
+                            <div
+                              className={`h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${
+                                ativo ? "translate-x-5" : "translate-x-0"
+                              }`}
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="mt-5">
+                        <p className="text-sm font-bold text-[#254744]">
+                          {item.titulo}
+                        </p>
+
+                        <p className="mt-1 text-xs leading-5 text-[#718B88]">
+                          {item.descricao}
+                        </p>
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
+            </section>
+
+            <section className="rounded-[28px] border border-[#DCEDEA] bg-white p-5 shadow-sm sm:p-6">
+              <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#149C8B]/10">
+                    <Monitor className="h-6 w-6 text-[#149C8B]" />
+                  </div>
+
+                  <div>
+                    <h2 className="text-lg font-bold text-[#173B3A]">
+                      Dispositivos acessados
+                    </h2>
+
+                    <p className="mt-1 text-sm text-[#66807D]">
+                      Gerencie os dispositivos conectados à sua conta.
+                    </p>
+                  </div>
+                </div>
+
+                <a
+                  href="/passageiro/sessoes"
+                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-[#149C8B]/20 bg-[#149C8B]/10 px-5 py-3 text-sm font-bold text-[#11897D] transition hover:bg-[#149C8B] hover:text-white"
+                >
+                  Gerenciar dispositivos
+                  <ChevronRight className="h-4 w-4" />
+                </a>
+              </div>
+            </section>
+          </main>
+
+          <aside className="lg:sticky lg:top-6 lg:h-fit">
+            <div className="overflow-hidden rounded-[28px] bg-gradient-to-br from-[#149C8B] via-[#128F7F] to-[#0B7568] shadow-xl shadow-[#149C8B]/20">
+              <div className="relative overflow-hidden p-6">
+                <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-white/10 blur-2xl" />
+
+                <div className="relative">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/15 ring-1 ring-white/20">
+                    <ShieldCheck className="h-6 w-6 text-white" />
+                  </div>
+
+                  <h3 className="mt-5 text-xl font-bold text-white">
+                    Sua privacidade
+                  </h3>
+
+                  <p className="mt-2 text-sm leading-6 text-white/70">
+                    Você tem controle sobre as comunicações e permissões
+                    utilizadas pela sua conta Maylon.
+                  </p>
+
+                  <div className="mt-6 space-y-3">
+                    <div className="flex items-center gap-3 rounded-xl bg-white/10 px-4 py-3">
+                      <Check className="h-4 w-4 text-white" />
+                      <span className="text-xs font-medium text-white/85">
+                        Controle das notificações
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-3 rounded-xl bg-white/10 px-4 py-3">
+                      <Check className="h-4 w-4 text-white" />
+                      <span className="text-xs font-medium text-white/85">
+                        Preferências personalizadas
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-3 rounded-xl bg-white/10 px-4 py-3">
+                      <Check className="h-4 w-4 text-white" />
+                      <span className="text-xs font-medium text-white/85">
+                        Segurança da conta
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="border-t border-white/10 bg-black/5 p-5">
+                <p className="text-xs leading-5 text-white/60">
+                  As alterações serão aplicadas à sua conta após salvar as
+                  configurações.
                 </p>
               </div>
             </div>
+          </aside>
+        </div>
 
-            <a
-              href="/passageiro/sessoes"
-              className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-[#149C8B]/20 bg-[#149C8B]/10 px-6 py-3 text-sm font-bold text-[#11897D] transition hover:bg-[#149C8B] hover:text-white lg:w-auto"
-            >
-              <Monitor size={18} />
-              Gerenciar dispositivos
-            </a>
-          </div>
-        </section>
-
-        <div className="flex flex-col-reverse gap-3 pb-8 sm:flex-row sm:justify-end">
+        <div className="mt-6 flex flex-col-reverse gap-3 rounded-[28px] border border-[#DCEDEA] bg-white p-4 shadow-sm sm:flex-row sm:justify-end sm:p-5">
           <button
             type="button"
             onClick={() => {
               window.location.href = "/passageiro";
             }}
-            className="inline-flex items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-7 py-3.5 text-sm font-semibold text-gray-600 shadow-sm transition hover:bg-gray-50 hover:text-gray-900"
+            className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-[#DCEDEA] bg-white px-7 py-3.5 text-sm font-bold text-[#607875] transition hover:bg-[#F4F9F8] hover:text-[#173B3A]"
           >
-            <CircleX size={18} />
+            <CircleX className="h-[18px] w-[18px]" />
             Cancelar
           </button>
 
@@ -441,13 +699,125 @@ export default function ConfiguracoesPage() {
             type="button"
             onClick={() => void salvarPreferencias()}
             disabled={salvando}
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#149C8B] px-7 py-3.5 text-sm font-bold text-white shadow-lg shadow-[#149C8B]/20 transition hover:bg-[#11897D] hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-[#149C8B] px-8 py-3.5 text-sm font-bold text-white shadow-lg shadow-[#149C8B]/20 transition hover:bg-[#11897D] hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-50"
           >
-            <Save size={18} />
+            <Save className="h-[18px] w-[18px]" />
             {salvando ? "Salvando..." : "Salvar alterações"}
           </button>
         </div>
       </div>
+
+      {modalLocalizacao && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+          onMouseDown={(e) => {
+            if (
+              e.target === e.currentTarget &&
+              !solicitandoLocalizacao
+            ) {
+              setModalLocalizacao(false);
+            }
+          }}
+        >
+          <div
+            className="w-full max-w-md overflow-hidden rounded-[30px] bg-white shadow-2xl"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="modal-localizacao-titulo"
+          >
+            <div className="relative overflow-hidden bg-gradient-to-br from-[#149C8B] via-[#128F7F] to-[#0B7568] px-6 pb-8 pt-7">
+              <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-white/10 blur-2xl" />
+
+              <div className="relative flex justify-center">
+                <div className="flex h-20 w-20 items-center justify-center rounded-[24px] bg-white/15 ring-1 ring-white/20 backdrop-blur-sm">
+                  <MapPin className="h-10 w-10 text-white" />
+                </div>
+              </div>
+
+              <div className="relative mt-5 text-center">
+                <h2
+                  id="modal-localizacao-titulo"
+                  className="text-xl font-bold text-white"
+                >
+                  Compartilhar localização
+                </h2>
+
+                <p className="mt-2 text-sm leading-6 text-white/75">
+                  Você deseja permitir que a Maylon utilize sua localização
+                  durante suas viagens?
+                </p>
+              </div>
+            </div>
+
+            <div className="p-6">
+              <div className="rounded-2xl border border-[#DCEDEA] bg-[#F8FCFB] p-4">
+                <div className="flex gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#149C8B]/10">
+                    <ShieldCheck className="h-5 w-5 text-[#149C8B]" />
+                  </div>
+
+                  <div>
+                    <p className="text-sm font-bold text-[#254744]">
+                      Sua privacidade está protegida
+                    </p>
+
+                    <p className="mt-1 text-xs leading-5 text-[#718B88]">
+                      A localização será utilizada apenas para recursos
+                      relacionados às suas viagens. Você poderá desativar
+                      essa permissão a qualquer momento.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-5 space-y-3">
+                <div className="flex items-center gap-3">
+                  <Check className="h-4 w-4 shrink-0 text-[#149C8B]" />
+                  <span className="text-sm text-[#536E6A]">
+                    Melhor acompanhamento da sua viagem
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <Check className="h-4 w-4 shrink-0 text-[#149C8B]" />
+                  <span className="text-sm text-[#536E6A]">
+                    Mais segurança durante o trajeto
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <Check className="h-4 w-4 shrink-0 text-[#149C8B]" />
+                  <span className="text-sm text-[#536E6A]">
+                    Você pode revogar a permissão quando quiser
+                  </span>
+                </div>
+              </div>
+
+              <div className="mt-7 flex flex-col gap-3 sm:flex-row-reverse">
+                <button
+                  type="button"
+                  onClick={permitirLocalizacao}
+                  disabled={solicitandoLocalizacao}
+                  className="flex-1 cursor-pointer rounded-xl bg-[#149C8B] px-5 py-3.5 text-sm font-bold text-white shadow-lg shadow-[#149C8B]/20 transition hover:bg-[#11897D] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {solicitandoLocalizacao
+                    ? "Obtendo localização..."
+                    : "Permitir localização"}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setModalLocalizacao(false)}
+                  disabled={solicitandoLocalizacao}
+                  className="flex-1 cursor-pointer rounded-xl border border-[#DCEDEA] bg-white px-5 py-3.5 text-sm font-bold text-[#607875] transition hover:bg-[#F4F9F8] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  Agora não
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

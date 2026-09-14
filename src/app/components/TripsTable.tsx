@@ -398,20 +398,19 @@ function LoadingRows() {
                   animate-pulse
                   rounded-md
                   bg-slate-100
-                  ${
-                    cell === 0
-                      ? "w-20"
-                      : cell === 1
+                  ${cell === 0
+                    ? "w-20"
+                    : cell === 1
+                      ? "w-44"
+                      : cell === 2
                         ? "w-44"
-                        : cell === 2
-                          ? "w-44"
-                          : cell === 3
-                            ? "w-24"
-                            : cell === 4
+                        : cell === 3
+                          ? "w-24"
+                          : cell === 4
+                            ? "w-28"
+                            : cell === 5
                               ? "w-28"
-                              : cell === 5
-                                ? "w-28"
-                                : "w-20"
+                              : "w-20"
                   }
                 `}
               />
@@ -573,10 +572,9 @@ export default function TripsTable({
                   font-extrabold
                   uppercase
                   tracking-[0.08em]
-                  ${
-                    headerTone === "dark"
-                      ? "text-white/80"
-                      : "text-slate-500"
+                  ${headerTone === "dark"
+                    ? "text-white/80"
+                    : "text-slate-500"
                   }
                 `}
               >
@@ -780,16 +778,18 @@ export default function TripsTable({
                       title="Visualizar viagem"
                       variant="view"
                       onClick={() => onView?.(trip)}
+                      className="!cursor-pointer"
                     >
-                      <Eye size={16} strokeWidth={2.2} />
+                      <Eye className="!cursor-pointer" size={16} strokeWidth={2.2} />
                     </ActionButton>
 
                     <ActionButton
                       title="Editar viagem"
                       variant="edit"
                       onClick={() => onEdit?.(trip)}
+                      className="!cursor-pointer"
                     >
-                      <Pencil size={15} strokeWidth={2.2} />
+                      <Pencil className="!cursor-pointer" size={15} strokeWidth={2.2} />
                     </ActionButton>
                   </div>
                 </td>

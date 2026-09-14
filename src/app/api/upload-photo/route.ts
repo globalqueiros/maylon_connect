@@ -1,85 +1,208 @@
-import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import jwt from "jsonwebtoken";
+import { NextRequest, NextResponse } from "next/server";
+import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import crypto from "crypto";
 import { db } from "../../lib/db";
-import { s3 } from "../../lib/s3";
-import { PutObjectCommand } from "@aws-sdk/client-s3";
 
-export async function POST(req: Request) {
+export const runtime = "nodejs";
+
+const AWS_REGION = process.env.AWS_REGION_1;
+const AWS_ACCESS_KEY_ID = process.env.AWS_ACCESS_KEY_ID_1;
+const AWS_SECRET_ACCESS_KEY = process.env.AWS_SECRET_ACCESS_KEY_1;
+const AWS_S3_BUCKET = process.env.AWS_BUCKET_NAME_1;
+
+const MAX_FILE_SIZE = 5 * 1024 * 1024;
+
+const ALLOWED_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+];
+
+const s3 =
+  AWS_REGION &&
+  AWS_ACCESS_KEY_ID &&
+  AWS_SECRET_ACCESS_KEY
+    ? new S3Client({
+        region: AWS_REGION,
+        credentials: {
+          accessKeyId: AWS_ACCESS_KEY_ID,
+          secretAccessKey: AWS_SECRET_ACCESS_KEY,
+        },
+      })
+    : null;
+
+export async function POST(request: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("access_token")?.value;
+    if (
+      !AWS_REGION ||
+      !AWS_ACCESS_KEY_ID ||
+      !AWS_SECRET_ACCESS_KEY ||
+      !AWS_S3_BUCKET ||
+      !s3
+    ) {
+      console.error("Configuração do AWS S3 incompleta.");
 
-    if (!token) {
       return NextResponse.json(
-        { error: "Não autenticado" },
-        { status: 401 }
+        {
+          success: false,
+          message: "Configuração do AWS S3 não encontrada.",
+        },
+        { status: 500 }
       );
     }
 
-    let decoded: any;
+    const formData = await request.formData();
 
-    try {
-      decoded = jwt.verify(token, process.env.JWT_SECRET!);
-    } catch (err: any) {
-      // 🔥 TRATAMENTO DO TOKEN EXPIRADO
-      if (err.name === "TokenExpiredError") {
-        return NextResponse.json(
-          { error: "Sessão expirada. Faça login novamente." },
-          { status: 401 }
-        );
-      }
+    const userIdValue = formData.get("userId");
+    const file = formData.get("photo");
 
+    if (!userIdValue) {
       return NextResponse.json(
-        { error: "Token inválido" },
-        { status: 401 }
-      );
-    }
-
-    const userId = decoded.id;
-
-    const formData = await req.formData();
-    const file = formData.get("file") as File;
-
-    if (!file) {
-      return NextResponse.json(
-        { error: "Arquivo não enviado" },
+        {
+          success: false,
+          message: "ID do usuário não informado.",
+        },
         { status: 400 }
       );
     }
 
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
+    const userId = Number(userIdValue);
 
-    const fileName = `profile/${userId}-${Date.now()}-${file.name}`;
+    if (!Number.isInteger(userId) || userId <= 0) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "ID do usuário inválido.",
+        },
+        { status: 400 }
+      );
+    }
+
+    if (!(file instanceof File)) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Nenhuma foto foi enviada.",
+        },
+        { status: 400 }
+      );
+    }
+
+    if (!ALLOWED_TYPES.includes(file.type)) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Formato inválido. Use JPG, PNG ou WEBP.",
+        },
+        { status: 400 }
+      );
+    }
+
+    if (file.size <= 0) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "A imagem enviada está vazia.",
+        },
+        { status: 400 }
+      );
+    }
+
+    if (file.size > MAX_FILE_SIZE) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "A imagem deve ter no máximo 5 MB.",
+        },
+        { status: 400 }
+      );
+    }
+
+    const [usuarios] = await db.query(
+      `
+      SELECT id
+      FROM users
+      WHERE id = ?
+      LIMIT 1
+      `,
+      [userId]
+    );
+
+    const rows = usuarios as Array<{
+      id: number;
+    }>;
+
+    if (!rows.length) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Usuário não encontrado.",
+        },
+        { status: 404 }
+      );
+    }
+
+    const extension =
+      file.type === "image/png"
+        ? "png"
+        : file.type === "image/webp"
+          ? "webp"
+          : "jpg";
+
+    const fileName = `${crypto
+      .randomBytes(16)
+      .toString("hex")}.${extension}`;
+
+    const key = `users/${userId}/profile/${fileName}`;
+
+    const buffer = Buffer.from(
+      await file.arrayBuffer()
+    );
 
     await s3.send(
       new PutObjectCommand({
-        Bucket: process.env.AWS_BUCKET_NAME!,
-        Key: fileName,
+        Bucket: AWS_S3_BUCKET,
+        Key: key,
         Body: buffer,
         ContentType: file.type,
-        ACL: "public-read",
+        CacheControl:
+          "public, max-age=31536000, immutable",
       })
     );
 
-    const fileUrl = `https://${process.env.AWS_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${fileName}`;
+    const url =
+      `https://${AWS_S3_BUCKET}.s3.${AWS_REGION}` +
+      `.amazonaws.com/${key}`;
 
-    await db.execute(
-      "UPDATE users SET profile_image = ? WHERE id = ?",
-      [fileUrl, userId]
+    await db.query(
+      `
+      UPDATE users
+      SET profile_image = ?
+      WHERE id = ?
+      `,
+      [url, userId]
     );
 
     return NextResponse.json({
       success: true,
-      url: fileUrl,
+      message: "Foto atualizada com sucesso.",
+      url,
+      key,
     });
-
   } catch (error) {
-    console.error(error);
+    console.error(
+      "Erro ao enviar foto para o S3:",
+      error
+    );
 
     return NextResponse.json(
-      { error: "Erro ao enviar foto de perfil. Tente novamente mais tarde." },
+      {
+        success: false,
+        message:
+          error instanceof Error
+            ? error.message
+            : "Não foi possível salvar a foto de perfil.",
+      },
       { status: 500 }
     );
   }
