@@ -31,21 +31,73 @@ const s3 =
       })
     : null;
 
+function isValidUuid(value: unknown): boolean {
+  if (typeof value !== "string") {
+    return false;
+  }
+
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    value.trim()
+  );
+}
+
 export async function POST(request: NextRequest) {
   try {
-    if (
-      !AWS_REGION ||
-      !AWS_ACCESS_KEY_ID ||
-      !AWS_SECRET_ACCESS_KEY ||
-      !AWS_S3_BUCKET ||
-      !s3
-    ) {
-      console.error("Configuração do AWS S3 incompleta.");
+    console.log("=== UPLOAD PHOTO ===");
+
+    if (!AWS_REGION) {
+      console.error("AWS_REGION_1 não configurada");
 
       return NextResponse.json(
         {
           success: false,
-          message: "Configuração do AWS S3 não encontrada.",
+          message: "AWS_REGION_1 não configurada.",
+        },
+        { status: 500 }
+      );
+    }
+
+    if (!AWS_ACCESS_KEY_ID) {
+      console.error("AWS_ACCESS_KEY_ID_1 não configurada");
+
+      return NextResponse.json(
+        {
+          success: false,
+          message: "AWS_ACCESS_KEY_ID_1 não configurada.",
+        },
+        { status: 500 }
+      );
+    }
+
+    if (!AWS_SECRET_ACCESS_KEY) {
+      console.error("AWS_SECRET_ACCESS_KEY_1 não configurada");
+
+      return NextResponse.json(
+        {
+          success: false,
+          message: "AWS_SECRET_ACCESS_KEY_1 não configurada.",
+        },
+        { status: 500 }
+      );
+    }
+
+    if (!AWS_S3_BUCKET) {
+      console.error("AWS_BUCKET_NAME_1 não configurada");
+
+      return NextResponse.json(
+        {
+          success: false,
+          message: "AWS_BUCKET_NAME_1 não configurada.",
+        },
+        { status: 500 }
+      );
+    }
+
+    if (!s3) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Cliente S3 não foi inicializado.",
         },
         { status: 500 }
       );
@@ -53,36 +105,78 @@ export async function POST(request: NextRequest) {
 
     const formData = await request.formData();
 
+    console.log(
+      "Campos recebidos:",
+      Array.from(formData.keys())
+    );
+
     const userIdValue = formData.get("userId");
-    const file = formData.get("photo");
+
+    const fileValue = formData.get("photo");
+
+    console.log("userId recebido:", userIdValue);
+
+    console.log(
+      "arquivo recebido:",
+      fileValue instanceof File
+        ? {
+            name: fileValue.name,
+            type: fileValue.type,
+            size: fileValue.size,
+          }
+        : fileValue
+    );
 
     if (!userIdValue) {
       return NextResponse.json(
         {
           success: false,
-          message: "ID do usuário não informado.",
+          message:
+            "ID do usuário não foi enviado pelo frontend.",
+          debug: {
+            campos: Array.from(formData.keys()),
+          },
         },
         { status: 400 }
       );
     }
 
-    const userId = Number(userIdValue);
+    const userId = String(userIdValue).trim();
 
-    if (!Number.isInteger(userId) || userId <= 0) {
+    if (!isValidUuid(userId)) {
       return NextResponse.json(
         {
           success: false,
-          message: "ID do usuário inválido.",
+          message: "O ID recebido não é um UUID válido.",
+          debug: {
+            userId,
+          },
         },
         { status: 400 }
       );
     }
 
-    if (!(file instanceof File)) {
+    if (!(fileValue instanceof File)) {
       return NextResponse.json(
         {
           success: false,
-          message: "Nenhuma foto foi enviada.",
+          message:
+            "O campo 'photo' não contém um arquivo.",
+          debug: {
+            tipoRecebido: typeof fileValue,
+          },
+        },
+        { status: 400 }
+      );
+    }
+
+    const file = fileValue;
+
+    if (!file.type) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "O arquivo não possui tipo MIME.",
         },
         { status: 400 }
       );
@@ -92,7 +186,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          message: "Formato inválido. Use JPG, PNG ou WEBP.",
+          message: `Formato inválido: ${file.type}. Use JPG, PNG ou WEBP.`,
         },
         { status: 400 }
       );
@@ -112,13 +206,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          message: "A imagem deve ter no máximo 5 MB.",
+          message:
+            "A imagem deve ter no máximo 5 MB.",
         },
         { status: 400 }
       );
     }
 
-    const [usuarios] = await db.query(
+    console.log(
+      "Procurando usuário:",
+      userId
+    );
+
+    const [usuarios]: any = await db.query(
       `
       SELECT id
       FROM users
@@ -128,26 +228,29 @@ export async function POST(request: NextRequest) {
       [userId]
     );
 
-    const rows = usuarios as Array<{
-      id: number;
-    }>;
-
-    if (!rows.length) {
+    if (!Array.isArray(usuarios) || usuarios.length === 0) {
       return NextResponse.json(
         {
           success: false,
-          message: "Usuário não encontrado.",
+          message:
+            "O UUID é válido, mas o usuário não existe na tabela users.",
+          debug: {
+            userId,
+          },
         },
         { status: 404 }
       );
     }
 
-    const extension =
-      file.type === "image/png"
-        ? "png"
-        : file.type === "image/webp"
-          ? "webp"
-          : "jpg";
+    let extension = "jpg";
+
+    if (file.type === "image/png") {
+      extension = "png";
+    }
+
+    if (file.type === "image/webp") {
+      extension = "webp";
+    }
 
     const fileName = `${crypto
       .randomBytes(16)
@@ -158,6 +261,13 @@ export async function POST(request: NextRequest) {
     const buffer = Buffer.from(
       await file.arrayBuffer()
     );
+
+    console.log("Enviando para S3:", {
+      bucket: AWS_S3_BUCKET,
+      region: AWS_REGION,
+      key,
+      size: buffer.length,
+    });
 
     await s3.send(
       new PutObjectCommand({
@@ -170,9 +280,9 @@ export async function POST(request: NextRequest) {
       })
     );
 
-    const url =
-      `https://${AWS_S3_BUCKET}.s3.${AWS_REGION}` +
-      `.amazonaws.com/${key}`;
+    const url = `https://${AWS_S3_BUCKET}.s3.${AWS_REGION}.amazonaws.com/${key}`;
+
+    console.log("S3 enviado:", url);
 
     await db.query(
       `
@@ -183,15 +293,20 @@ export async function POST(request: NextRequest) {
       [url, userId]
     );
 
+    console.log(
+      "Banco atualizado com sucesso."
+    );
+
     return NextResponse.json({
       success: true,
       message: "Foto atualizada com sucesso.",
       url,
       key,
+      userId,
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error(
-      "Erro ao enviar foto para o S3:",
+      "=== ERRO UPLOAD PHOTO ===",
       error
     );
 
@@ -199,9 +314,8 @@ export async function POST(request: NextRequest) {
       {
         success: false,
         message:
-          error instanceof Error
-            ? error.message
-            : "Não foi possível salvar a foto de perfil.",
+          error?.message ||
+          "Não foi possível salvar a foto de perfil.",
       },
       { status: 500 }
     );

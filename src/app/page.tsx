@@ -335,7 +335,7 @@ function LoginPage() {
                 <button
                   onClick={handleSendReset}
                   disabled={resetLoading}
-                  className={`flex-1 p-2 text-sm rounded-lg font-semibold text-white transition ${resetLoading
+                  className={`flex-1 p-2 text-sm cursor-pointer rounded-lg font-semibold text-white transition ${resetLoading
                       ? "bg-gray-400 cursor-not-allowed"
                       : "bg-teal-600 hover:bg-teal-500"
                     }`}
@@ -344,7 +344,7 @@ function LoginPage() {
                 </button>
                 <button
                   onClick={() => setOpen(false)}
-                  className="flex-1 p-2 text-sm rounded-lg bg-red-500 hover:bg-red-400 text-white font-semibold transition"
+                  className="flex-1 p-2 cursor-pointer text-sm rounded-lg bg-red-500 hover:bg-red-400 text-white font-semibold transition"
                 >
                   Cancelar
                 </button>

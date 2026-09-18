@@ -42,13 +42,21 @@ function safeString(value: unknown): string | null {
   return result || null;
 }
 
-function isUuid(value: unknown): value is string {
-  if (typeof value !== "string") {
+function isValidUserId(value: unknown): boolean {
+  const normalized = safeString(value);
+
+  if (!normalized) {
     return false;
   }
 
+  if (/^[0-9]+$/.test(normalized)) {
+    const number = Number(normalized);
+
+    return Number.isSafeInteger(number) && number > 0;
+  }
+
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-    value.trim()
+    normalized
   );
 }
 
@@ -76,6 +84,7 @@ function jsonError(message: string, status: number) {
 export async function GET() {
   try {
     const cookieStore = await cookies();
+
     const token = cookieStore.get("access_token")?.value;
 
     if (!token) {
@@ -86,6 +95,7 @@ export async function GET() {
 
     if (!jwtSecret) {
       console.error("GET /api/me: JWT_SECRET não configurada");
+
       return jsonError("JWT_SECRET não configurada", 500);
     }
 
@@ -95,6 +105,7 @@ export async function GET() {
       decoded = jwt.verify(token, jwtSecret) as JwtPayloadCustom;
     } catch (error) {
       console.error("GET /api/me: token inválido:", error);
+
       return jsonError("Token inválido ou expirado", 401);
     }
 
@@ -106,25 +117,12 @@ export async function GET() {
       decoded.sub,
     ];
 
-    let userUuid: string | null = null;
-    let userNumericId: number | null = null;
+    let userId: string | null = null;
 
     for (const candidate of candidates) {
-      const value = safeString(candidate);
-
-      if (!value) continue;
-
-      if (!userUuid && isUuid(value)) {
-        userUuid = value;
-        continue;
-      }
-
-      if (!userNumericId && /^[0-9]+$/.test(value)) {
-        const parsed = Number(value);
-
-        if (Number.isSafeInteger(parsed) && parsed > 0) {
-          userNumericId = parsed;
-        }
+      if (isValidUserId(candidate)) {
+        userId = safeString(candidate);
+        break;
       }
     }
 
@@ -133,7 +131,7 @@ export async function GET() {
         ? decoded.email.trim().toLowerCase()
         : "";
 
-    if (!userUuid && !userNumericId && !email) {
+    if (!userId && !email) {
       return jsonError(
         "Token não possui identificador de usuário",
         401
@@ -143,51 +141,25 @@ export async function GET() {
     let rows: any[] = [];
 
     try {
-      if (userUuid) {
+      if (userId) {
         const [result]: any = await db.query(
           `
-            SELECT
-              id,
-              full_name,
-              phone,
-              email,
-              user_type,
-              profile_image,
-              identification_number,
-              identification_type,
-              phone_verified_at,
-              email_verified_at
-            FROM users
-            WHERE id = ?
-            LIMIT 1
+          SELECT
+            id,
+            full_name,
+            phone,
+            email,
+            user_type,
+            profile_image,
+            identification_number,
+            identification_type,
+            phone_verified_at,
+            email_verified_at
+          FROM users
+          WHERE id = ?
+          LIMIT 1
           `,
-          [userUuid]
-        );
-
-        if (Array.isArray(result)) {
-          rows = result;
-        }
-      }
-
-      if (!rows.length && userNumericId) {
-        const [result]: any = await db.query(
-          `
-            SELECT
-              id,
-              full_name,
-              phone,
-              email,
-              user_type,
-              profile_image,
-              identification_number,
-              identification_type,
-              phone_verified_at,
-              email_verified_at
-            FROM users
-            WHERE id = ?
-            LIMIT 1
-          `,
-          [userNumericId]
+          [userId]
         );
 
         if (Array.isArray(result)) {
@@ -198,20 +170,20 @@ export async function GET() {
       if (!rows.length && email) {
         const [result]: any = await db.query(
           `
-            SELECT
-              id,
-              full_name,
-              phone,
-              email,
-              user_type,
-              profile_image,
-              identification_number,
-              identification_type,
-              phone_verified_at,
-              email_verified_at
-            FROM users
-            WHERE LOWER(email) = LOWER(?)
-            LIMIT 1
+          SELECT
+            id,
+            full_name,
+            phone,
+            email,
+            user_type,
+            profile_image,
+            identification_number,
+            identification_type,
+            phone_verified_at,
+            email_verified_at
+          FROM users
+          WHERE LOWER(email) = LOWER(?)
+          LIMIT 1
           `,
           [email]
         );
@@ -253,12 +225,6 @@ export async function GET() {
     }
 
     if (!rows.length) {
-      console.warn("GET /api/me: usuário não encontrado", {
-        userUuid,
-        userNumericId,
-        email,
-      });
-
       return jsonError(
         "Usuário não encontrado. Faça login novamente.",
         401
@@ -266,15 +232,15 @@ export async function GET() {
     }
 
     const user = rows[0];
+
     const resolvedId = safeString(user.id);
 
-    if (!resolvedId) {
-      console.error("GET /api/me: usuário sem ID:", user);
-      return jsonError("Usuário possui ID inválido.", 500);
-    }
+    if (!resolvedId || !isValidUserId(resolvedId)) {
+      console.error(
+        "GET /api/me: ID de usuário inválido:",
+        user.id
+      );
 
-    if (!isUuid(resolvedId)) {
-      console.error("GET /api/me: ID não é UUID:", resolvedId);
       return jsonError(
         "ID do usuário possui formato inválido.",
         500
@@ -309,10 +275,14 @@ export async function GET() {
         phone: user.phone ?? null,
         email: user.email ?? null,
         profile_image: user.profile_image ?? null,
-        identification_number: user.identification_number ?? null,
-        identification_type: user.identification_type ?? null,
-        phone_verified_at: user.phone_verified_at ?? null,
-        email_verified_at: user.email_verified_at ?? null,
+        identification_number:
+          user.identification_number ?? null,
+        identification_type:
+          user.identification_type ?? null,
+        phone_verified_at:
+          user.phone_verified_at ?? null,
+        email_verified_at:
+          user.email_verified_at ?? null,
         user_type: userType,
       },
       {

@@ -43,6 +43,14 @@ type Protocolo = {
   status?: string;
 };
 
+type ApiResponse = {
+  success?: boolean;
+  message?: string;
+  error?: string;
+  data?: unknown;
+  [key: string]: unknown;
+};
+
 const faq = [
   {
     pergunta: "Como cancelar uma passagem?",
@@ -71,6 +79,78 @@ const faq = [
   },
 ];
 
+async function lerResposta(res: Response): Promise<ApiResponse> {
+  const texto = await res.text();
+
+  if (!texto.trim()) {
+    return {};
+  }
+
+  try {
+    const json = JSON.parse(texto);
+
+    if (json && typeof json === "object") {
+      return json;
+    }
+
+    return {};
+  } catch {
+    return {
+      error: texto.slice(0, 500),
+    };
+  }
+}
+
+function gerarNovoProtocolo() {
+  const ano = new Date().getFullYear();
+  const random = Math.floor(100000000 + Math.random() * 900000000);
+  const novo = `MAY - ${random}${ano}`;
+
+  if (typeof window !== "undefined") {
+    localStorage.setItem("protocolo", novo);
+    localStorage.setItem("protocolo_time", String(Date.now()));
+  }
+
+  return novo;
+}
+
+function gerarProtocoloPersistente() {
+  if (typeof window === "undefined") {
+    return "";
+  }
+
+  const tempoLimite = 90 * 60 * 1000;
+  const salvo = localStorage.getItem("protocolo");
+  const salvoTempo = localStorage.getItem("protocolo_time");
+  const agora = Date.now();
+
+  if (
+    salvo &&
+    salvoTempo &&
+    agora - Number(salvoTempo) < tempoLimite
+  ) {
+    return salvo;
+  }
+
+  return gerarNovoProtocolo();
+}
+
+function extrairProtocolos(data: ApiResponse): Protocolo[] {
+  if (Array.isArray(data)) {
+    return data as Protocolo[];
+  }
+
+  if (Array.isArray(data.data)) {
+    return data.data as Protocolo[];
+  }
+
+  if (Array.isArray(data.protocolos)) {
+    return data.protocolos as Protocolo[];
+  }
+
+  return [];
+}
+
 export default function DashboardLayout() {
   const [form, setForm] = useState<Formulario>({
     nome: "",
@@ -90,42 +170,6 @@ export default function DashboardLayout() {
   const [alert, setAlert] = useState<Alerta>(null);
   const [faqAberto, setFaqAberto] = useState<number | null>(null);
 
-  function gerarProtocoloPersistente() {
-    if (typeof window === "undefined") return "";
-
-    const tempoLimite = 90 * 60 * 1000;
-    const salvo = localStorage.getItem("protocolo");
-    const salvoTempo = localStorage.getItem("protocolo_time");
-    const agora = Date.now();
-
-    if (
-      salvo &&
-      salvoTempo &&
-      agora - Number(salvoTempo) < tempoLimite
-    ) {
-      return salvo;
-    }
-
-    return gerarNovoProtocolo();
-  }
-
-  function gerarNovoProtocolo() {
-    const ano = new Date().getFullYear();
-    const random = Math.floor(
-      100000000 + Math.random() * 900000000
-    );
-
-    const novo = `MAY - ${random}${ano}`;
-
-    localStorage.setItem("protocolo", novo);
-    localStorage.setItem(
-      "protocolo_time",
-      String(Date.now())
-    );
-
-    return novo;
-  }
-
   useEffect(() => {
     setCodigo(gerarProtocoloPersistente());
   }, []);
@@ -144,22 +188,41 @@ export default function DashboardLayout() {
           }),
         ]);
 
-        if (usuarioRes.ok) {
-          const data = await usuarioRes.json();
+        const usuarioData = await lerResposta(usuarioRes);
+        const protocolosData = await lerResposta(protocolosRes);
 
+        if (usuarioRes.ok) {
           setForm((prev) => ({
             ...prev,
-            nome: data.full_name || data.nome || "",
-            email: data.email || "",
+            nome:
+              String(
+                usuarioData.full_name ||
+                  usuarioData.nome ||
+                  ""
+              ),
+            email: String(usuarioData.email || ""),
           }));
         }
 
         if (protocolosRes.ok) {
-          const data = await protocolosRes.json();
-          setProtocolos(Array.isArray(data) ? data : []);
+          setProtocolos(extrairProtocolos(protocolosData));
+        } else {
+          console.error(
+            "Erro ao carregar protocolos:",
+            protocolosData.error ||
+              `Status ${protocolosRes.status}`
+          );
+
+          setProtocolos([]);
         }
       } catch (error) {
         console.error("Erro ao carregar central:", error);
+
+        setAlert({
+          type: "error",
+          message:
+            "Não foi possível carregar seus protocolos.",
+        });
       } finally {
         setLoading(false);
       }
@@ -169,7 +232,9 @@ export default function DashboardLayout() {
   }, []);
 
   useEffect(() => {
-    if (!alert) return;
+    if (!alert) {
+      return;
+    }
 
     const timer = setTimeout(() => {
       setAlert(null);
@@ -182,10 +247,18 @@ export default function DashboardLayout() {
     const busca = buscaProtocolo.toLowerCase().trim();
 
     return protocolos.filter((item) => {
-      const codigoItem = String(item.codigo || "").toLowerCase();
+      const codigoItem = String(
+        item.codigo || ""
+      ).toLowerCase();
+
+      const assuntoItem = String(
+        item.assunto || ""
+      ).toLowerCase();
 
       const correspondeBusca =
-        !busca || codigoItem.includes(busca);
+        !busca ||
+        codigoItem.includes(busca) ||
+        assuntoItem.includes(busca);
 
       const correspondeStatus =
         filtroStatus === "Todos" ||
@@ -208,12 +281,44 @@ export default function DashboardLayout() {
     ).length,
   };
 
+  const atualizarProtocolos = async () => {
+    try {
+      const res = await fetch("/api/protocolo", {
+        method: "GET",
+        credentials: "include",
+        cache: "no-store",
+      });
+
+      const data = await lerResposta(res);
+
+      if (!res.ok) {
+        console.error(
+          "Erro ao atualizar protocolos:",
+          data.error ||
+            `Status ${res.status}`
+        );
+        return;
+      }
+
+      setProtocolos(extrairProtocolos(data));
+    } catch (error) {
+      console.error(
+        "Erro ao atualizar protocolos:",
+        error
+      );
+    }
+  };
+
   const handleSubmit = async (
     e: React.FormEvent<HTMLFormElement>
   ) => {
     e.preventDefault();
 
-    if (!form.categoria) {
+    const categoria = form.categoria.trim();
+    const assunto = form.assunto.trim();
+    const mensagem = form.mensagem.trim();
+
+    if (!categoria) {
       setAlert({
         type: "error",
         message:
@@ -222,21 +327,63 @@ export default function DashboardLayout() {
       return;
     }
 
-    if (!form.assunto.trim()) {
+    if (!assunto) {
       setAlert({
         type: "error",
-        message: "Informe o assunto da solicitação.",
+        message:
+          "Informe o assunto da solicitação.",
       });
       return;
     }
 
-    if (!form.mensagem.trim()) {
+    if (!mensagem) {
       setAlert({
         type: "error",
         message:
           "Digite uma mensagem para sua solicitação.",
       });
       return;
+    }
+
+    if (!codigo) {
+      setAlert({
+        type: "error",
+        message:
+          "Aguarde a geração do número do protocolo.",
+      });
+      return;
+    }
+
+    if (arquivo) {
+      const tamanhoMaximo = 10 * 1024 * 1024;
+
+      if (arquivo.size > tamanhoMaximo) {
+        setAlert({
+          type: "error",
+          message:
+            "O arquivo não pode ter mais de 10 MB.",
+        });
+        return;
+      }
+
+      const extensoesPermitidas = [
+        "image/jpeg",
+        "image/png",
+        "image/webp",
+        "application/pdf",
+      ];
+
+      if (
+        arquivo.type &&
+        !extensoesPermitidas.includes(arquivo.type)
+      ) {
+        setAlert({
+          type: "error",
+          message:
+            "Formato de arquivo não permitido. Envie PDF, JPG, PNG ou WEBP.",
+        });
+        return;
+      }
     }
 
     try {
@@ -246,15 +393,36 @@ export default function DashboardLayout() {
       const codigoAtual = codigo;
       const formData = new FormData();
 
-      formData.append("nome", form.nome);
-      formData.append("email", form.email);
-      formData.append("assunto", form.assunto);
-      formData.append("mensagem", form.mensagem);
-      formData.append("categoria", form.categoria);
-      formData.append("codigo", codigoAtual);
+      formData.append(
+        "nome",
+        form.nome.trim()
+      );
+      formData.append(
+        "email",
+        form.email.trim()
+      );
+      formData.append(
+        "categoria",
+        categoria
+      );
+      formData.append(
+        "assunto",
+        assunto
+      );
+      formData.append(
+        "mensagem",
+        mensagem
+      );
+      formData.append(
+        "codigo",
+        codigoAtual
+      );
 
       if (arquivo) {
-        formData.append("arquivo", arquivo);
+        formData.append(
+          "arquivo",
+          arquivo
+        );
       }
 
       const res = await fetch("/api/protocolo", {
@@ -263,23 +431,30 @@ export default function DashboardLayout() {
         body: formData,
       });
 
-      const data = await res.json();
+      const data = await lerResposta(res);
 
       if (!res.ok) {
         throw new Error(
-          data?.error ||
-            data?.message ||
+          data.error ||
+            String(data.message || "") ||
+            `Erro ao criar protocolo. Status: ${res.status}.`
+        );
+      }
+
+      if (data.success === false) {
+        throw new Error(
+          data.error ||
+            String(data.message || "") ||
             "Erro ao criar protocolo."
         );
       }
 
       setAlert({
         type: "success",
-        message: "Protocolo criado com sucesso!",
+        message:
+          data.message ||
+          "Protocolo criado com sucesso!",
       });
-
-      const novoCodigo = gerarNovoProtocolo();
-      setCodigo(novoCodigo);
 
       setForm((prev) => ({
         ...prev,
@@ -290,22 +465,15 @@ export default function DashboardLayout() {
 
       setArquivo(null);
 
-      const protocolosRes = await fetch("/api/protocolo", {
-        credentials: "include",
-        cache: "no-store",
-      });
+      const novoCodigo = gerarNovoProtocolo();
+      setCodigo(novoCodigo);
 
-      if (protocolosRes.ok) {
-        const protocolosData = await protocolosRes.json();
-
-        setProtocolos(
-          Array.isArray(protocolosData)
-            ? protocolosData
-            : []
-        );
-      }
+      await atualizarProtocolos();
     } catch (error) {
-      console.error(error);
+      console.error(
+        "Erro ao enviar protocolo:",
+        error
+      );
 
       setAlert({
         type: "error",
@@ -344,22 +512,23 @@ export default function DashboardLayout() {
     }));
 
     setArquivo(null);
+    setAlert(null);
   };
 
   const statusClasses = (status?: string) => {
     if (status === "Aberto") {
-      return "bg-[#e8faf6] text-[#0f766e] border-[#bce9df]";
+      return "border-[#bce9df] bg-[#e8faf6] text-[#0f766e]";
     }
 
     if (status === "Em andamento") {
-      return "bg-[#fff8e7] text-[#a66b00] border-[#f5dfab]";
+      return "border-[#f5dfab] bg-[#fff8e7] text-[#a66b00]";
     }
 
     if (status === "Finalizado") {
-      return "bg-[#eef6f5] text-[#52706d] border-[#d6e6e4]";
+      return "border-[#d6e6e4] bg-[#eef6f5] text-[#52706d]";
     }
 
-    return "bg-gray-50 text-gray-500 border-gray-200";
+    return "border-gray-200 bg-gray-50 text-gray-500";
   };
 
   if (loading) {
@@ -389,24 +558,20 @@ export default function DashboardLayout() {
       <main className="mx-auto w-full max-w-8xl">
         <section className="relative overflow-hidden rounded-[36px] bg-gradient-to-br from-[#115e59] via-[#0f766e] to-[#0d9488] shadow-[0_30px_90px_rgba(15,118,110,0.20)]">
           <div className="absolute -right-40 -top-40 h-[560px] w-[560px] rounded-full border-[110px] border-white/[0.035]" />
-
           <div className="absolute -bottom-52 left-[38%] h-[520px] w-[520px] rounded-full border-[90px] border-white/[0.025]" />
-
           <div className="absolute right-[25%] top-10 h-44 w-44 rounded-full bg-[#5eead4]/15 blur-[80px]" />
-
           <div className="absolute bottom-0 left-0 h-40 w-72 rounded-full bg-[#14b8a6]/10 blur-[70px]" />
 
           <div className="relative grid gap-10 px-6 py-9 sm:px-9 lg:grid-cols-[1fr_auto] lg:px-12 lg:py-12">
             <div className="max-w-3xl">
-
-              <h1 className="mt-4 text-4xl font-black leading-[1.04] tracking-[-0.04em] text-white sm:text-4xl lg:text-4xl">
+              <h1 className="mt-4 text-4xl font-black leading-[1.04] tracking-[-0.04em] text-white">
                 Estamos aqui para
                 <span className="block text-[#99f6e4]">
                   ajudar você.
                 </span>
               </h1>
 
-              <p className="mt-4 max-w-2xl text-sm leading-6 text-white/65 sm:text-sm">
+              <p className="mt-4 max-w-2xl text-sm leading-6 text-white/65">
                 Tire suas dúvidas, converse com nossa equipe
                 ou registre uma solicitação. Tudo organizado
                 em um único espaço de atendimento.
@@ -439,7 +604,6 @@ export default function DashboardLayout() {
 
                 <div className="mt-2 flex items-center gap-2">
                   <span className="h-2 w-2 rounded-full bg-[#99f6e4] shadow-[0_0_10px_#99f6e4]" />
-
                   <span className="text-sm font-black text-[#99f6e4]">
                     Online
                   </span>
@@ -471,7 +635,10 @@ export default function DashboardLayout() {
 
               <div className="relative flex items-start justify-between">
                 <div className="flex h-14 w-14 items-center justify-center rounded-[18px] bg-[#eaf8f0] text-[#159447]">
-                  <FontAwesomeIcon icon={faWhatsapp} size="lg" />
+                  <FontAwesomeIcon
+                    icon={faWhatsapp}
+                    size="lg"
+                  />
                 </div>
 
                 <ChevronRight
@@ -591,10 +758,10 @@ export default function DashboardLayout() {
                 </div>
 
                 <div>
-
                   <h2 className="mt-1 text-2xl font-black tracking-tight text-[#115e59]">
                     Abrir protocolo
                   </h2>
+
                   <p className="mt-0 text-sm text-gray-500">
                     Preencha as informações para iniciar seu
                     atendimento.
@@ -731,6 +898,7 @@ export default function DashboardLayout() {
                     </label>
 
                     <input
+                      type="text"
                       value={form.assunto}
                       onChange={(e) =>
                         setForm((prev) => ({
@@ -739,6 +907,7 @@ export default function DashboardLayout() {
                         }))
                       }
                       placeholder="Ex.: Problema com minha viagem"
+                      required
                       className="h-12 w-full rounded-2xl border border-gray-200 bg-white px-4 text-sm text-gray-700 outline-none transition placeholder:text-gray-400 focus:border-[#0f766e] focus:ring-4 focus:ring-[#0f766e]/10"
                     />
                   </div>
@@ -758,6 +927,7 @@ export default function DashboardLayout() {
                       }))
                     }
                     rows={6}
+                    required
                     placeholder="Descreva detalhadamente o que aconteceu..."
                     className="w-full resize-none rounded-2xl border border-gray-200 bg-white px-4 py-4 text-sm leading-6 text-gray-700 outline-none transition placeholder:text-gray-400 focus:border-[#0f766e] focus:ring-4 focus:ring-[#0f766e]/10"
                   />
@@ -781,7 +951,7 @@ export default function DashboardLayout() {
                       </p>
 
                       <p className="mt-1 text-[10px] text-gray-400">
-                        PDF, JPG, PNG ou WEBP
+                        PDF, JPG, PNG ou WEBP • máximo 10 MB
                       </p>
                     </div>
 
@@ -793,11 +963,13 @@ export default function DashboardLayout() {
                       type="file"
                       accept=".jpg,.jpeg,.png,.pdf,.webp"
                       className="hidden"
-                      onChange={(e) =>
-                        setArquivo(
-                          e.target.files?.[0] || null
-                        )
-                      }
+                      onChange={(e) => {
+                        const file =
+                          e.target.files?.[0] || null;
+
+                        setArquivo(file);
+                        e.target.value = "";
+                      }}
                     />
                   </label>
 
@@ -957,7 +1129,7 @@ export default function DashboardLayout() {
                           aberto ? null : index
                         )
                       }
-                      className="flex cursor-pointer w-full items-center justify-between gap-3 px-4 py-4 text-left"
+                      className="flex w-full cursor-pointer items-center justify-between gap-3 px-4 py-4 text-left"
                     >
                       <span className="text-xs font-black text-gray-700">
                         {item.pergunta}
@@ -1096,7 +1268,7 @@ export default function DashboardLayout() {
                   onChange={(e) =>
                     setBuscaProtocolo(e.target.value)
                   }
-                  placeholder="Pesquisar protocolo..."
+                  placeholder="Pesquisar protocolo ou assunto..."
                   className="h-12 w-full rounded-2xl border border-gray-200 bg-[#f8fbfa] pl-11 pr-4 text-xs outline-none transition focus:border-[#0f766e] focus:bg-white focus:ring-4 focus:ring-[#0f766e]/10"
                 />
               </div>
@@ -1112,7 +1284,9 @@ export default function DashboardLayout() {
                   Todos os status
                 </option>
 
-                <option value="Aberto">Aberto</option>
+                <option value="Aberto">
+                  Aberto
+                </option>
 
                 <option value="Em andamento">
                   Em andamento
@@ -1198,7 +1372,9 @@ export default function DashboardLayout() {
                                 {item.criado_em
                                   ? new Date(
                                       item.criado_em
-                                    ).toLocaleString("pt-BR")
+                                    ).toLocaleString(
+                                      "pt-BR"
+                                    )
                                   : "-"}
                               </div>
                             </td>
@@ -1211,13 +1387,16 @@ export default function DashboardLayout() {
                               >
                                 <span className="h-1.5 w-1.5 rounded-full bg-current" />
 
-                                {item.status || "Pendente"}
+                                {item.status ||
+                                  "Pendente"}
                               </span>
                             </td>
 
                             <td className="px-5 py-4">
                               <Link
-                                href={`/passageiro/protocolo/${item.codigo}`}
+                                href={`/passageiro/protocolo/${encodeURIComponent(
+                                  item.codigo || ""
+                                )}`}
                                 title="Visualizar protocolo"
                                 className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 bg-white text-[#0f766e] shadow-sm transition hover:border-[#0f766e] hover:bg-[#0f766e] hover:text-white"
                               >

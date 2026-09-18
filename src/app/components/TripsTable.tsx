@@ -10,6 +10,7 @@ import {
   ReceiptText,
   XCircle,
 } from "lucide-react";
+import Link from "next/link";
 
 export type TripRow = {
   id?: number | string | null;
@@ -689,7 +690,7 @@ export default function TripsTable({
 
                     <div>
                       <p className="text-xs font-extrabold text-slate-800">
-                        #{tripId ?? "—"}
+                        #${trip.trip_request_id}
                       </p>
                       <p className="mt-0.5 text-[10px] text-slate-400">
                         Viagem
@@ -774,23 +775,13 @@ export default function TripsTable({
 
                 <td className="px-5 py-4">
                   <div className="flex items-center justify-center gap-2">
-                    <ActionButton
-                      title="Visualizar viagem"
-                      variant="view"
-                      onClick={() => onView?.(trip)}
-                      className="!cursor-pointer"
+                    <Link
+                      href={`/passageiro/viagens/${String(tripId)}`}
+                      title="Visualização"
+                      className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:border-teal-200 hover:bg-teal-50 hover:text-teal-600"
                     >
-                      <Eye className="!cursor-pointer" size={16} strokeWidth={2.2} />
-                    </ActionButton>
-
-                    <ActionButton
-                      title="Editar viagem"
-                      variant="edit"
-                      onClick={() => onEdit?.(trip)}
-                      className="!cursor-pointer"
-                    >
-                      <Pencil className="!cursor-pointer" size={15} strokeWidth={2.2} />
-                    </ActionButton>
+                      <Eye size={16} strokeWidth={2.2} />
+                    </Link>
                   </div>
                 </td>
               </tr>

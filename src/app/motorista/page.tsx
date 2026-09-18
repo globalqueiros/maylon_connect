@@ -17,28 +17,24 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
 type User = {
-  id: number;
+  id: string | number;
   full_name: string;
   email: string;
 };
 
-type TripStatus =
-  | "completed"
-  | "cancelled"
-  | "in_progress"
-  | "pending"
-  | string;
+type TripStatus = string | null | undefined;
 
 type Trip = {
-  trip_request_id: number;
-  pickup_address: string;
-  destination_address: string;
-  valor: number | string | null;
+  trip_request_id: number | string;
+  pickup_address: string | null;
+  destination_address: string | null;
+  paid_fare?: number | string | null;
+  valor?: number | string | null;
   current_status: TripStatus;
 };
 
 type Banner = {
-  id: number;
+  id: number | string;
   image: string;
   title?: string | null;
 };
@@ -50,42 +46,122 @@ type StatusConfig = {
 };
 
 const STATUS_CONFIG: Record<string, StatusConfig> = {
-  completed: {
-    label: "Finalizada",
-    className: "bg-emerald-50 text-emerald-700",
+  pending: {
+    label: "Aguardando",
+    className: "bg-amber-50 text-amber-700",
+    icon: Clock3,
+  },
+  waiting: {
+    label: "Aguardando",
+    className: "bg-amber-50 text-amber-700",
+    icon: Clock3,
+  },
+  requested: {
+    label: "Aguardando",
+    className: "bg-amber-50 text-amber-700",
+    icon: Clock3,
+  },
+  searching_driver: {
+    label: "Procurando motorista",
+    className: "bg-amber-50 text-amber-700",
+    icon: Clock3,
+  },
+  accepted: {
+    label: "Aceita",
+    className: "bg-blue-50 text-blue-700",
     icon: CheckCircle2,
   },
-
-  cancelled: {
-    label: "Cancelada",
-    className: "bg-red-50 text-red-700",
-    icon: XCircle,
+  driver_accepted: {
+    label: "Aceita",
+    className: "bg-blue-50 text-blue-700",
+    icon: CheckCircle2,
   },
-
   in_progress: {
     label: "Em andamento",
     className: "bg-blue-50 text-blue-700",
     icon: Clock3,
   },
-
-  pending: {
-    label: "Pendente",
-    className: "bg-amber-50 text-amber-700",
+  started: {
+    label: "Em andamento",
+    className: "bg-blue-50 text-blue-700",
     icon: Clock3,
+  },
+  ongoing: {
+    label: "Em andamento",
+    className: "bg-blue-50 text-blue-700",
+    icon: Clock3,
+  },
+  completed: {
+    label: "Finalizada",
+    className: "bg-emerald-50 text-emerald-700",
+    icon: CheckCircle2,
+  },
+  finished: {
+    label: "Finalizada",
+    className: "bg-emerald-50 text-emerald-700",
+    icon: CheckCircle2,
+  },
+  cancelled: {
+    label: "Cancelada",
+    className: "bg-red-50 text-red-700",
+    icon: XCircle,
+  },
+  canceled: {
+    label: "Cancelada",
+    className: "bg-red-50 text-red-700",
+    icon: XCircle,
+  },
+  cancelled_by_driver: {
+    label: "Cancelada",
+    className: "bg-red-50 text-red-700",
+    icon: XCircle,
+  },
+  canceled_by_driver: {
+    label: "Cancelada",
+    className: "bg-red-50 text-red-700",
+    icon: XCircle,
+  },
+  cancelled_by_customer: {
+    label: "Cancelada",
+    className: "bg-red-50 text-red-700",
+    icon: XCircle,
+  },
+  canceled_by_customer: {
+    label: "Cancelada",
+    className: "bg-red-50 text-red-700",
+    icon: XCircle,
   },
 };
 
 const DEFAULT_STATUS: StatusConfig = {
-  label: "Desconhecido",
-  className: "bg-slate-100 text-slate-600",
+  label: "Aguardando",
+  className: "bg-amber-50 text-amber-700",
   icon: Clock3,
 };
 
-function getStatus(status: string): StatusConfig {
-  return STATUS_CONFIG[status] ?? {
-    ...DEFAULT_STATUS,
-    label: status || DEFAULT_STATUS.label,
-  };
+function normalizeStatus(status: TripStatus): string {
+  return String(status ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "_")
+    .replace(/-/g, "_");
+}
+
+function getStatus(status: TripStatus): StatusConfig {
+  const normalizedStatus = normalizeStatus(status);
+  return STATUS_CONFIG[normalizedStatus] ?? DEFAULT_STATUS;
+}
+
+function isCompletedStatus(status: TripStatus): boolean {
+  const normalizedStatus = normalizeStatus(status);
+
+  return ["completed", "finished"].includes(normalizedStatus);
+}
+
+function isInProgressStatus(status: TripStatus): boolean {
+  const normalizedStatus = normalizeStatus(status);
+
+  return ["in_progress", "started", "ongoing"].includes(normalizedStatus);
 }
 
 function getGreeting(): string {
@@ -102,19 +178,64 @@ function getGreeting(): string {
   return "Boa noite";
 }
 
-function formatCurrency(value: number | string | null): string {
-  const numericValue = Number(value ?? 0);
+function getTripValue(
+  value: number | string | null | undefined
+): number {
+  if (value === null || value === undefined || value === "") {
+    return 0;
+  }
+
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : 0;
+  }
+
+  let text = String(value)
+    .replace(/R\$/gi, "")
+    .replace(/\s/g, "")
+    .trim();
+
+  if (!text) {
+    return 0;
+  }
+
+  if (text.includes(",")) {
+    text = text.replace(/\./g, "").replace(",", ".");
+  }
+
+  const numericValue = Number(text);
+
+  return Number.isFinite(numericValue) ? numericValue : 0;
+}
+
+function getTripGainValue(trip: Trip): number {
+  const paidFare = getTripValue(trip.paid_fare);
+
+  if (paidFare > 0) {
+    return paidFare;
+  }
+
+  return getTripValue(trip.valor);
+}
+
+function formatCurrency(
+  value: number | string | null | undefined
+): string {
+  const numericValue = getTripValue(value);
 
   return new Intl.NumberFormat("pt-BR", {
     style: "currency",
     currency: "BRL",
-  }).format(Number.isFinite(numericValue) ? numericValue : 0);
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(numericValue);
 }
 
-function getTripValue(value: number | string | null): number {
-  const numericValue = Number(value ?? 0);
-
-  return Number.isFinite(numericValue) ? numericValue : 0;
+async function safeJson(response: Response): Promise<any> {
+  try {
+    return await response.json();
+  } catch {
+    return null;
+  }
 }
 
 function LoadingState() {
@@ -144,7 +265,7 @@ function EmptyTrips() {
   );
 }
 
-function StatusBadge({ status }: { status: string }) {
+function StatusBadge({ status }: { status: TripStatus }) {
   const config = getStatus(status);
   const Icon = config.icon;
 
@@ -158,21 +279,25 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-function TripValue({ value }: { value: number | string | null }) {
-  const numericValue = getTripValue(value);
-
-  if (numericValue === 0) {
-    return <span className="text-sm text-slate-400">Aguardando</span>;
-  }
+function TripGain({ trip }: { trip: Trip }) {
+  const value = getTripGainValue(trip);
 
   return (
-    <span className="text-sm font-semibold text-slate-800">
-      {formatCurrency(numericValue)}
+    <span
+      className={`text-sm font-semibold ${
+        value > 0 ? "text-black" : "text-slate-400"
+      }`}
+    >
+      {formatCurrency(value)}
     </span>
   );
 }
 
-function TripDetailsLink({ tripId }: { tripId: number }) {
+function TripDetailsLink({
+  tripId,
+}: {
+  tripId: number | string;
+}) {
   return (
     <Link
       href={`/motorista/trips/${tripId}`}
@@ -241,7 +366,7 @@ function TripMobileCard({ trip }: { trip: Trip }) {
           </p>
 
           <div className="mt-1">
-            <TripValue value={trip.valor} />
+            <TripGain trip={trip} />
           </div>
         </div>
 
@@ -272,38 +397,34 @@ export default function DriverDashboard() {
     async function carregarDashboard() {
       setLoading(true);
 
-      try {
-        const [userResponse, tripsResponse, bannersResponse] =
-          await Promise.all([
-            fetch("/api/me", {
-              method: "GET",
-              credentials: "include",
-              cache: "no-store",
-            }),
+      const [userResult, tripsResult, bannersResult] =
+        await Promise.allSettled([
+          fetch("/api/me", {
+            method: "GET",
+            credentials: "include",
+            cache: "no-store",
+          }),
+          fetch("/api/trips/drives", {
+            method: "GET",
+            credentials: "include",
+            cache: "no-store",
+          }),
+          fetch("/api/banners", {
+            method: "GET",
+            credentials: "include",
+            cache: "no-store",
+          }),
+        ]);
 
-            fetch("/api/trips", {
-              method: "GET",
-              credentials: "include",
-              cache: "no-store",
-            }),
+      if (!mounted) {
+        return;
+      }
 
-            fetch("/api/banners", {
-              method: "GET",
-              credentials: "include",
-              cache: "no-store",
-            }),
-          ]);
+      if (userResult.status === "fulfilled") {
+        const response = userResult.value;
 
-        if (!mounted) {
-          return;
-        }
-
-        /*
-         * USUÁRIO
-         */
-        if (userResponse.ok) {
-          const userData = await userResponse.json();
-
+        if (response.ok) {
+          const userData = await safeJson(response);
           const currentUser = userData?.user ?? userData;
 
           if (currentUser?.full_name) {
@@ -314,19 +435,28 @@ export default function DriverDashboard() {
             });
           }
         } else {
+          const errorData = await safeJson(response);
+
           console.error(
             "Erro ao buscar usuário:",
-            userResponse.status
+            response.status,
+            errorData
           );
         }
+      } else {
+        console.error(
+          "Erro de conexão ao buscar usuário:",
+          userResult.reason
+        );
+      }
 
-        /*
-         * VIAGENS
-         */
-        if (tripsResponse.ok) {
-          const tripsData = await tripsResponse.json();
+      if (tripsResult.status === "fulfilled") {
+        const response = tripsResult.value;
 
-          const trips = Array.isArray(tripsData)
+        if (response.ok) {
+          const tripsData = await safeJson(response);
+
+          const trips: Trip[] = Array.isArray(tripsData)
             ? tripsData
             : Array.isArray(tripsData?.trips)
               ? tripsData.trips
@@ -334,21 +464,32 @@ export default function DriverDashboard() {
 
           setRows(trips);
         } else {
+          const errorData = await safeJson(response);
+
           console.error(
             "Erro ao buscar viagens:",
-            tripsResponse.status
+            response.status,
+            errorData
           );
 
           setRows([]);
         }
+      } else {
+        console.error(
+          "Erro de conexão ao buscar viagens:",
+          tripsResult.reason
+        );
 
-        /*
-         * BANNERS
-         */
-        if (bannersResponse.ok) {
-          const bannersData = await bannersResponse.json();
+        setRows([]);
+      }
 
-          const bannersList = Array.isArray(bannersData)
+      if (bannersResult.status === "fulfilled") {
+        const response = bannersResult.value;
+
+        if (response.ok) {
+          const bannersData = await safeJson(response);
+
+          const bannersList: Banner[] = Array.isArray(bannersData)
             ? bannersData
             : Array.isArray(bannersData?.banners)
               ? bannersData.banners
@@ -358,23 +499,21 @@ export default function DriverDashboard() {
         } else {
           console.error(
             "Erro ao buscar banners:",
-            bannersResponse.status
+            response.status
           );
 
           setBanners([]);
         }
-      } catch (error) {
-        console.error("Erro ao carregar dashboard:", error);
+      } else {
+        console.error(
+          "Erro de conexão ao buscar banners:",
+          bannersResult.reason
+        );
 
-        if (mounted) {
-          setRows([]);
-          setBanners([]);
-        }
-      } finally {
-        if (mounted) {
-          setLoading(false);
-        }
+        setBanners([]);
       }
+
+      setLoading(false);
     }
 
     carregarDashboard();
@@ -386,24 +525,29 @@ export default function DriverDashboard() {
 
   const totalViagens = rows.length;
 
-  const viagensFinalizadas = rows.filter(
-    (item) => item.current_status === "completed"
+  const viagensFinalizadas = rows.filter((item) =>
+    isCompletedStatus(item.current_status)
   ).length;
 
-  const viagensAndamento = rows.filter(
-    (item) => item.current_status === "in_progress"
+  const viagensAndamento = rows.filter((item) =>
+    isInProgressStatus(item.current_status)
   ).length;
 
-  const totalGanhos = rows
-    .filter((item) => item.current_status === "completed")
-    .reduce((total, item) => total + getTripValue(item.valor), 0);
+  const totalGanhos = useMemo(() => {
+    return rows.reduce((total, trip) => {
+      if (!isCompletedStatus(trip.current_status)) {
+        return total;
+      }
+
+      return total + getTripGainValue(trip);
+    }, 0);
+  }, [rows]);
 
   const bannerPrincipal = banners[0];
 
   return (
     <main className="min-h-screen">
-      <div className="mx-auto max-w-7xl">
-        {/* HEADER */}
+      <div className="mx-auto max-w-8xl">
         <header className="mb-7 flex flex-col gap-5 border-b border-slate-200 pb-7 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <p className="mb-1 text-sm font-medium text-white/50">
@@ -422,31 +566,31 @@ export default function DriverDashboard() {
             </p>
           </div>
 
-          {/* STATUS ONLINE */}
           <button
             type="button"
             onClick={() => setOnline((current) => !current)}
             aria-pressed={online}
-            className={`flex w-fit cursor-pointer items-center gap-3 rounded-xl border px-4 py-3 transition ${online
-              ? "border-emerald-200 bg-emerald-50"
-              : "border-slate-200 bg-white"
-              }`}
+            className={`flex w-fit cursor-pointer items-center gap-3 rounded-xl border px-4 py-3 transition ${
+              online
+                ? "border-emerald-200 bg-emerald-50"
+                : "border-slate-200 bg-white"
+            }`}
           >
             <div
-              className={`flex h-9 w-9 items-center justify-center rounded-full ${online
-                ? "bg-emerald-500 text-white"
-                : "bg-slate-200 text-slate-500"
-                }`}
+              className={`flex h-9 w-9 items-center justify-center rounded-full ${
+                online
+                  ? "bg-emerald-500 text-white"
+                  : "bg-slate-200 text-slate-500"
+              }`}
             >
               <Power size={17} />
             </div>
 
             <div className="text-left">
               <p
-                className={`text-sm font-semibold ${online
-                  ? "text-emerald-800"
-                  : "text-slate-700"
-                  }`}
+                className={`text-sm font-semibold ${
+                  online ? "text-emerald-800" : "text-slate-700"
+                }`}
               >
                 {online
                   ? "Você está online"
@@ -462,9 +606,7 @@ export default function DriverDashboard() {
           </button>
         </header>
 
-        {/* RESUMO */}
         <section className="mb-7 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {/* GANHOS */}
           <div className="rounded-xl border border-slate-200 bg-white p-5">
             <div className="flex items-start justify-between">
               <div>
@@ -472,13 +614,13 @@ export default function DriverDashboard() {
                   Ganhos
                 </p>
 
-                <p className="mt-2 text-2xl font-semibold text-slate-900">
+                <p className="mt-2 text-2xl font-semibold text-black">
                   {formatCurrency(totalGanhos)}
                 </p>
 
                 <div className="mt-3 flex items-center gap-1.5 text-xs font-medium text-emerald-600">
                   <TrendingUp size={14} />
-                  Corridas finalizadas
+                  Ganhos das corridas finalizadas
                 </div>
               </div>
 
@@ -488,7 +630,6 @@ export default function DriverDashboard() {
             </div>
           </div>
 
-          {/* CORRIDAS */}
           <div className="rounded-xl border border-slate-200 bg-white p-5">
             <div className="flex items-start justify-between">
               <div>
@@ -496,7 +637,7 @@ export default function DriverDashboard() {
                   Corridas
                 </p>
 
-                <p className="mt-2 text-2xl font-semibold text-slate-900">
+                <p className="mt-2 text-2xl font-semibold text-black">
                   {totalViagens}
                 </p>
 
@@ -511,7 +652,6 @@ export default function DriverDashboard() {
             </div>
           </div>
 
-          {/* EM ANDAMENTO */}
           <div className="rounded-xl border border-slate-200 bg-white p-5">
             <div className="flex items-start justify-between">
               <div>
@@ -519,7 +659,7 @@ export default function DriverDashboard() {
                   Em andamento
                 </p>
 
-                <p className="mt-2 text-2xl font-semibold text-slate-900">
+                <p className="mt-2 text-2xl font-semibold text-black">
                   {viagensAndamento}
                 </p>
 
@@ -534,7 +674,6 @@ export default function DriverDashboard() {
             </div>
           </div>
 
-          {/* FINALIZADAS */}
           <div className="rounded-xl border border-slate-200 bg-white p-5">
             <div className="flex items-start justify-between">
               <div>
@@ -542,7 +681,7 @@ export default function DriverDashboard() {
                   Finalizadas
                 </p>
 
-                <p className="mt-2 text-2xl font-semibold text-slate-900">
+                <p className="mt-2 text-2xl font-semibold text-black">
                   {viagensFinalizadas}
                 </p>
 
@@ -558,7 +697,6 @@ export default function DriverDashboard() {
           </div>
         </section>
 
-        {/* BANNER */}
         {bannerPrincipal?.image && (
           <section className="relative mb-7 h-52 overflow-hidden rounded-xl sm:h-60">
             <Image
@@ -570,7 +708,7 @@ export default function DriverDashboard() {
               className="object-cover"
             />
 
-            <div className="absolute inset-0 to-transparent" />
+            <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/20 to-transparent" />
 
             <div className="absolute inset-0 flex items-center px-6 sm:px-10">
               <div className="max-w-lg text-white">
@@ -584,7 +722,6 @@ export default function DriverDashboard() {
           </section>
         )}
 
-        {/* CORRIDAS */}
         <section className="overflow-hidden rounded-xl border border-slate-200 bg-white">
           <div className="flex flex-col gap-3 border-b border-slate-200 px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-6">
             <div>
@@ -599,15 +736,13 @@ export default function DriverDashboard() {
 
             <Link
               href="/motorista/relatorio"
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold bg-teal-500 text-white hover:bg-teal-600 transition-all duration-200 shadow-sm hover:shadow-md"
+              className="inline-flex items-center gap-2 rounded-xl bg-teal-500 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:bg-teal-600 hover:shadow-md"
             >
               Ver todas
               <ArrowUpRight size={16} />
             </Link>
-
           </div>
 
-          {/* DESKTOP */}
           <div className="hidden overflow-x-auto lg:block">
             <table className="w-full">
               <thead>
@@ -661,7 +796,7 @@ export default function DriverDashboard() {
                       className="transition-colors hover:bg-slate-50"
                     >
                       <td className="whitespace-nowrap px-6 py-4">
-                        <span className="text-sm font-semibold text-slate-700">
+                        <span className="text-sm font-semibold text-black">
                           #{trip.trip_request_id}
                         </span>
                       </td>
@@ -673,8 +808,9 @@ export default function DriverDashboard() {
                             className="shrink-0 text-emerald-600"
                           />
 
-                          <span className="truncate text-sm text-slate-600">
-                            {trip.pickup_address || "Não informado"}
+                          <span className="truncate text-sm text-black">
+                            {trip.pickup_address ||
+                              "Não informado"}
                           </span>
                         </div>
                       </td>
@@ -686,7 +822,7 @@ export default function DriverDashboard() {
                             className="shrink-0 text-red-500"
                           />
 
-                          <span className="truncate text-sm text-slate-600">
+                          <span className="truncate text-sm text-black">
                             {trip.destination_address ||
                               "Não informado"}
                           </span>
@@ -694,7 +830,7 @@ export default function DriverDashboard() {
                       </td>
 
                       <td className="whitespace-nowrap px-6 py-4">
-                        <TripValue value={trip.valor} />
+                        <TripGain trip={trip} />
                       </td>
 
                       <td className="px-6 py-4">
@@ -715,7 +851,6 @@ export default function DriverDashboard() {
             </table>
           </div>
 
-          {/* MOBILE */}
           <div className="divide-y divide-slate-100 lg:hidden">
             {loading ? (
               <LoadingState />

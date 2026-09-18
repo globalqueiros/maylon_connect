@@ -205,7 +205,7 @@ export default function ViagensPage() {
                   )
                 }
                 disabled={currentPage === 1}
-                className="group inline-flex h-10 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-600 shadow-sm transition hover:border-[#35a989] hover:text-[#35a989] disabled:cursor-not-allowed disabled:opacity-40 sm:px-4 sm:text-sm"
+                className="group cursor-pointer inline-flex h-10 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-600 shadow-sm transition hover:border-[#35a989] hover:text-[#35a989] disabled:cursor-not-allowed disabled:opacity-40 sm:px-4 sm:text-sm"
               >
                 <ChevronLeft
                   size={16}
@@ -222,7 +222,7 @@ export default function ViagensPage() {
                     key={page}
                     type="button"
                     onClick={() => setCurrentPage(page)}
-                    className={`h-10 min-w-10 rounded-xl px-2 text-xs font-extrabold transition-all duration-200 sm:text-sm ${
+                    className={`h-10 cursor-pointer min-w-10 rounded-xl px-2 text-xs font-extrabold transition-all duration-200 sm:text-sm ${
                       currentPage === page
                         ? "bg-[#35a989] text-white shadow-md shadow-[#35a989]/20"
                         : "border border-slate-200 bg-white text-slate-600 hover:-translate-y-0.5 hover:border-[#35a989] hover:text-[#35a989]"
@@ -241,7 +241,7 @@ export default function ViagensPage() {
                   )
                 }
                 disabled={currentPage === totalPages}
-                className="group inline-flex h-10 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-600 shadow-sm transition hover:border-[#35a989] hover:text-[#35a989] disabled:cursor-not-allowed disabled:opacity-40 sm:px-4 sm:text-sm"
+                className="group cursor-pointer inline-flex h-10 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-600 shadow-sm transition hover:border-[#35a989] hover:text-[#35a989] disabled:cursor-not-allowed disabled:opacity-40 sm:px-4 sm:text-sm"
               >
                 <span className="hidden sm:inline">
                   Próxima

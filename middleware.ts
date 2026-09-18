@@ -25,7 +25,7 @@ export async function middleware(request: NextRequest) {
 
   if (!token) {
     return NextResponse.redirect(
-      new URL("/login", request.url)
+      new URL("/", request.url)
     );
   }
 
@@ -43,88 +43,66 @@ export async function middleware(request: NextRequest) {
 
     if (!response.ok) {
       return NextResponse.redirect(
-        new URL("/login", request.url)
+        new URL("/", request.url)
       );
     }
 
     const data = await response.json();
 
     const user =
-      data?.user ||
-      data?.usuario ||
-      data?.data ||
+      data?.user ??
+      data?.usuario ??
+      data?.data ??
       data;
 
     const userType = normalize(
-      user?.user_type
-    );
-
-    console.log(
-      "======================================"
-    );
-    console.log(
-      "🔐 PROTEÇÃO DE ROTAS"
-    );
-    console.log(
-      "📍 ROTA:",
-      pathname
-    );
-    console.log(
-      "👤 USER:",
-      user?.id
-    );
-    console.log(
-      "👤 USER TYPE:",
-      userType
-    );
-    console.log(
-      "======================================"
+      user?.user_type ??
+      user?.tipo ??
+      data?.user_type ??
+      data?.tipo
     );
 
     const isDriver =
       userType === "driver" ||
-      userType === "motorista";
+      userType === "motorista" ||
+      userType === "1";
 
     const isCustomer =
       userType === "customer" ||
       userType === "passageiro" ||
-      userType === "passenger";
-
-    if (!isDriver && !isCustomer) {
-      return NextResponse.redirect(
-        new URL("/login", request.url)
-      );
-    }
+      userType === "passenger" ||
+      userType === "2";
 
     if (motorista && !isDriver) {
-      console.log(
-        "🚫 CUSTOMER BLOQUEADO DE /motorista"
-      );
+      if (isCustomer) {
+        return NextResponse.redirect(
+          new URL("/passageiro", request.url)
+        );
+      }
 
       return NextResponse.redirect(
-        new URL("/passageiro", request.url)
+        new URL("/", request.url)
       );
     }
 
     if (passageiro && !isCustomer) {
-      console.log(
-        "🚫 DRIVER BLOQUEADO DE /passageiro"
-      );
+      if (isDriver) {
+        return NextResponse.redirect(
+          new URL("/motorista", request.url)
+        );
+      }
 
       return NextResponse.redirect(
-        new URL("/motorista", request.url)
+        new URL("/", request.url)
       );
     }
 
     return NextResponse.next();
   } catch (error) {
-    console.error(
-      "❌ Erro na proteção:",
-      error
-    );
+    console.error("Erro na proteção:", error);
 
     return NextResponse.redirect(
-      new URL("/login", request.url)
+      new URL("/", request.url)
     );
   }
 }

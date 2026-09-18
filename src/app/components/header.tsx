@@ -1,4 +1,5 @@
 "use client";
+
 import { useState, useRef, useEffect } from "react";
 import Image from "next/image";
 import {
@@ -13,8 +14,9 @@ import {
   MapPin,
 } from "lucide-react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 
-type User = {
+type UserData = {
   id: number;
   full_name: string;
   email: string;
@@ -28,20 +30,27 @@ export default function Header({
   toggleSidebar: () => void;
 }) {
   const [open, setOpen] = useState(false);
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<UserData | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
-
   const [imgSrc, setImgSrc] = useState("/foto_perfil.png");
+
+  const pathname = usePathname();
+  const isMotorista = pathname.startsWith("/motorista");
+  const prefix = isMotorista ? "/motorista" : "/passageiro";
 
   useEffect(() => {
     const fetchUser = async () => {
-      const res = await fetch("/api/me", {
-        credentials: "include",
-      });
+      try {
+        const res = await fetch("/api/me", {
+          credentials: "include",
+        });
 
-      if (res.ok) {
-        const data = await res.json();
-        setUser(data);
+        if (res.ok) {
+          const data = await res.json();
+          setUser(data);
+        }
+      } catch (error) {
+        console.error("Erro ao buscar usuário:", error);
       }
     };
 
@@ -49,7 +58,7 @@ export default function Header({
   }, []);
 
   useEffect(() => {
-    if (user?.profile_image && user.profile_image.trim() !== "") {
+    if (user?.profile_image?.trim()) {
       setImgSrc(user.profile_image);
     } else {
       setImgSrc("/foto_perfil.png");
@@ -57,26 +66,27 @@ export default function Header({
   }, [user]);
 
   useEffect(() => {
-    function handleClickOutside(e: any) {
+    function handleClickOutside(e: MouseEvent) {
       if (
         dropdownRef.current &&
-        !dropdownRef.current.contains(e.target)
+        !dropdownRef.current.contains(e.target as Node)
       ) {
         setOpen(false);
       }
     }
 
     document.addEventListener("mousedown", handleClickOutside);
-    return () =>
+
+    return () => {
       document.removeEventListener("mousedown", handleClickOutside);
+    };
   }, []);
 
   const firstName = user?.full_name
     ? user.full_name.split(" ")[0]
     : "Usuário";
 
-  const hasImage =
-    user?.profile_image && user.profile_image.trim() !== "";
+  const hasImage = Boolean(user?.profile_image?.trim());
 
   return (
     <div className="w-full h-16 bg-white border-b border-gray-300 flex items-center justify-between px-4">
@@ -88,11 +98,13 @@ export default function Header({
           <Menu size={20} />
         </button>
       </div>
+
       <div className="flex items-center gap-4 relative">
         <button className="p-2 rounded-full hover:bg-gray-100 relative">
           <Bell size={20} />
-          <span className="absolute top-1 right-1 w-2 h-2 bg-orange-500 rounded-full"></span>
+          <span className="absolute top-1 right-1 w-2 h-2 bg-orange-500 rounded-full" />
         </button>
+
         <div ref={dropdownRef} className="relative">
           <button
             onClick={() => setOpen(!open)}
@@ -109,80 +121,80 @@ export default function Header({
               />
             ) : (
               <div className="w-8 h-8 flex items-center justify-center rounded-full bg-teal-500 text-white text-sm font-bold">
-                {firstName.charAt(0)}
+                {firstName.charAt(0).toUpperCase()}
               </div>
             )}
-            <span className="text-sm font-medium">
-              {firstName}
-            </span>
+
+            <span className="text-sm font-medium">{firstName}</span>
+
             <ChevronDown size={16} />
           </button>
+
           {open && (
             <div className="absolute right-0 mt-2.5 w-64 bg-white border rounded-xl shadow-lg p-4 z-50">
               <div className="mb-3">
-                <p className="font-semibold text-xs">
-                  {firstName}
-                </p>
+                <p className="font-semibold text-xs">{firstName}</p>
                 <p className="text-gray-500 mt-1 text-xs">
                   {user?.email || "Carregando..."}
                 </p>
               </div>
-              <div className="border-t my-2"></div>
+
+              <div className="border-t my-2" />
+
               <div className="flex flex-col text-xs gap-2">
                 <Link
-                  href="/passageiro/perfil"
+                  href={`${prefix}/perfil`}
                   className="flex items-center gap-2 p-2 cursor-pointer rounded-lg hover:bg-gray-100"
                 >
                   <User size={18} />
                   Meu Perfil
                 </Link>
+
                 <Link
-                  href="/passageiro/configuracoes"
+                  href={`${prefix}/configuracoes`}
                   className="flex items-center gap-2 p-2 cursor-pointer rounded-lg hover:bg-gray-100"
                 >
                   <Settings size={18} />
                   Configurações
                 </Link>
+
                 <Link
-                  href="/passageiro/central_ajuda"
+                  href={`${prefix}/central_ajuda`}
                   className="flex items-center gap-2 p-2 cursor-pointer rounded-lg hover:bg-gray-100"
                 >
                   <Headset size={18} />
                   Suporte
                 </Link>
-                {/* Apenas motorista */}
-                {user?.user_type === "driver" && (
+
+                {isMotorista && (
                   <>
                     <Link
-                      href="/veiculo"
+                      href="/motorista/veiculo"
                       className="flex items-center gap-2 p-2 cursor-pointer rounded-lg hover:bg-gray-100"
                     >
                       <Car size={18} />
                       Meu Veículo
                     </Link>
+
                     <Link
-                      href="/corridas"
+                      href="/motorista/corridas"
                       className="flex items-center gap-2 p-2 cursor-pointer rounded-lg hover:bg-gray-100"
                     >
                       <MapPin size={18} />
                       Minhas Corridas
                     </Link>
-                    <Link
-                      href="/central_ajuda"
-                      className="flex items-center gap-2 p-2 cursor-pointer rounded-lg hover:bg-gray-100"
-                    >
-                      <Headset size={18} />
-                      Suporte
-                    </Link>
                   </>
                 )}
               </div>
-              <div className="border-t my-2"></div>
+
+              <div className="border-t my-2" />
+
               <Link
-                href="/saindo"
+                href={`${prefix}/saindo`}
                 className="flex items-center gap-2 text-xs cursor-pointer w-full p-2 rounded-lg hover:bg-gray-100 text-red-500"
               >
-                <LogOut size={18} /> Sair
+                <LogOut size={18} />
+                Sair
               </Link>
             </div>
           )}

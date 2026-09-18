@@ -5,12 +5,16 @@ const nextConfig: NextConfig = {
     remotePatterns: [
       {
         protocol: "https",
-        hostname: "maylon-mobilidade.s3.us-east-1.amazonaws.com",
+        hostname: "foto-perfil-prod.s3.us-east-1.amazonaws.com",
+      },
+      {
+        protocol: "https",
+        hostname: "maylon-store.s3.us-east-1.amazonaws.com",
       },
       {
         protocol: "https",
         hostname: "auth.maylon.com.br",
-      }
+      },
     ],
   },
 };

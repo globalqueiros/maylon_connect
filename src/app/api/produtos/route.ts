@@ -8,7 +8,7 @@ export async function GET() {
         id,
         nome,
         descricao,
-        imagem,
+        imagem_principal,
         preco
       FROM produtos
       ORDER BY id DESC

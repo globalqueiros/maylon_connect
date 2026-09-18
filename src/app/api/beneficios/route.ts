@@ -1,29 +1,181 @@
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
+import jwt from "jsonwebtoken";
 import { db } from "../../lib/db";
 import { toPositiveInt } from "../../lib/session";
 
-type TipoUsuario = "motorista" | "passageiro" | "ambos";
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+type JwtPayload = {
+  id?: number | string | null;
+  user_id?: number | string | null;
+  usuario_id?: number | string | null;
+};
+
+async function getUsuarioId(body: Record<string, unknown>) {
+  const cookieStore = await cookies();
+  const token = cookieStore.get("access_token")?.value;
+
+  if (token) {
+    const secret = process.env.JWT_SECRET;
+
+    if (secret) {
+      try {
+        const decoded = jwt.verify(
+          token,
+          secret,
+        ) as JwtPayload;
+
+        const tokenId = toPositiveInt(
+          decoded.id ??
+            decoded.user_id ??
+            decoded.usuario_id,
+        );
+
+        if (tokenId) {
+          return tokenId;
+        }
+      } catch (error) {
+        console.error(
+          "[BENEFICIOS PASSAGEIRO] Erro ao validar token:",
+          error,
+        );
+      }
+    }
+  }
+
+  return toPositiveInt(
+    body.usuario_id ??
+      body.usuarioId ??
+      body.user_id,
+  );
+}
 
 async function loadBeneficios(usuarioId: number) {
   const attempts = [
-    `SELECT b.id,b.imagem,b.titulo,b.descricao,b.valor,b.tipo,CASE WHEN EXISTS (SELECT 1 FROM usuario_beneficios ubx WHERE ubx.usuario_id = ? AND ubx.beneficio_id = b.id AND ubx.ativo = 1 AND (ubx.status_assinatura IN ('aprovado','autorizado') OR ubx.status_assinatura IS NULL)) THEN 0 ELSE 1 END AS status,COALESCE(ub.status_assinatura,'disponivel') AS status_assinatura FROM beneficios b LEFT JOIN usuario_beneficios ub ON ub.id = (SELECT MAX(ub2.id) FROM usuario_beneficios ub2 WHERE ub2.usuario_id = ? AND ub2.beneficio_id = b.id) WHERE b.status = 1`,
-    `SELECT b.id,NULL AS imagem,b.titulo,b.descricao,b.valor,b.tipo,CASE WHEN EXISTS (SELECT 1 FROM usuario_beneficios ubx WHERE ubx.usuario_id = ? AND ubx.beneficio_id = b.id AND ubx.ativo = 1) THEN 0 ELSE 1 END AS status,CASE WHEN EXISTS (SELECT 1 FROM usuario_beneficios ubx WHERE ubx.usuario_id = ? AND ubx.beneficio_id = b.id AND ubx.ativo = 1) THEN 'aprovado' ELSE 'disponivel' END AS status_assinatura FROM beneficios b WHERE b.status = 1`,
-    `SELECT b.id,NULL AS imagem,b.titulo,COALESCE(b.descricao,'') AS descricao,b.valor,COALESCE(b.tipo,'ambos') AS tipo,1 AS status,'disponivel' AS status_assinatura FROM beneficios b WHERE b.status = 1`,
-    `SELECT b.id,NULL AS imagem,b.titulo,'' AS descricao,b.valor,'ambos' AS tipo,1 AS status,'disponivel' AS status_assinatura FROM beneficios b`,
-  ];
+    {
+      sql: `
+        SELECT
+          b.id,
+          b.imagem,
+          b.titulo,
+          b.descricao,
+          b.valor,
+          b.tipo,
 
-  const paramsByAttempt = [
-    [usuarioId, usuarioId],
-    [usuarioId, usuarioId],
-    [],
-    [],
+          CASE
+            WHEN EXISTS (
+              SELECT 1
+              FROM usuario_beneficios ubx
+              WHERE ubx.usuario_id = ?
+                AND ubx.beneficio_id = b.id
+                AND ubx.ativo = 1
+                AND (
+                  ubx.status_assinatura IN (
+                    'aprovado',
+                    'autorizado'
+                  )
+                  OR ubx.status_assinatura IS NULL
+                )
+            )
+            THEN 0
+            ELSE 1
+          END AS status,
+
+          COALESCE(
+            ub.status_assinatura,
+            'disponivel'
+          ) AS status_assinatura
+
+        FROM beneficios b
+
+        LEFT JOIN usuario_beneficios ub
+          ON ub.id = (
+            SELECT MAX(ub2.id)
+            FROM usuario_beneficios ub2
+            WHERE ub2.usuario_id = ?
+              AND ub2.beneficio_id = b.id
+          )
+
+        WHERE b.status = 1
+          AND LOWER(TRIM(COALESCE(b.tipo, ''))) = 'passageiro'
+      `,
+      params: [usuarioId, usuarioId],
+    },
+
+    {
+      sql: `
+        SELECT
+          b.id,
+          NULL AS imagem,
+          b.titulo,
+          b.descricao,
+          b.valor,
+          b.tipo,
+
+          CASE
+            WHEN EXISTS (
+              SELECT 1
+              FROM usuario_beneficios ubx
+              WHERE ubx.usuario_id = ?
+                AND ubx.beneficio_id = b.id
+                AND ubx.ativo = 1
+            )
+            THEN 0
+            ELSE 1
+          END AS status,
+
+          CASE
+            WHEN EXISTS (
+              SELECT 1
+              FROM usuario_beneficios ubx
+              WHERE ubx.usuario_id = ?
+                AND ubx.beneficio_id = b.id
+                AND ubx.ativo = 1
+            )
+            THEN 'aprovado'
+            ELSE 'disponivel'
+          END AS status_assinatura
+
+        FROM beneficios b
+
+        WHERE b.status = 1
+          AND LOWER(TRIM(COALESCE(b.tipo, ''))) = 'passageiro'
+      `,
+      params: [usuarioId, usuarioId],
+    },
+
+    {
+      sql: `
+        SELECT
+          b.id,
+          NULL AS imagem,
+          b.titulo,
+          COALESCE(b.descricao, '') AS descricao,
+          b.valor,
+          'passageiro' AS tipo,
+          1 AS status,
+          'disponivel' AS status_assinatura
+
+        FROM beneficios b
+
+        WHERE b.status = 1
+          AND LOWER(TRIM(COALESCE(b.tipo, ''))) = 'passageiro'
+      `,
+      params: [],
+    },
   ];
 
   let lastError: unknown = null;
 
-  for (let i = 0; i < attempts.length; i++) {
+  for (const attempt of attempts) {
     try {
-      const [rows]: any = await db.query(attempts[i], paramsByAttempt[i]);
+      const [rows]: any = await db.query(
+        attempt.sql,
+        attempt.params,
+      );
+
       return Array.isArray(rows) ? rows : [];
     } catch (error) {
       lastError = error;
@@ -39,19 +191,28 @@ function dedupeById(rows: any[]) {
   for (const row of rows) {
     const id = Number(row.id);
 
-    if (!Number.isFinite(id)) continue;
+    if (!Number.isFinite(id) || id <= 0) {
+      continue;
+    }
 
-    const prev = map.get(id);
+    const previous = map.get(id);
 
-    if (!prev) {
+    if (!previous) {
       map.set(id, row);
       continue;
     }
 
-    const prevActive = Number(prev.status) === 0 || prev.status === false;
-    const nextActive = Number(row.status) === 0 || row.status === false;
+    const previousActive =
+      Number(previous.status) === 0 ||
+      previous.status === false;
 
-    if (nextActive && !prevActive) map.set(id, row);
+    const nextActive =
+      Number(row.status) === 0 ||
+      row.status === false;
+
+    if (nextActive && !previousActive) {
+      map.set(id, row);
+    }
   }
 
   return Array.from(map.values());
@@ -62,103 +223,127 @@ export async function POST(req: Request) {
     let body: Record<string, unknown> = {};
 
     try {
-      body = (await req.json()) || {};
+      const json = await req.json();
+
+      if (
+        json &&
+        typeof json === "object" &&
+        !Array.isArray(json)
+      ) {
+        body = json as Record<string, unknown>;
+      }
     } catch {
       body = {};
     }
 
-    const usuario_id = toPositiveInt(
-      body.usuario_id ?? body.usuarioId ?? body.user_id
+    const usuario_id = await getUsuarioId(body);
+
+    console.log(
+      "[BENEFICIOS PASSAGEIRO] Usuário:",
+      usuario_id,
     );
 
     if (!usuario_id) {
       return NextResponse.json(
-        { error: "Usuário inválido" },
-        { status: 400 }
+        {
+          success: false,
+          error: "Usuário não autenticado.",
+          beneficios: [],
+        },
+        {
+          status: 401,
+          headers: {
+            "Cache-Control": "no-store",
+          },
+        },
       );
-    }
-
-    const [userRows]: any = await db.query(
-      "SELECT user_type FROM users WHERE id = ? LIMIT 1",
-      [usuario_id]
-    );
-
-    const user = userRows?.[0];
-
-    if (!user) {
-      return NextResponse.json(
-        { error: "Usuário não encontrado" },
-        { status: 404 }
-      );
-    }
-
-    const rawType = String(user.user_type || "").toLowerCase();
-
-    let tipo: TipoUsuario = "ambos";
-
-    if (rawType === "driver" || rawType === "motorista") {
-      tipo = "motorista";
-    } else if (
-      rawType === "customer" ||
-      rawType === "passageiro" ||
-      rawType === "passenger"
-    ) {
-      tipo = "passageiro";
     }
 
     const rows = await loadBeneficios(usuario_id);
 
-    const filtered = rows.filter((b: any) => {
-      const t = String(b.tipo || "").toLowerCase();
+    const normalized = dedupeById(rows).map(
+      (beneficio: any) => {
+        const ativo =
+          Number(beneficio.status) === 0 ||
+          beneficio.status === false;
 
-      if (!t || t === "assinatura") return true;
-      if (tipo === "ambos") return true;
+        return {
+          ...beneficio,
 
-      if (tipo === "passageiro") {
-        return [
-          "passageiro",
-          "customer",
-          "ambos",
-          "both",
-          "assinatura",
-        ].includes(t);
-      }
+          id: Number(beneficio.id),
 
-      if (tipo === "motorista") {
-        return [
-          "motorista",
-          "driver",
-          "ambos",
-          "both",
-          "assinatura",
-        ].includes(t);
-      }
+          valor:
+            beneficio.valor == null
+              ? null
+              : String(beneficio.valor),
 
-      return true;
-    });
+          status: ativo ? false : true,
 
-    const normalized = dedupeById(filtered).map((b: any) => ({
-      ...b,
-      id: Number(b.id),
-      valor: b.valor == null ? null : String(b.valor),
-      status: Boolean(Number(b.status)),
-      titulo: b.titulo == null ? "" : String(b.titulo),
-      descricao: b.descricao == null ? "" : String(b.descricao),
-      imagem: b.imagem == null ? "" : String(b.imagem),
-      tipo: b.tipo == null ? "" : String(b.tipo),
-      status_assinatura:
-        Number(b.status) === 0
-          ? b.status_assinatura || "aprovado"
-          : "disponivel",
-    }));
+          titulo:
+            beneficio.titulo == null
+              ? ""
+              : String(beneficio.titulo),
 
-    return NextResponse.json(normalized);
-  } catch (error) {
-    console.error("/api/beneficios error:", error);
+          descricao:
+            beneficio.descricao == null
+              ? ""
+              : String(beneficio.descricao),
+
+          imagem:
+            beneficio.imagem == null
+              ? ""
+              : String(beneficio.imagem),
+
+          tipo: "passageiro",
+
+          status_assinatura: ativo
+            ? beneficio.status_assinatura ||
+              "aprovado"
+            : "disponivel",
+        };
+      },
+    );
+
+    console.log(
+      "[BENEFICIOS PASSAGEIRO] Total:",
+      normalized.length,
+    );
 
     return NextResponse.json(
-      { error: "Erro ao buscar benefícios" },
-      { status: 500 }
+      {
+        success: true,
+        usuario_id,
+        tipo_usuario: "passageiro",
+        beneficios: normalized,
+      },
+      {
+        status: 200,
+        headers: {
+          "Cache-Control":
+            "no-store, no-cache, must-revalidate",
+          Pragma: "no-cache",
+          Expires: "0",
+        },
+      },
+    );
+  } catch (error) {
+    console.error(
+      "[BENEFICIOS PASSAGEIRO] ERRO COMPLETO:",
+      error,
+    );
+
+    return NextResponse.json(
+      {
+        success: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Erro ao buscar benefícios.",
+        beneficios: [],
+      },
+      {
+        status: 500,
+      },
     );
   }
 }

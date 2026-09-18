@@ -753,7 +753,7 @@ export default function PassageiroDashboard() {
     async function loadBanners() {
       try {
         const response = await fetch(
-          "/api/banners",
+          "api/banners",
           {
             method: "GET",
             credentials: "include",
@@ -938,7 +938,7 @@ export default function PassageiroDashboard() {
             <div className="absolute -bottom-40 right-1/4 h-80 w-80 rounded-full bg-[#5be0c8]/10 blur-3xl" />
 
             <div className="relative z-10 px-6 py-8 sm:px-8 lg:px-12 lg:py-10">
-              <p className="mt-7 text-sm font-medium text-white/85">
+              <p className="mt-7 text-base font-medium text-white/85">
                 {texto},
               </p>
 
@@ -1061,11 +1061,11 @@ export default function PassageiroDashboard() {
 
               <div className="relative">
                 <div className="flex items-start justify-between">
-                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#eaf3fb] text-[#1676b7]">
-                    <Plane size={25} />
+                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#e5f8f4] text-[#08a89d]">
+                    <Car size={25} />
                   </div>
 
-                  <span className="rounded-full bg-[#f0f6fb] px-3 py-1 text-[10px] font-bold uppercase tracking-wide text-[#1676b7]">
+                  <span className="rounded-full bg-[#effaf8] px-3 py-1 text-[10px] font-bold uppercase tracking-wide text-[#078f80]">
                     Histórico
                   </span>
                 </div>
@@ -1260,7 +1260,7 @@ export default function PassageiroDashboard() {
                   Histórico
                 </p>
 
-                <h2 className="mt-1 text-lg font-black text-[#062b4f]">
+                <h2 className="my-0 text-lg font-black text-[#062b4f]">
                   Últimas atividades
                 </h2>
 
@@ -1305,68 +1305,59 @@ export default function PassageiroDashboard() {
 
               {!loading &&
                 ultimasViagens.length > 0 &&
-                ultimasViagens.map(
-                  (trip, index) => (
-                    <div
-                      key={`${trip.trip_request_id ?? trip.id ?? "trip"}-${index}`}
-                      className="group flex gap-3 border-b border-[#edf1f4] py-5 last:border-0"
-                    >
-                      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#e6f7f4] text-[#08a89d] transition group-hover:bg-[#08a89d] group-hover:text-white">
-                        {index === 0 ? (
-                          <CheckCircle2 size={19} />
-                        ) : (
-                          <CalendarDays size={19} />
-                        )}
+                ultimasViagens.map((trip, index) => (
+                  <div
+                    key={`${trip.trip_request_id ?? trip.id ?? "trip"}-${index}`}
+                    onClick={() => {
+                      const tripId = trip.trip_request_id ?? trip.id;
+
+                      if (!tripId) return;
+
+                      window.location.href = `/passageiro/viagens/${tripId}`;
+                    }}
+                    className="group flex cursor-pointer gap-3 border-b border-[#edf1f4] py-5 transition hover:bg-[#f8fbfc] last:border-0"
+                  >
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#e6f7f4] text-[#08a89d] transition group-hover:bg-[#08a89d] group-hover:text-white">
+                      {index === 0 ? (
+                        <CheckCircle2 size={19} />
+                      ) : (
+                        <CalendarDays size={19} />
+                      )}
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="truncate text-sm font-bold text-[#163a59]">
+                          {getTripTitle(trip)}
+                        </p>
+
+                        <span
+                          className={`shrink-0 rounded-full border px-2 py-1 text-[9px] font-bold ${getTripStatusClass(
+                            trip.status
+                          )}`}
+                        >
+                          {getTripStatusLabel(trip.status)}
+                        </span>
                       </div>
 
-                      <div className="min-w-0 flex-1">
+                      <div className="mt-2 flex items-center gap-1.5 text-xs text-[#71869a]">
+                        <MapPin size={12} className="shrink-0" />
 
-                        <div className="flex items-start justify-between gap-2">
-                          <p className="truncate text-sm font-bold text-[#163a59]">
-                            {getTripTitle(trip)}
-                          </p>
+                        <span className="truncate">
+                          {getTripLocation(trip)}
+                        </span>
+                      </div>
 
-                          <span
-                            className={`shrink-0 rounded-full border px-2 py-1 text-[9px] font-bold ${getTripStatusClass(
-                              trip.status
-                            )}`}
-                          >
-                            {getTripStatusLabel(
-                              trip.status
-                            )}
-                          </span>
-                        </div>
+                      <div className="mt-2 flex items-center gap-3 text-[10px] text-[#8ca0b2]">
+                        <span>{formatDate(trip.created_at)}</span>
 
-                        <div className="mt-2 flex items-center gap-1.5 text-xs text-[#71869a]">
-                          <MapPin
-                            size={12}
-                            className="shrink-0"
-                          />
+                        <span className="h-1 w-1 rounded-full bg-[#c5d1d8]" />
 
-                          <span className="truncate">
-                            {getTripLocation(trip)}
-                          </span>
-                        </div>
-
-                        <div className="mt-2 flex items-center gap-3 text-[10px] text-[#8ca0b2]">
-                          <span>
-                            {formatDate(
-                              trip.created_at
-                            )}
-                          </span>
-
-                          <span className="h-1 w-1 rounded-full bg-[#c5d1d8]" />
-
-                          <span>
-                            {formatTime(
-                              trip.created_at
-                            )}
-                          </span>
-                        </div>
+                        <span>{formatTime(trip.created_at)}</span>
                       </div>
                     </div>
-                  )
-                )}
+                  </div>
+                ))}
             </div>
 
             <div className="p-6 pt-3">

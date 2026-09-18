@@ -1387,11 +1387,7 @@ export default function BeneficiosPage() {
                         >
                           Regras de Assinatura
                         </a>
-                        , Cobrança, Renovação Automática e Cancelamento do{" "}
-                        <strong className="font-bold text-teal-700">
-                          Maylon Pass
-                        </strong>
-                        .
+                        , Cobrança, Renovação Automática e Cancelamento.
                       </span>
                     </label>
                   </div>

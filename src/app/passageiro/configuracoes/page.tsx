@@ -345,20 +345,18 @@ export default function ConfiguracoesPage() {
     },
   ];
 
-  if (loading) {
+ if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="w-full max-w-[380px] rounded-[32px] border border-gray-200/80 bg-white p-10 text-center shadow-[0_25px_80px_rgba(15,118,110,0.10)]">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-[20px] bg-[#0f766e] shadow-xl shadow-[#0f766e]/20">
-            <div className="h-7 w-7 animate-spin rounded-full border-[3px] border-white/30 border-t-white" />
+      <div className="flex min-h-screen items-center justify-center px-4">
+        <div className="flex w-full max-w-[320px] flex-col items-center rounded-[28px] bg-white p-10 shadow-xl ring-1 ring-black/5">
+          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[#e8f7f4]">
+            <div className="h-8 w-8 animate-spin rounded-full border-[3px] border-[#149C8B] border-t-transparent" />
           </div>
-
-          <h2 className="mt-6 text-lg font-black tracking-tight text-[#0f766e]">
-            Carregando as configurações
-          </h2>
-
-          <p className="mt-2 text-sm text-gray-400">
-            Aguarde um momento...
+          <p className="mt-5 text-sm font-semibold text-gray-700">
+            Carregando suas configurações
+          </p>
+          <p className="mt-1 text-xs text-gray-400">
+            Aguarde um momemento...
           </p>
         </div>
       </div>

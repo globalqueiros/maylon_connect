@@ -30,7 +30,7 @@ const menuPassageiro = [
   { name: "Dashboard", icon: LayoutDashboard, href: "/passageiro" },
   { name: "Viagens", icon: CarFront, href: "/passageiro/viagens" },
   { name: "Benefícios", icon: HandCoins, href: "/passageiro/beneficios" },
-  { name: "Sair", icon: LogOut, href: "/saindo" },
+  { name: "Sair", icon: LogOut, href: "/passageiro/saindo" },
 ];
 
 type User = {
@@ -61,7 +61,6 @@ export default function Sidebar({ collapsed }: { collapsed: boolean }) {
     fetchUser();
   }, []);
 
-  // Infer menu from current route while /api/me loads (prevents empty sidebar)
   const isDriverRoute = pathname.startsWith("/motorista");
   const isDriver = user ? user.user_type === "driver" : isDriverRoute;
   const menuItems = isDriver ? menuMotorista : menuPassageiro;
@@ -71,7 +70,7 @@ export default function Sidebar({ collapsed }: { collapsed: boolean }) {
 
   return (
     <div
-      className={`h-screen bg-white border-r border-gray-300 transition-all duration-300 ${
+      className={`h-screen bg-white relative border-r border-gray-300 transition-all duration-300 ${
         collapsed ? "w-20" : "w-64"
       }`}
     >

@@ -20,7 +20,7 @@ export default function LogoutPage() {
   }, [router]);
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[#40b99d] px-4">
+    <main className="flex min-h-screen items-center justify-center px-4">
       <div className="flex w-full max-w-sm flex-col items-center">
         <div className="w-full rounded-3xl bg-white px-8 py-10 text-center shadow-xl">
           <div className="mx-auto flex h-28 w-28 items-center justify-center rounded-full bg-[#d8f7eb] p-4 shadow-sm">
