@@ -10,6 +10,7 @@ import {
   logPagamento,
   updateAssinaturaById,
 } from "../../../lib/assinaturaDb";
+import { usuarioIdDaSessao } from "../../../lib/sessaoUsuario";
 
 export const dynamic = "force-dynamic";
 
@@ -114,10 +115,14 @@ export async function POST(req: Request) {
   try {
     const body = await readJsonBody(req);
 
-    const usuario_id = await getSessionUserId(
-      body.usuario_id ?? body.usuarioId ?? body.user_id,
-      req
-    );
+    // O id do motorista é um UUID, então vem da sessão. getSessionUserId só
+    // aceita id numérico e por isso recusava todo cancelamento.
+    const usuario_id =
+      (await usuarioIdDaSessao()) ??
+      (await getSessionUserId(
+        body.usuario_id ?? body.usuarioId ?? body.user_id,
+        req
+      ));
 
     const beneficio_id =
       toPositiveInt(body.beneficio_id) ?? toPositiveInt(body.beneficioId);

@@ -5,26 +5,38 @@ import {
 } from "../../../lib/solicitacaoBeneficio";
 import { usuarioIdDaSessao } from "../../../lib/sessaoUsuario";
 
-type BtgBody = {
+type Beneficiario = {
+  nome?: string;
+  parentesco?: string;
+  percentual?: number;
+};
+
+type SeguroVidaBody = {
   usuario_id?: string;
   beneficio_id?: number;
   nome?: string;
+  email?: string;
   cpf?: string;
   telefone?: string;
-  email?: string;
+  data_nascimento?: string;
   observacoes?: string;
+  beneficiarios?: Beneficiario[];
 };
 
 export async function POST(request: Request) {
   try {
-    const body: BtgBody = await request.json();
+    const body: SeguroVidaBody = await request.json();
 
     const usuarioId = await usuarioIdDaSessao();
     const beneficioId = Number(body.beneficio_id);
     const nome = body.nome?.trim() ?? "";
+    const email = body.email?.trim().toLowerCase() ?? "";
     const cpf = body.cpf?.replace(/\D/g, "") ?? "";
     const telefone = body.telefone?.replace(/\D/g, "") ?? "";
-    const email = body.email?.trim().toLowerCase() ?? "";
+    const dataNascimento = body.data_nascimento?.trim() ?? "";
+    const beneficiarios = Array.isArray(body.beneficiarios)
+      ? body.beneficiarios
+      : [];
 
     if (!usuarioId) {
       return NextResponse.json(
@@ -65,19 +77,54 @@ export async function POST(request: Request) {
       );
     }
 
+    if (!dataNascimento) {
+      return NextResponse.json(
+        { error: "Informe sua data de nascimento." },
+        { status: 400 },
+      );
+    }
+
+    if (beneficiarios.length === 0) {
+      return NextResponse.json(
+        { error: "Informe ao menos um beneficiário." },
+        { status: 400 },
+      );
+    }
+
+    const totalPercentual = beneficiarios.reduce(
+      (soma, beneficiario) => soma + Number(beneficiario.percentual ?? 0),
+      0,
+    );
+
+    if (Math.round(totalPercentual) !== 100) {
+      return NextResponse.json(
+        { error: "A soma dos percentuais dos beneficiários deve ser 100%." },
+        { status: 400 },
+      );
+    }
+
+    const linhasBeneficiarios = beneficiarios.map(
+      (beneficiario, indice) =>
+        `${indice + 1}. ${beneficiario.nome?.trim() || "Sem nome"} - ` +
+        `${beneficiario.parentesco?.trim() || "Parentesco não informado"} - ` +
+        `${Number(beneficiario.percentual ?? 0)}%`,
+    );
+
     const { codigo } = await registrarSolicitacaoBeneficio({
       usuarioId,
       beneficioId,
-      prefixo: "BTG",
-      assunto: "Solicitação BTG Pactual",
+      prefixo: "SEGURO",
+      assunto: "Solicitação Seguro de Vida",
       status: "pendente",
       nome,
       email,
       linhas: [
-        "Previdência Privada / BTG Pactual.",
-        "",
         `CPF: ${cpf}`,
         `Telefone: ${telefone}`,
+        `Data de nascimento: ${dataNascimento}`,
+        "",
+        "Beneficiários:",
+        ...linhasBeneficiarios,
         "",
         "Observações:",
         body.observacoes?.trim() || "Nenhuma observação informada.",
@@ -100,7 +147,7 @@ export async function POST(request: Request) {
       );
     }
 
-    console.error("Erro ao criar protocolo BTG:", error);
+    console.error("Erro ao registrar solicitação de seguro de vida:", error);
 
     return NextResponse.json(
       { error: "Não foi possível registrar sua solicitação." },

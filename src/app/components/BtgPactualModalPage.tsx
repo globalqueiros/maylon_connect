@@ -191,25 +191,14 @@ export default function BtgPactualModal({
       return;
     }
 
-    router.back();
+    // Sem onClose o modal está aberto como rota própria. Voltar no histórico
+    // levava o motorista pro painel, então a volta é sempre pros benefícios.
+    router.push("/motorista/beneficios");
+    router.refresh();
   }
 
   function fecharModalComFallback() {
-    if (enviando) {
-      return;
-    }
-
-    if (onClose) {
-      onClose();
-      return;
-    }
-
-    if (window.history.length > 1) {
-      router.back();
-      return;
-    }
-
-    router.push("/motorista/beneficios");
+    fecharModal();
   }
 
   async function enviarFormulario(

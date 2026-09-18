@@ -126,59 +126,40 @@ export async function POST(request: Request) {
       `
         SELECT
           id,
-          usuario_id,
-          beneficio_id,
-          valor,
-          status
-        FROM beneficio_assinaturas
+          status_assinatura
+        FROM usuario_beneficios
         WHERE usuario_id = ?
           AND beneficio_id = ?
+          AND ativo = 1
         LIMIT 1
       `,
       [usuarioId, beneficioId]
     );
 
-    if (existente && existente.length > 0) {
-      const registro = existente[0];
+    const statusAtual = String(
+      existente?.[0]?.status_assinatura ?? ""
+    ).toLowerCase();
 
-      if (Number(registro.status) === 1) {
-        return NextResponse.json(
-          { error: "Este benefício já está ativo." },
-          { status: 409 }
-        );
-      }
-
-      await db.query(
-        `
-          UPDATE beneficio_assinaturas
-          SET
-            status = 1,
-            data_cancelamento = NULL,
-            updated_at = NOW()
-          WHERE id = ?
-        `,
-        [registro.id]
+    if (statusAtual === "aprovado" || statusAtual === "autorizado") {
+      return NextResponse.json(
+        { error: "Este benefício já está ativo." },
+        { status: 409 }
       );
-
-      return NextResponse.json({
-        success: true,
-        message: `${beneficio.titulo} ativado com sucesso!`,
-      });
     }
 
     await db.query(
       `
-        INSERT INTO beneficio_assinaturas (
+        INSERT INTO usuario_beneficios (
           usuario_id,
           beneficio_id,
-          valor,
-          data_ativacao,
-          data_cancelamento,
-          status,
-          created_at,
-          updated_at
+          ativo,
+          status_assinatura
         )
-        VALUES (?, ?, 0.00, NOW(), NULL, 1, NOW(), NOW())
+        VALUES (?, ?, 1, 'aprovado')
+        ON DUPLICATE KEY UPDATE
+          ativo = 1,
+          status_assinatura = 'aprovado',
+          atualizado_em = NOW()
       `,
       [usuarioId, beneficioId]
     );

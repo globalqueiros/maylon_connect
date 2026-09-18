@@ -5,26 +5,37 @@ import {
 } from "../../../lib/solicitacaoBeneficio";
 import { usuarioIdDaSessao } from "../../../lib/sessaoUsuario";
 
-type BtgBody = {
+type ConectCarBody = {
   usuario_id?: string;
   beneficio_id?: number;
-  nome?: string;
-  cpf?: string;
-  telefone?: string;
+  nome_completo?: string;
   email?: string;
+  cpf?: string;
+  placa?: string;
+  telefone?: string;
+  cep?: string;
+  endereco?: string;
+  numero?: string;
+  complemento?: string;
+  bairro?: string;
+  cidade?: string;
+  estado?: string;
   observacoes?: string;
 };
 
 export async function POST(request: Request) {
   try {
-    const body: BtgBody = await request.json();
+    const body: ConectCarBody = await request.json();
 
     const usuarioId = await usuarioIdDaSessao();
     const beneficioId = Number(body.beneficio_id);
-    const nome = body.nome?.trim() ?? "";
+    const nome = body.nome_completo?.trim() ?? "";
+    const email = body.email?.trim().toLowerCase() ?? "";
     const cpf = body.cpf?.replace(/\D/g, "") ?? "";
     const telefone = body.telefone?.replace(/\D/g, "") ?? "";
-    const email = body.email?.trim().toLowerCase() ?? "";
+    const placa = body.placa?.replace(/[^A-Za-z0-9]/g, "").toUpperCase() ?? "";
+    const cep = body.cep?.replace(/\D/g, "") ?? "";
+    const estado = body.estado?.trim().toUpperCase() ?? "";
 
     if (!usuarioId) {
       return NextResponse.json(
@@ -51,6 +62,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "CPF inválido." }, { status: 400 });
     }
 
+    if (placa.length !== 7) {
+      return NextResponse.json(
+        { error: "Informe uma placa válida." },
+        { status: 400 },
+      );
+    }
+
     if (telefone.length !== 10 && telefone.length !== 11) {
       return NextResponse.json(
         { error: "Telefone inválido." },
@@ -65,19 +83,36 @@ export async function POST(request: Request) {
       );
     }
 
+    if (cep.length !== 8) {
+      return NextResponse.json({ error: "CEP inválido." }, { status: 400 });
+    }
+
+    if (!body.endereco?.trim() || !body.numero?.trim()) {
+      return NextResponse.json(
+        { error: "Informe o endereço completo." },
+        { status: 400 },
+      );
+    }
+
     const { codigo } = await registrarSolicitacaoBeneficio({
       usuarioId,
       beneficioId,
-      prefixo: "BTG",
-      assunto: "Solicitação BTG Pactual",
+      prefixo: "CONECTCAR",
+      assunto: "Solicitação ConectCar",
       status: "pendente",
       nome,
       email,
       linhas: [
-        "Previdência Privada / BTG Pactual.",
-        "",
         `CPF: ${cpf}`,
         `Telefone: ${telefone}`,
+        `Placa do veículo: ${placa}`,
+        "",
+        "Endereço de entrega da tag:",
+        `CEP: ${cep}`,
+        `${body.endereco.trim()}, ${body.numero.trim()}`,
+        `Complemento: ${body.complemento?.trim() || "Não informado"}`,
+        `Bairro: ${body.bairro?.trim() || "Não informado"}`,
+        `Cidade: ${body.cidade?.trim() || "Não informada"} - ${estado}`,
         "",
         "Observações:",
         body.observacoes?.trim() || "Nenhuma observação informada.",
@@ -100,7 +135,7 @@ export async function POST(request: Request) {
       );
     }
 
-    console.error("Erro ao criar protocolo BTG:", error);
+    console.error("Erro ao registrar solicitação ConectCar:", error);
 
     return NextResponse.json(
       { error: "Não foi possível registrar sua solicitação." },

@@ -198,6 +198,15 @@ function normalizeBeneficios(rows: any[]) {
       const ativo =
         Number(beneficio.status_usuario) === 0;
 
+      // O status da assinatura vai como está no banco: além de aprovado,
+      // a página precisa enxergar "pendente" pra mostrar a solicitação
+      // em análise no lugar do botão de ativar.
+      const statusAssinatura = String(
+        beneficio.status_assinatura ?? ""
+      )
+        .trim()
+        .toLowerCase();
+
       return {
         id: Number(beneficio.id),
         imagem: normalizarImagem(
@@ -216,11 +225,10 @@ function normalizeBeneficios(rows: any[]) {
             ? null
             : String(beneficio.valor),
         tipo: "motorista",
-        status: ativo ? false : true,
+        status: true,
         status_assinatura: ativo
-          ? beneficio.status_assinatura ||
-          "aprovado"
-          : "disponivel",
+          ? statusAssinatura || "aprovado"
+          : statusAssinatura || "disponivel",
       };
     }
   );

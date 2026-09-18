@@ -65,6 +65,14 @@ function estaAtivo(beneficio: Beneficio): boolean {
   return statusHabilitado(beneficio.status) && STATUS_ATIVOS.has(assinatura);
 }
 
+function estaPendente(beneficio: Beneficio): boolean {
+  return (
+    String(beneficio.status_assinatura ?? "")
+      .trim()
+      .toLowerCase() === "pendente"
+  );
+}
+
 function dedupeBeneficios(lista: Beneficio[]): Beneficio[] {
   const map = new Map<number, Beneficio>();
 
@@ -444,6 +452,10 @@ export default function BeneficiosPage() {
     setSeguroVidaModalOpen(false);
     beneficioRef.current = null;
     setBeneficioSelecionado(null);
+
+    // A solicitação pode ter sido enviada dentro do modal, então a lista
+    // recarrega ao fechar para o card já aparecer como ativo ou pendente.
+    void carregarBeneficios();
   };
 
   const cancelarComReembolso = async (beneficio: Beneficio) => {
@@ -750,6 +762,7 @@ export default function BeneficiosPage() {
                 {disponiveis.map((b) => {
                   const lojaMaylon = ehLojaMaylon(b);
                   const ativando = ativandoId === b.id;
+                  const pendente = estaPendente(b);
 
                   return (
                     <article
@@ -802,34 +815,41 @@ export default function BeneficiosPage() {
                           </div>
                         </div>
 
-                        <button
-                          type="button"
-                          disabled={ativando}
-                          onClick={() => {
-                            if (lojaMaylon) {
-                              void ativarBeneficioDireto(b);
-                              return;
-                            }
+                        {pendente ? (
+                          <div className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-amber-200 bg-amber-50 py-2.5 text-xs font-bold text-amber-700">
+                            <Loader2 size={15} />
+                            Solicitação em análise
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            disabled={ativando}
+                            onClick={() => {
+                              if (lojaMaylon) {
+                                void ativarBeneficioDireto(b);
+                                return;
+                              }
 
-                            abrirModal(b);
-                          }}
-                          className="mt-4 flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-teal-600 py-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-teal-700 hover:shadow-md disabled:cursor-not-allowed disabled:bg-teal-400"
-                        >
-                          {ativando ? (
-                            <>
-                              <Loader2
-                                size={16}
-                                className="animate-spin"
-                              />
-                              Ativando...
-                            </>
-                          ) : (
-                            <>
-                              Ativar benefício
-                              <ChevronRight size={16} />
-                            </>
-                          )}
-                        </button>
+                              abrirModal(b);
+                            }}
+                            className="mt-4 flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-teal-600 py-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-teal-700 hover:shadow-md disabled:cursor-not-allowed disabled:bg-teal-400"
+                          >
+                            {ativando ? (
+                              <>
+                                <Loader2
+                                  size={16}
+                                  className="animate-spin"
+                                />
+                                Ativando...
+                              </>
+                            ) : (
+                              <>
+                                Ativar benefício
+                                <ChevronRight size={16} />
+                              </>
+                            )}
+                          </button>
+                        )}
                       </div>
                     </article>
                   );
