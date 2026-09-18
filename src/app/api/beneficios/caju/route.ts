@@ -4,6 +4,7 @@ import {
   SolicitacaoError,
 } from "../../../lib/solicitacaoBeneficio";
 import { usuarioIdDaSessao } from "../../../lib/sessaoUsuario";
+import { salvarPedidoCartaoCaju } from "../../../lib/cajuCartao";
 
 type CajuBody = {
   usuario_id?: string;
@@ -108,6 +109,30 @@ export async function POST(request: Request) {
         body.observacoes?.trim() || "Nenhuma observação informada.",
       ],
     });
+
+    // O pedido do cartão fica gravado em campos separados pra integração
+    // com o Caju. Se falhar, a solicitação do motorista não se perde: ela
+    // já está registrada no protocolo e na assinatura.
+    try {
+      await salvarPedidoCartaoCaju({
+        usuarioId,
+        beneficioId,
+        pedidoCodigo: codigo,
+        nome,
+        email,
+        cpf,
+        telefone,
+        cep,
+        endereco: body.endereco.trim(),
+        numero: body.numero.trim(),
+        complemento: body.complemento?.trim() ?? "",
+        bairro: body.bairro?.trim() ?? "",
+        cidade: body.cidade?.trim() ?? "",
+        estado,
+      });
+    } catch (error) {
+      console.error("Erro ao gravar pedido do cartão Caju:", error);
+    }
 
     return NextResponse.json(
       {
