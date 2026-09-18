@@ -174,6 +174,12 @@ export default function BeneficiosPage() {
 
   const [cancelandoId, setCancelandoId] = useState<number | null>(null);
   const [ativandoId, setAtivandoId] = useState<number | null>(null);
+
+  // Imagem que não carrega (caminho errado no banco) cai no logo, senão
+  // o card aparece quebrado pro motorista.
+  const [imagensComErro, setImagensComErro] = useState<Set<number>>(
+    new Set()
+  );
   const [beneficioCancelar, setBeneficioCancelar] =
     useState<Beneficio | null>(null);
 
@@ -763,6 +769,8 @@ export default function BeneficiosPage() {
                   const lojaMaylon = ehLojaMaylon(b);
                   const ativando = ativandoId === b.id;
                   const pendente = estaPendente(b);
+                  const semImagem =
+                    !b.imagem || imagensComErro.has(b.id);
 
                   return (
                     <article
@@ -770,13 +778,32 @@ export default function BeneficiosPage() {
                       className="group overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition duration-300 hover:-translate-y-1 hover:border-teal-600/30 hover:shadow-xl"
                     >
                       <div className="relative h-48 overflow-hidden">
-                        <Image
-                          src={b.imagem}
-                          alt={b.titulo}
-                          fill
-                          sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 33vw"
-                          className="object-cover transition duration-500 group-hover:scale-105"
-                        />
+                        {semImagem ? (
+                          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-teal-700 via-teal-600 to-teal-500">
+                            <Image
+                              src="/logo.png"
+                              alt={b.titulo}
+                              width={120}
+                              height={40}
+                              className="opacity-90"
+                            />
+                          </div>
+                        ) : (
+                          <Image
+                            src={b.imagem}
+                            alt={b.titulo}
+                            fill
+                            sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 33vw"
+                            className="object-cover transition duration-500 group-hover:scale-105"
+                            onError={() =>
+                              setImagensComErro((anterior) => {
+                                const proximo = new Set(anterior);
+                                proximo.add(b.id);
+                                return proximo;
+                              })
+                            }
+                          />
+                        )}
 
                         <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/15 to-transparent" />
 
