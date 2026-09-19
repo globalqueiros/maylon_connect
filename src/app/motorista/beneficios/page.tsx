@@ -8,12 +8,14 @@ import {
   Gift,
   Loader2,
   ChevronRight,
+  Smartphone,
   X,
 } from "lucide-react";
 import BtgPactualModal from "../../components/BtgPactualModalPage";
 import CajuBeneficiosModal from "../../components/CajuBeneficiosModal";
 import ConectCarModal from "../../components/ConectCarModal";
 import SeguroVidaModal from "../../components/SeguroVidaModal";
+import LomaModal from "../../components/LomaModal";
 
 type Beneficio = {
   id: number;
@@ -24,15 +26,15 @@ type Beneficio = {
   valor: string;
   status: boolean | number | string;
   status_assinatura?:
-    | "ativo"
-    | "aprovado"
-    | "pendente"
-    | "cancelado"
-    | "expirado"
-    | "erro"
-    | "autorizado"
-    | string
-    | null;
+  | "ativo"
+  | "aprovado"
+  | "pendente"
+  | "cancelado"
+  | "expirado"
+  | "erro"
+  | "autorizado"
+  | string
+  | null;
 };
 
 type Usuario = {
@@ -47,6 +49,16 @@ type Alerta = {
 };
 
 const STATUS_ATIVOS = new Set(["ativo", "aprovado", "autorizado"]);
+
+const LOMA_GOOGLE_PLAY_URL =
+  "https://play.google.com/store/apps/details?id=br.com.hinovamobile.lomaprotecao&hl=en";
+const LOMA_APP_STORE_URL =
+  "https://apps.apple.com/au/app/loma-prote%C3%A7%C3%A3o-veicular/id1456159026";
+
+function ehBeneficioLoma(beneficio: Beneficio): boolean {
+  const texto = `${beneficio.tipo} ${beneficio.titulo}`.toLowerCase();
+  return texto.includes("loma");
+}
 
 function statusHabilitado(status: Beneficio["status"]): boolean {
   return (
@@ -166,6 +178,7 @@ export default function BeneficiosPage() {
   const [cajuModalOpen, setCajuModalOpen] = useState(false);
   const [conectcarModalOpen, setConectcarModalOpen] = useState(false);
   const [seguroVidaModalOpen, setSeguroVidaModalOpen] = useState(false);
+  const [lomaModalOpen, setLomaModalOpen] = useState(false);
 
   const [beneficioSelecionado, setBeneficioSelecionado] =
     useState<Beneficio | null>(null);
@@ -209,8 +222,8 @@ export default function BeneficiosPage() {
       if (!res.ok) {
         throw new Error(
           data?.error ||
-            data?.message ||
-            "Não foi possível carregar os benefícios."
+          data?.message ||
+          "Não foi possível carregar os benefícios."
         );
       }
 
@@ -259,8 +272,8 @@ export default function BeneficiosPage() {
         if (!res.ok) {
           throw new Error(
             data?.error ||
-              data?.message ||
-              "Não foi possível identificar o usuário."
+            data?.message ||
+            "Não foi possível identificar o usuário."
           );
         }
 
@@ -276,9 +289,9 @@ export default function BeneficiosPage() {
 
         const id = String(
           usuarioApi?.id ??
-            usuarioApi?.usuario_id ??
-            usuarioApi?.user_id ??
-            ""
+          usuarioApi?.usuario_id ??
+          usuarioApi?.user_id ??
+          ""
         ).trim();
 
         if (!id) {
@@ -374,8 +387,8 @@ export default function BeneficiosPage() {
       if (!res.ok) {
         throw new Error(
           data?.error ||
-            data?.message ||
-            "Não foi possível ativar o benefício."
+          data?.message ||
+          "Não foi possível ativar o benefício."
         );
       }
 
@@ -418,6 +431,7 @@ export default function BeneficiosPage() {
     setCajuModalOpen(false);
     setConectcarModalOpen(false);
     setSeguroVidaModalOpen(false);
+    setLomaModalOpen(false);
 
     const tipo =
       `${normalized.tipo} ${normalized.titulo}`.toLowerCase();
@@ -448,6 +462,11 @@ export default function BeneficiosPage() {
       return;
     }
 
+    if (tipo.includes("loma")) {
+      setLomaModalOpen(true);
+      return;
+    }
+
     setBtgModalOpen(true);
   };
 
@@ -456,6 +475,7 @@ export default function BeneficiosPage() {
     setCajuModalOpen(false);
     setConectcarModalOpen(false);
     setSeguroVidaModalOpen(false);
+    setLomaModalOpen(false);
     beneficioRef.current = null;
     setBeneficioSelecionado(null);
 
@@ -499,8 +519,8 @@ export default function BeneficiosPage() {
       if (!res.ok) {
         throw new Error(
           data?.error ||
-            data?.message ||
-            "Falha ao cancelar o serviço."
+          data?.message ||
+          "Falha ao cancelar o serviço."
         );
       }
 
@@ -536,13 +556,12 @@ export default function BeneficiosPage() {
       <div className="mx-auto max-w-8xl">
         {alerta && (
           <div
-            className={`mb-5 flex items-center gap-3 rounded-2xl border px-4 py-3 text-sm font-medium shadow-sm ${
-              alerta.tipo === "success"
+            className={`mb-5 flex items-center gap-3 rounded-2xl border px-4 py-3 text-sm font-medium shadow-sm ${alerta.tipo === "success"
                 ? "border-teal-200 bg-teal-50 text-teal-700"
                 : alerta.tipo === "warning"
                   ? "border-amber-200 bg-amber-50 text-amber-700"
                   : "border-red-200 bg-red-50 text-red-700"
-            }`}
+              }`}
           >
             {alerta.tipo === "success" ? (
               <CheckCircle2 size={18} />
@@ -690,6 +709,35 @@ export default function BeneficiosPage() {
                         </span>
                       </p>
                     </div>
+
+                    {ehBeneficioLoma(b) && (
+                      <div className="mt-4 rounded-xl border border-teal-100 bg-white px-3 py-3">
+                        <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide text-gray-400">
+                          <Smartphone size={12} />
+                          Baixe o app
+                        </p>
+
+                        <div className="mt-2 flex gap-2">
+                          <a
+                            href={LOMA_GOOGLE_PLAY_URL}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex-1 rounded-lg border border-gray-200 px-2 py-2 text-center text-[11px] font-semibold text-gray-700 transition hover:border-teal-300 hover:bg-teal-50 hover:text-teal-700"
+                          >
+                            Google Play
+                          </a>
+
+                          <a
+                            href={LOMA_APP_STORE_URL}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex-1 rounded-lg border border-gray-200 px-2 py-2 text-center text-[11px] font-semibold text-gray-700 transition hover:border-teal-300 hover:bg-teal-50 hover:text-teal-700"
+                          >
+                            App Store
+                          </a>
+                        </div>
+                      </div>
+                    )}
 
                     <button
                       type="button"
@@ -1023,6 +1071,13 @@ export default function BeneficiosPage() {
 
       {seguroVidaModalOpen && beneficioSelecionado && (
         <SeguroVidaModal
+          beneficioId={beneficioSelecionado.id}
+          onClose={fecharTodosModais}
+        />
+      )}
+
+      {lomaModalOpen && beneficioSelecionado && (
+        <LomaModal
           beneficioId={beneficioSelecionado.id}
           onClose={fecharTodosModais}
         />

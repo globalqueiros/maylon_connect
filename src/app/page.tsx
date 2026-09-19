@@ -4,7 +4,7 @@ import { Suspense, useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
-import { Mail } from "lucide-react";
+import { Mail, Eye, EyeOff } from "lucide-react";
 
 function LoginPage() {
   const [open, setOpen] = useState(false);
@@ -15,6 +15,7 @@ function LoginPage() {
   const [resetSuccess, setResetSuccess] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const searchParams = useSearchParams();
@@ -125,7 +126,7 @@ function LoginPage() {
 
   return (
     <>
-      <div className="relative min-h-screen w-full flex items-center justify-center">
+      <div className="relative min-h-screen w-full flex items-center justify-center px-4 sm:px-6 md:px-8">
         <Image
           src="/bg-login.png"
           alt="Background"
@@ -134,24 +135,26 @@ function LoginPage() {
           className="object-cover"
         />
         <div className="absolute inset-0 bg-black/60"></div>
+
         {showAlert && (
-          <div className="fixed top-4 right-4 z-[99999] pointer-events-none">
-            <div className="flex items-center gap-3 bg-green-500 text-white px-5 py-3 rounded-xl shadow-2xl animate-slideIn pointer-events-auto">
+          <div className="fixed top-3 right-3 sm:top-4 sm:right-4 z-[99999] pointer-events-none">
+            <div className="flex items-center gap-2 sm:gap-3 bg-green-500 text-white px-4 py-2.5 sm:px-5 sm:py-3 rounded-xl shadow-2xl animate-slideIn pointer-events-auto">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
-                className="w-6 h-6"
+                className="w-5 h-5 sm:w-6 sm:h-6 shrink-0"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
               >
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
-              <span className="text-sm tracking-5 font-semibold">
+              <span className="text-xs sm:text-sm tracking-5 font-semibold">
                 Deslogado com sucesso!
               </span>
             </div>
           </div>
         )}
+
         <AnimatePresence>
           {error && (
             <motion.div
@@ -159,57 +162,69 @@ function LoginPage() {
               animate={{ opacity: 1, x: 0, scale: 1 }}
               exit={{ opacity: 0, x: 100, scale: 0.95 }}
               transition={{ duration: 0.3 }}
-              className="fixed top-5 right-5 z-[99999]"
+              className="fixed top-3 right-3 left-3 sm:left-auto sm:top-5 sm:right-5 z-[99999]"
             >
-              <div className="flex items-center gap-3 bg-red-500 text-white px-5 py-3 rounded-xl shadow-2xl">
+              <div className="flex items-center gap-2 sm:gap-3 bg-red-500 text-white px-4 py-2.5 sm:px-5 sm:py-3 rounded-xl shadow-2xl">
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
-                  className="w-5 h-5"
+                  className="w-5 h-5 shrink-0"
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
                 >
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M12 3l9 16H3L12 3z" />
                 </svg>
-                <span className="text-sm font-semibold">{error}</span>
+                <span className="text-xs sm:text-sm font-semibold">{error}</span>
               </div>
             </motion.div>
           )}
         </AnimatePresence>
-        <div className="relative z-10 w-full max-w-md p-8 rounded-2xl backdrop-blur-md bg-white/10 border border-white/20 shadow-2xl">
-          <h1 className="text-3xl font-bold text-white text-center mb-4">
+
+        <div className="relative z-10 w-full max-w-sm sm:max-w-md md:max-w-md lg:max-w-lg xl:max-w-lg 2xl:max-w-xl p-5 sm:p-6 md:p-8 lg:p-10 rounded-2xl backdrop-blur-md bg-white/10 border border-white/20 shadow-2xl">
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-white text-center mb-4">
             Portal Connect
           </h1>
+
           {resetSuccess && (
-            <div className="mb-3 px-3 py-2 rounded-lg bg-green-100 border border-green-400 text-green-700 text-sm animate-fadeIn">
+            <div className="mb-3 px-3 py-2 rounded-lg bg-green-100 border border-green-400 text-green-700 text-xs sm:text-sm animate-fadeIn">
               {resetSuccess}
             </div>
           )}
           {resetError && (
-            <div className="mb-3 px-3 py-2 rounded-lg bg-red-100 border border-red-400 text-red-700 text-sm animate-fadeIn">
+            <div className="mb-3 px-3 py-2 rounded-lg bg-red-100 border border-red-400 text-red-700 text-xs sm:text-sm animate-fadeIn">
               {resetError}
             </div>
           )}
+
           <form onSubmit={handleLogin} className="flex flex-col gap-2">
-            <label className="text-white">Email</label>
+            <label className="text-white text-sm sm:text-base">Email</label>
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="Email"
               required
-              className="w-full p-3 text-sm rounded-xl bg-white/20 text-white placeholder-white/70 outline-none focus:ring-2 focus:ring-teal-400"
+              className="w-full p-2.5 sm:p-3 text-sm rounded-xl bg-white/20 text-white placeholder-white/70 outline-none focus:ring-2 focus:ring-teal-400"
             />
-            <label className="text-white mt-3">Senha</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Senha"
-              required
-              className="w-full p-3 text-sm rounded-xl bg-white/20 text-white placeholder-white/70 outline-none focus:ring-2 focus:ring-teal-400"
-            />
-            <div className="flex justify-end text-sm text-white mt-2 mb-4">
+            <label className="text-white text-sm sm:text-base mt-2 sm:mt-3">Senha</label>
+            <div className="relative">
+              <input
+                type={showPassword ? "text" : "password"}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Senha"
+                required
+                className="w-full p-2.5 sm:p-3 text-sm rounded-xl bg-white/20 text-white placeholder-white/70 outline-none focus:ring-2 focus:ring-teal-400 pr-12"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-white cursor-pointer"
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
+            <div className="flex justify-end text-xs sm:text-sm text-white mt-2 mb-3 sm:mb-4">
               <button
                 type="button"
                 onClick={() => setOpen(true)}
@@ -221,7 +236,7 @@ function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className={`w-full p-3 rounded-3xl cursor-pointer font-semibold text-white transition ${loading
+              className={`w-full p-2.5 sm:p-3 rounded-3xl cursor-pointer font-semibold text-white text-sm sm:text-base transition ${loading
                 ? "bg-gray-400 cursor-not-allowed"
                 : "bg-teal-500 hover:bg-teal-600"
                 }`}
@@ -235,19 +250,20 @@ function LoginPage() {
             </div>
             <Link
               href="/magic_link"
-              className="w-full flex items-center justify-center gap-2 p-3 rounded-3xl border border-white/20 text-white text-sm font-semibold hover:bg-white/10 transition"
+              className="w-full flex items-center justify-center gap-2 p-2.5 sm:p-3 rounded-3xl border border-white/20 text-white text-xs sm:text-sm font-semibold hover:bg-white/10 transition"
             >
               <Mail size={16} />
               Entrar com SSO
             </Link>
           </form>
-          <div className="flex mt-6 flex-col items-center gap-4 text-center">
-            <p className="text-white text-base font-semibold tracking-[1]">
+
+          <div className="flex mt-5 sm:mt-6 flex-col items-center gap-3 sm:gap-4 text-center">
+            <p className="text-white text-sm sm:text-base font-semibold tracking-[1]">
               Baixe nosso app
             </p>
-            <div className="flex gap-6 flex-col md:flex-row items-center justify-center">
+            <div className="flex gap-4 sm:gap-6 flex-col xs:flex-row sm:flex-row items-center justify-center w-full">
               <div className="flex flex-col items-center">
-                <p className="text-white text-sm mb-2 font-normal tracking-[1]">
+                <p className="text-white text-xs sm:text-sm mb-2 font-normal tracking-[1]">
                   Passageiro - Maylon
                 </p>
                 <Link
@@ -259,12 +275,12 @@ function LoginPage() {
                     alt="Google Play"
                     width={176}
                     height={60}
-                    className="w-40 hover:scale-105 transition"
+                    className="w-32 sm:w-36 md:w-40 hover:scale-105 transition"
                   />
                 </Link>
               </div>
               <div className="flex flex-col items-center">
-                <p className="text-white text-sm mb-2 font-normal tracking-[1]">
+                <p className="text-white text-xs sm:text-sm mb-2 font-normal tracking-[1]">
                   Motorista - Maylon Drive
                 </p>
                 <Link
@@ -276,23 +292,22 @@ function LoginPage() {
                     alt="Google Play"
                     width={176}
                     height={60}
-                    className="w-40 hover:scale-105 transition"
+                    className="w-32 sm:w-36 md:w-40 hover:scale-105 transition"
                   />
                 </Link>
               </div>
             </div>
-            <p className="text-white text-xs text-sm tracking-[1]">
+            <p className="text-white text-xs tracking-[1]">
               Disponível para Android em breve no IOS
             </p>
           </div>
         </div>
       </div>
 
-      
       {open && (
         <AnimatePresence>
           <motion.div
-            className="fixed inset-0 z-[99999] flex items-center justify-center"
+            className="fixed inset-0 z-[99999] flex items-center justify-center px-4"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -306,21 +321,21 @@ function LoginPage() {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
               transition={{ duration: 0.25 }}
-              className="relative z-10 w-full max-w-md mx-4 p-6 rounded-2xl bg-white shadow-2xl"
+              className="relative z-10 w-full max-w-xs sm:max-w-sm md:max-w-md p-5 sm:p-6 rounded-2xl bg-white shadow-2xl"
             >
-              <h2 className="text-lg font-bold mb-1 text-gray-800">
+              <h2 className="text-base sm:text-lg font-bold mb-1 text-gray-800">
                 Recuperar senha
               </h2>
-              <p className="text-sm text-gray-600 mb-3">
+              <p className="text-xs sm:text-sm text-gray-600 mb-3">
                 Digite seu email e enviaremos um link para redefinição.
               </p>
               {resetSuccess && (
-                <div className="mb-3 px-3 py-2 rounded-lg bg-green-100 border border-green-400 text-green-700 text-sm">
+                <div className="mb-3 px-3 py-2 rounded-lg bg-green-100 border border-green-400 text-green-700 text-xs sm:text-sm">
                   {resetSuccess}
                 </div>
               )}
               {resetError && (
-                <div className="mb-3 px-3 py-2 rounded-lg bg-red-100 border border-red-400 text-red-700 text-sm">
+                <div className="mb-3 px-3 py-2 rounded-lg bg-red-100 border border-red-400 text-red-700 text-xs sm:text-sm">
                   {resetError}
                 </div>
               )}
@@ -329,13 +344,13 @@ function LoginPage() {
                 value={resetEmail}
                 onChange={(e) => setResetEmail(e.target.value)}
                 placeholder="Digite seu email"
-                className="w-full p-3 text-sm rounded-xl bg-gray-100 text-black border border-gray-300 outline-none focus:ring-2 focus:ring-teal-400"
+                className="w-full p-2.5 sm:p-3 text-sm rounded-xl bg-gray-100 text-black border border-gray-300 outline-none focus:ring-2 focus:ring-teal-400"
               />
-              <div className="flex gap-3 mt-4">
+              <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 mt-4">
                 <button
                   onClick={handleSendReset}
                   disabled={resetLoading}
-                  className={`flex-1 p-2 text-sm cursor-pointer rounded-lg font-semibold text-white transition ${resetLoading
+                  className={`flex-1 p-2 text-xs sm:text-sm cursor-pointer rounded-lg font-semibold text-white transition ${resetLoading
                       ? "bg-gray-400 cursor-not-allowed"
                       : "bg-teal-600 hover:bg-teal-500"
                     }`}
@@ -344,7 +359,7 @@ function LoginPage() {
                 </button>
                 <button
                   onClick={() => setOpen(false)}
-                  className="flex-1 p-2 cursor-pointer text-sm rounded-lg bg-red-500 hover:bg-red-400 text-white font-semibold transition"
+                  className="flex-1 p-2 cursor-pointer text-xs sm:text-sm rounded-lg bg-red-500 hover:bg-red-400 text-white font-semibold transition"
                 >
                   Cancelar
                 </button>

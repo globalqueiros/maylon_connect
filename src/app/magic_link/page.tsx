@@ -17,11 +17,11 @@ export default function Login() {
   const handleSend = async () => {
     if (loading) return;
     if (!email) {
-      setError("Digite seu email cadastrado");
+      setError("Digite seu email cadastrado na plataforma.");
       return;
     }
     if (!isValidEmail(email)) {
-      setError("Digite seu email cadastrado");
+      setError("Digite seu email cadastrado na plataforma.");
       return;
     }
     try {
@@ -52,7 +52,7 @@ export default function Login() {
   };
 
   return (
-    <div className="relative min-h-screen flex items-center justify-center px-4">
+    <div className="relative min-h-screen flex items-center justify-center px-4 sm:px-6 md:px-8">
       <Image
         src="/bg-login.png"
         alt="Background"
@@ -61,20 +61,20 @@ export default function Login() {
         className="object-cover"
       />
       <div className="absolute inset-0 bg-black/70" />
-      <div className="relative z-10 w-full max-w-md p-8 rounded-2xl backdrop-blur-xl bg-white/10 border border-white/20 shadow-2xl">
-        <h1 className="text-3xl font-bold text-white text-center">
+      <div className="relative z-10 w-full max-w-sm sm:max-w-md md:max-w-md lg:max-w-lg xl:max-w-lg 2xl:max-w-xl p-5 sm:p-6 md:p-8 lg:p-10 rounded-2xl backdrop-blur-xl bg-white/10 border border-white/20 shadow-2xl">
+        <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-white text-center">
           Portal Connect
         </h1>
-        <p className="text-gray-300 text-sm text-center mt-2 mb-6 leading-relaxed">
+        <p className="text-gray-300 text-xs sm:text-sm text-center mt-2 mb-5 sm:mb-6 leading-relaxed">
           Entre com segurança usando um Magic Link enviado para seu e-mail.
         </p>
         {success && (
-          <div className="mb-4 px-4 py-3 rounded-xl border border-green-500 bg-green-500/10 text-green-400 text-sm animate-slideFade">
+          <div className="mb-4 px-3 py-2.5 sm:px-4 sm:py-3 rounded-xl border border-green-500 bg-green-500/10 text-green-400 text-xs sm:text-sm animate-slideFade">
             {success}
           </div>
         )}
         {error && (
-          <div className="mb-4 px-4 py-3 rounded-xl border border-red-500 bg-red-500/10 text-red-400 text-sm animate-slideFade">
+          <div className="mb-4 px-3 py-2.5 sm:px-4 sm:py-3 rounded-xl border border-red-500 bg-red-500/10 text-red-400 text-xs sm:text-sm animate-slideFade">
             {error}
           </div>
         )}
@@ -83,12 +83,12 @@ export default function Login() {
           placeholder="Digite seu email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="w-full p-3 text-sm rounded-xl bg-white/20 text-white placeholder-white/70 outline-none focus:ring-2 focus:ring-teal-400 mb-4"
+          className="w-full p-2.5 sm:p-3 text-sm rounded-xl bg-white/20 text-white placeholder-white/70 outline-none focus:ring-2 focus:ring-teal-400 mb-4"
         />
         <button
           onClick={handleSend}
           disabled={loading}
-          className={`w-full p-3 rounded-3xl cursor-pointer font-semibold text-white flex items-center justify-center gap-2 transition ${
+          className={`w-full p-2.5 sm:p-3 rounded-3xl cursor-pointer font-semibold text-white text-sm sm:text-base flex items-center justify-center gap-2 transition ${
             loading
               ? "bg-gray-400 cursor-not-allowed"
               : "bg-teal-500 hover:bg-teal-600 hover:scale-[1.02]"
@@ -106,10 +106,10 @@ export default function Login() {
             </>
           )}
         </button>
-        <div className="flex justify-center mt-6">
+        <div className="flex justify-center mt-5 sm:mt-6">
           <Link
             href="/"
-            className="flex items-center gap-2 text-sm text-gray-300 hover:text-white transition hover:underline"
+            className="flex items-center gap-2 text-xs sm:text-sm text-gray-300 hover:text-white transition hover:underline"
           >
             <MoveLeft size={16} />
             Voltar para o login
