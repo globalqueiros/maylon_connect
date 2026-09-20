@@ -4,10 +4,11 @@ import { db } from "../../lib/db";
 export async function GET() {
   try {
     const [rows] = await db.query(`
-      SELECT 
+      SELECT
         id,
         nome,
         descricao,
+        categoria,
         imagem_principal,
         preco
       FROM produtos
@@ -16,11 +17,18 @@ export async function GET() {
 
     return NextResponse.json(rows);
   } catch (error) {
-    console.error("Erro ao buscar produtos:", error);
+    console.error(
+      "Erro ao buscar produtos:",
+      error
+    );
 
     return NextResponse.json(
-      { error: "Erro ao carregar produtos" },
-      { status: 500 }
+      {
+        error: "Erro ao carregar produtos",
+      },
+      {
+        status: 500,
+      }
     );
   }
 }

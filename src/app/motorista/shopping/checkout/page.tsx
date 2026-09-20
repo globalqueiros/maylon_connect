@@ -9,11 +9,17 @@ import {
     X,
 } from "lucide-react";
 
+// Mesma chave usada na Home (antes estava "carrinho", causando o bug)
+const CART_STORAGE_KEY = "maylon-cart";
+
 type Produto = {
     id: number;
     nome: string;
-    preco: number;
+    preco: number | string;
     imagem: string;
+    // pode vir com nome de campo diferente dependendo de onde foi salvo
+    imagem_principal?: string;
+    quantidade?: number;
 };
 
 type Alerta = {
@@ -30,16 +36,23 @@ export default function CheckoutPage() {
     const [alerta, setAlerta] = useState<Alerta | null>(null);
 
     useEffect(() => {
-        const dados = JSON.parse(
-            localStorage.getItem("carrinho") || "[]"
-        );
-        setCarrinho(dados);
+        try {
+            const dados = JSON.parse(
+                localStorage.getItem(CART_STORAGE_KEY) || "[]"
+            );
+            setCarrinho(Array.isArray(dados) ? dados : []);
+        } catch (error) {
+            console.error("Erro ao carregar carrinho:", error);
+            setCarrinho([]);
+        }
     }, []);
 
-    const total = carrinho.reduce(
-        (acc, item) => acc + Number(item.preco),
-        0
-    );
+    // Considera a quantidade de cada item no total (antes somava só o preço unitário)
+    const total = carrinho.reduce((acc, item) => {
+        const preco = Number(item.preco) || 0;
+        const quantidade = Number(item.quantidade) || 1;
+        return acc + preco * quantidade;
+    }, 0);
 
     function mostrarAlerta(
         tipo: Alerta["tipo"],
@@ -168,7 +181,7 @@ export default function CheckoutPage() {
     const bandeira = detectarBandeira(numeroCartao);
 
     return (
-        <div className="min-h-screen bg-gray-100 p-4">
+        <div className="min-h-screen p-4 flex flex-col justify-center">
             {alerta && (
                 <div className="max-w-7xl mx-auto mb-6">
                     <div
@@ -204,33 +217,49 @@ export default function CheckoutPage() {
                         Resumo da Compra
                     </h1>
                     <div className="space-y-5 mt-6">
-                        {carrinho.map((item, index) => (
-                            <div
-                                key={index}
-                                className="flex justify-between border-b pb-4"
-                            >
-                                <div className="flex gap-4">
-                                    <img
-                                        src={item.imagem}
-                                        alt={item.nome}
-                                        className="
-                                            w-14
-                                            h-14
-                                            rounded-xl
-                                            object-contain
-                                            bg-white
-                                            p-1
-                                        "
-                                    />
-                                    <h2 className="font-semibold">
-                                        {item.nome}
-                                    </h2>
+                        {carrinho.map((item, index) => {
+                            const precoUnitario = Number(item.preco) || 0;
+                            const quantidade = Number(item.quantidade) || 1;
+                            const imagem = item.imagem || item.imagem_principal;
+
+                            return (
+                                <div
+                                    key={index}
+                                    className="flex justify-between items-start gap-3 border-b pb-4"
+                                >
+                                    <div className="flex gap-4 min-w-0 flex-1">
+                                        {imagem && (
+                                            <img
+                                                src={imagem}
+                                                alt={item.nome}
+                                                className="
+                                                    w-14
+                                                    h-14
+                                                    rounded-xl
+                                                    object-contain
+                                                    bg-white
+                                                    p-1
+                                                    flex-shrink-0
+                                                "
+                                            />
+                                        )}
+                                        <div className="min-w-0">
+                                            <h2 className="font-semibold line-clamp-2">
+                                                {item.nome}
+                                            </h2>
+                                            {quantidade > 1 && (
+                                                <p className="text-xs text-gray-500">
+                                                    {quantidade} x R$ {precoUnitario.toFixed(2)}
+                                                </p>
+                                            )}
+                                        </div>
+                                    </div>
+                                    <span className="font-bold whitespace-nowrap flex-shrink-0">
+                                        R$ {(precoUnitario * quantidade).toFixed(2)}
+                                    </span>
                                 </div>
-                                <span className="font-bold">
-                                    R$ {Number(item.preco).toFixed(2)}
-                                </span>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
                     <div className="mt-0 text-sm pt-6 space-y-2">
                         <div className="flex justify-between">

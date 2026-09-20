@@ -36,7 +36,6 @@ export async function POST(req: Request) {
 
     const token = crypto.randomBytes(32).toString("hex");
     const expires = new Date(Date.now() + 1000 * 60 * 15);
-
     const tokenType = type === "reset" ? "reset" : "magic";
 
     await db.query(
@@ -44,7 +43,6 @@ export async function POST(req: Request) {
       [email, token, tokenType, expires]
     );
 
-    // 🔗 LINK DINÂMICO
     let link = "";
 
     if (tokenType === "magic") {
@@ -53,16 +51,14 @@ export async function POST(req: Request) {
       link = `${process.env.NEXT_PUBLIC_APP_URL}/reset-password?token=${token}`;
     }
 
-    console.log("🔗 LINK:", link);
-
     const html =
       tokenType === "magic"
         ? magicLinkTemplate(link)
         : resetTemplate(link, user.full_name, {
-          ip,
-          device,
-          location,
-        });
+            ip,
+            device,
+            location,
+          });
 
     await sendMailWithRetry({
       from: process.env.EMAIL_FROM,
@@ -75,7 +71,6 @@ export async function POST(req: Request) {
     });
 
     return NextResponse.json({ success: true });
-
   } catch (err: any) {
     console.error("ERRO EMAIL:", err);
 
