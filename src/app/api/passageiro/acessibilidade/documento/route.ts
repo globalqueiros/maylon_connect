@@ -11,9 +11,15 @@ type AcessibilidadeRow = RowDataPacket & {
   usuario_id: number;
 };
 
+type UsuarioLogado = {
+  id: number;
+  usuario_id?: number;
+  tipo?: string;
+};
+
 export async function POST(request: Request) {
   try {
-    const usuario = await getUsuarioLogado();
+    const usuario = (await getUsuarioLogado()) as UsuarioLogado | null;
 
     if (!usuario?.id) {
       return NextResponse.json(

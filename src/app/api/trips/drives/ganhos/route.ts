@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import jwt from "jsonwebtoken";
+import type { RowDataPacket } from "mysql2";
 import { db } from "../../../../lib/db";
 
 type JwtPayload = {
@@ -8,6 +9,10 @@ type JwtPayload = {
   userId?: string | number;
   user_id?: string | number;
   sub?: string | number;
+};
+
+type GanhosRow = RowDataPacket & {
+  total_ganhos: number | string | null;
 };
 
 export async function GET() {
@@ -63,7 +68,7 @@ export async function GET() {
       );
     }
 
-    const [rows] = await db.query(
+    const [rows] = await db.query<GanhosRow[]>(
       `
       SELECT
         COALESCE(SUM(valor), 0) AS total_ganhos
