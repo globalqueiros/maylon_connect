@@ -16,6 +16,8 @@ import {
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+const SIDEBAR_TOGGLE_EVENT = "app:toggle-mobile-sidebar";
+
 type UserData = {
   id: number;
   full_name: string;
@@ -24,17 +26,18 @@ type UserData = {
   user_type: "driver" | "customer";
 };
 
-export default function Header({
-  toggleSidebar,
-}: {
+type HeaderProps = {
   toggleSidebar: () => void;
-}) {
+};
+
+export default function Header({ toggleSidebar }: HeaderProps) {
   const [open, setOpen] = useState(false);
   const [user, setUser] = useState<UserData | null>(null);
-  const dropdownRef = useRef<HTMLDivElement>(null);
   const [imgSrc, setImgSrc] = useState("/foto_perfil.png");
 
+  const dropdownRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
+
   const isMotorista = pathname.startsWith("/motorista");
   const prefix = isMotorista ? "/motorista" : "/passageiro";
 
@@ -43,15 +46,14 @@ export default function Header({
       try {
         const res = await fetch("/api/me", {
           credentials: "include",
+          cache: "no-store",
         });
 
-        if (res.ok) {
-          const data = await res.json();
-          setUser(data);
-        }
-      } catch (error) {
-        console.error("Erro ao buscar usuário:", error);
-      }
+        if (!res.ok) return;
+
+        const data = await res.json();
+        setUser(data);
+      } catch {}
     };
 
     fetchUser();
@@ -66,14 +68,14 @@ export default function Header({
   }, [user]);
 
   useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
+    const handleClickOutside = (event: MouseEvent) => {
       if (
         dropdownRef.current &&
-        !dropdownRef.current.contains(e.target as Node)
+        !dropdownRef.current.contains(event.target as Node)
       ) {
         setOpen(false);
       }
-    }
+    };
 
     document.addEventListener("mousedown", handleClickOutside);
 
@@ -83,68 +85,91 @@ export default function Header({
   }, []);
 
   const firstName = user?.full_name
-    ? user.full_name.split(" ")[0]
+    ? user.full_name.trim().split(" ")[0]
     : "Usuário";
 
   const hasImage = Boolean(user?.profile_image?.trim());
 
+  const handleMenuClick = () => {
+    toggleSidebar();
+    window.dispatchEvent(new Event(SIDEBAR_TOGGLE_EVENT));
+  };
+
   return (
-    <div className="w-full h-16 bg-white border-b border-gray-300 flex items-center justify-between px-4">
-      <div className="flex items-center gap-4 w-full max-w-xl">
+    <header className="sticky top-0 z-[60] flex h-16 w-full items-center justify-between border-b border-gray-200 bg-white px-3 sm:px-4">
+      <div className="flex items-center">
         <button
-          onClick={toggleSidebar}
-          className="p-2 rounded-lg cursor-pointer hover:bg-gray-100"
+          type="button"
+          onClick={handleMenuClick}
+          className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-lg text-gray-700 transition hover:bg-gray-100 active:scale-95"
+          aria-label="Abrir ou fechar menu"
         >
-          <Menu size={20} />
+          <Menu size={24} strokeWidth={2} />
         </button>
       </div>
 
-      <div className="flex items-center gap-4 relative">
-        <button className="p-2 rounded-full hover:bg-gray-100 relative">
+      <div className="relative flex shrink-0 items-center gap-2 sm:gap-4">
+        <button
+          type="button"
+          className="relative flex h-10 w-10 cursor-pointer items-center justify-center rounded-full hover:bg-gray-100"
+          aria-label="Notificações"
+        >
           <Bell size={20} />
-          <span className="absolute top-1 right-1 w-2 h-2 bg-orange-500 rounded-full" />
+          <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-orange-500" />
         </button>
 
         <div ref={dropdownRef} className="relative">
           <button
-            onClick={() => setOpen(!open)}
-            className="flex items-center gap-2 cursor-pointer hover:rounded-xl px-2 py-1 hover:bg-gray-100"
+            type="button"
+            onClick={() => setOpen((prev) => !prev)}
+            className="flex cursor-pointer items-center gap-1.5 rounded-xl px-1.5 py-1 hover:bg-gray-100 sm:gap-2 sm:px-2"
           >
             {hasImage ? (
               <Image
                 src={imgSrc}
                 onError={() => setImgSrc("/foto_perfil.png")}
-                className="w-8 h-8 rounded-full object-cover"
+                className="h-8 w-8 shrink-0 rounded-full object-cover"
                 alt="Foto de perfil"
                 width={32}
                 height={32}
               />
             ) : (
-              <div className="w-8 h-8 flex items-center justify-center rounded-full bg-teal-500 text-white text-sm font-bold">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-teal-500 text-sm font-bold text-white">
                 {firstName.charAt(0).toUpperCase()}
               </div>
             )}
 
-            <span className="text-sm font-medium">{firstName}</span>
+            <span className="hidden text-sm font-medium sm:inline">
+              {firstName}
+            </span>
 
-            <ChevronDown size={16} />
+            <ChevronDown
+              size={16}
+              className={`hidden transition-transform sm:block ${
+                open ? "rotate-180" : ""
+              }`}
+            />
           </button>
 
           {open && (
-            <div className="absolute right-0 mt-2.5 w-64 bg-white border rounded-xl shadow-lg p-4 z-50">
+            <div className="fixed inset-x-3 top-[68px] z-[100] rounded-xl border border-gray-200 bg-white p-4 shadow-xl sm:absolute sm:inset-x-auto sm:right-0 sm:top-auto sm:mt-2.5 sm:w-64">
               <div className="mb-3">
-                <p className="font-semibold text-xs">{firstName}</p>
-                <p className="text-gray-500 mt-1 text-xs">
+                <p className="text-xs font-semibold text-gray-900">
+                  {firstName}
+                </p>
+
+                <p className="mt-1 truncate text-xs text-gray-500">
                   {user?.email || "Carregando..."}
                 </p>
               </div>
 
-              <div className="border-t my-2" />
+              <div className="my-2 border-t border-gray-100" />
 
-              <div className="flex flex-col text-xs gap-2">
+              <div className="flex flex-col gap-1 text-xs">
                 <Link
                   href={`${prefix}/perfil`}
-                  className="flex items-center gap-2 p-2 cursor-pointer rounded-lg hover:bg-gray-100"
+                  onClick={() => setOpen(false)}
+                  className="flex items-center gap-2 rounded-lg p-2.5 hover:bg-gray-100"
                 >
                   <User size={18} />
                   Meu Perfil
@@ -152,7 +177,8 @@ export default function Header({
 
                 <Link
                   href={`${prefix}/configuracoes`}
-                  className="flex items-center gap-2 p-2 cursor-pointer rounded-lg hover:bg-gray-100"
+                  onClick={() => setOpen(false)}
+                  className="flex items-center gap-2 rounded-lg p-2.5 hover:bg-gray-100"
                 >
                   <Settings size={18} />
                   Configurações
@@ -160,7 +186,8 @@ export default function Header({
 
                 <Link
                   href={`${prefix}/central_ajuda`}
-                  className="flex items-center gap-2 p-2 cursor-pointer rounded-lg hover:bg-gray-100"
+                  onClick={() => setOpen(false)}
+                  className="flex items-center gap-2 rounded-lg p-2.5 hover:bg-gray-100"
                 >
                   <Headset size={18} />
                   Suporte
@@ -170,15 +197,17 @@ export default function Header({
                   <>
                     <Link
                       href="/motorista/veiculo"
-                      className="flex items-center gap-2 p-2 cursor-pointer rounded-lg hover:bg-gray-100"
+                      onClick={() => setOpen(false)}
+                      className="flex items-center gap-2 rounded-lg p-2.5 hover:bg-gray-100"
                     >
                       <Car size={18} />
                       Meu Veículo
                     </Link>
 
                     <Link
-                      href="/motorista/corridas"
-                      className="flex items-center gap-2 p-2 cursor-pointer rounded-lg hover:bg-gray-100"
+                      href="/motorista/viagens"
+                      onClick={() => setOpen(false)}
+                      className="flex items-center gap-2 rounded-lg p-2.5 hover:bg-gray-100"
                     >
                       <MapPin size={18} />
                       Minhas Corridas
@@ -187,11 +216,12 @@ export default function Header({
                 )}
               </div>
 
-              <div className="border-t my-2" />
+              <div className="my-2 border-t border-gray-100" />
 
               <Link
                 href={`${prefix}/saindo`}
-                className="flex items-center gap-2 text-xs cursor-pointer w-full p-2 rounded-lg hover:bg-gray-100 text-red-500"
+                onClick={() => setOpen(false)}
+                className="flex w-full items-center gap-2 rounded-lg p-2.5 text-xs text-red-500 hover:bg-red-50"
               >
                 <LogOut size={18} />
                 Sair
@@ -200,6 +230,6 @@ export default function Header({
           )}
         </div>
       </div>
-    </div>
+    </header>
   );
 }

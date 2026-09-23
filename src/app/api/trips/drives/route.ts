@@ -4,10 +4,10 @@ import jwt from "jsonwebtoken";
 import { db } from "../../../lib/db";
 
 type JwtPayload = {
-  id?: string;
-  userId?: string;
-  user_id?: string;
-  sub?: string;
+  id?: string | number;
+  userId?: string | number;
+  user_id?: string | number;
+  sub?: string | number;
 };
 
 export async function GET() {
@@ -50,13 +50,13 @@ export async function GET() {
       );
     }
 
-    const driverId =
+    const rawDriverId =
       decoded.id ??
       decoded.userId ??
       decoded.user_id ??
       decoded.sub;
 
-    if (!driverId) {
+    if (!rawDriverId) {
       console.error(
         "JWT sem identificador do motorista:",
         decoded
@@ -68,7 +68,13 @@ export async function GET() {
       );
     }
 
-    console.log("Motorista autenticado:", driverId);
+    // Normaliza o tipo: o JWT pode trazer o id como string,
+    // mas a coluna driver_id no banco pode ser INT.
+    // CAST no SQL evita que a comparação falhe por tipo diferente.
+    const driverId = String(rawDriverId).trim();
+
+    console.log("Motorista autenticado (raw):", rawDriverId);
+    console.log("Motorista autenticado (normalizado):", driverId);
 
     const [rows] = await db.query(
       `
@@ -76,19 +82,28 @@ export async function GET() {
         tr.id AS trip_request_id,
         tr.driver_id,
         tr.current_status,
-        tr.paid_fare,
+        tr.paid_fare AS fare,
         c.pickup_address,
         c.destination_address
       FROM trip_requests AS tr
       LEFT JOIN trip_request_coordinates AS c
         ON c.trip_request_id = tr.id
-      WHERE tr.driver_id = ?
+      WHERE CAST(tr.driver_id AS CHAR) = ?
       ORDER BY tr.id DESC
       `,
       [driverId]
     );
 
-    return NextResponse.json(rows);
+    console.log(
+      "Quantidade de linhas retornadas pelo banco:",
+      Array.isArray(rows) ? rows.length : "não é array"
+    );
+
+    return NextResponse.json({
+      success: true,
+      driver_id: driverId,
+      trips: rows,
+    });
   } catch (error: any) {
     console.error("ERRO API /api/trips/drives");
     console.error("Mensagem:", error?.message);

@@ -28,6 +28,12 @@ type Alerta = {
     mensagem: string;
 };
 
+type CheckoutResponse = {
+    success?: boolean;
+    url?: string;
+    message?: string;
+};
+
 export default function CheckoutPage() {
     const [carrinho, setCarrinho] = useState<Produto[]>([]);
     const [loading, setLoading] = useState(false);
@@ -111,7 +117,20 @@ export default function CheckoutPage() {
                     metodo: pagamento,
                 }),
             });
-            const data = await res.json();
+
+            const data: CheckoutResponse = await res.json();
+
+            // Antes o "sucesso" aparecia sempre, mesmo quando a API falhava.
+            if (!res.ok || data.success === false) {
+                mostrarAlerta(
+                    "recusado",
+                    "Pagamento não concluído",
+                    data.message || "Não foi possível concluir o pagamento."
+                );
+                setLoading(false);
+                return;
+            }
+
             mostrarAlerta(
                 "sucesso",
                 "Compra aprovada",
@@ -120,7 +139,7 @@ export default function CheckoutPage() {
 
             if (data.url) {
                 setTimeout(() => {
-                    window.location.href = data.url;
+                    window.location.href = data.url as string;
                 }, 1500);
             }
         } catch {

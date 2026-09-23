@@ -270,6 +270,9 @@ export default function Preview() {
       user?.identification_number ||
       "Não informado";
 
+    const emailMotorista =
+      dadosInforme?.motorista?.email || user?.email || "Não informado";
+
     const anoSelecionado =
       Number(selectedYear) || currentYear;
 
@@ -277,10 +280,20 @@ export default function Preview() {
       dadosInforme?.anoCalendario ||
       anoSelecionado - 1;
 
+    const numeroDocumento = `IR-${anoCalendario}-${String(
+      dadosInforme?.motorista?.id || "000000"
+    ).slice(-6).toUpperCase()}`;
+
+    const emissao = new Date().toLocaleDateString("pt-BR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    });
+
     const tabelaMensal = rendimentosMensais
       .map(
-        (item) => `
-          <tr>
+        (item, index) => `
+          <tr class="${index % 2 === 1 ? "zebra" : ""}">
             <td>${item.mes}</td>
             <td class="valor">R$ ${formatarMoeda(item.valor)}</td>
           </tr>
@@ -297,79 +310,134 @@ export default function Preview() {
 <title>Informe de Rendimentos — Maylon</title>
 <style>
 *{box-sizing:border-box}
-html,body{margin:0;padding:0;background:#f8fafc;color:#0f172a;font-family:Arial,Helvetica,sans-serif}
+html,body{margin:0;padding:0;background:#eef1f5;color:#111827;font-family:'Segoe UI',Arial,Helvetica,sans-serif}
 body{padding:32px}
-.documento{width:100%;max-width:900px;margin:0 auto;background:#fff;border:1px solid #e2e8f0;border-radius:18px;overflow:hidden;box-shadow:0 10px 30px rgba(15,23,42,.08)}
-.cabecalho{padding:32px;background:#073f3d;color:#fff}
-.titulo{margin:0;font-size:28px;line-height:1.2;font-weight:800}
-.subtitulo{margin-top:5px;color:#ccfbf1;font-size:14px;line-height:1.5}
+.documento{width:100%;max-width:920px;margin:0 auto;background:#fff;border:1px solid #dbe1e8;border-radius:10px;overflow:hidden;box-shadow:0 12px 32px rgba(15,23,42,.10)}
+
+.cabecalho{padding:0;background:#0b3b38;color:#fff;position:relative}
+.cabecalho-topo{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:24px 32px 18px;border-bottom:1px solid rgba(255,255,255,.14)}
+.marca{display:flex;align-items:center;gap:12px}
+.marca-selo{width:38px;height:38px;border-radius:9px;background:rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;letter-spacing:.5px;flex-shrink:0}
+.marca-nome{font-size:13px;font-weight:700;letter-spacing:.3px}
+.marca-sub{font-size:10.5px;color:#9fd8cb;margin-top:1px}
+.doc-meta{text-align:right;font-size:10.5px;color:#bfe6dc;line-height:1.6}
+.doc-meta strong{display:block;color:#fff;font-size:12px}
+.cabecalho-titulo{padding:22px 32px 26px}
+.titulo{margin:0;font-size:24px;line-height:1.25;font-weight:800;letter-spacing:-.2px}
+.subtitulo{margin-top:6px;color:#bfe6dc;font-size:13px;line-height:1.5}
+
 .conteudo{padding:32px}
-.aviso{padding:16px 18px;text-align: justify;border:1px solid #fde68a;border-radius:12px;background:#fffbeb;color:#713f12;font-size:12px;line-height:1.6;margin-bottom:28px}
-.aviso strong{display:block;margin-bottom:4px;font-size:13px}
-.informacoes{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:30px}
-.info-card{border:1px solid #e2e8f0;border-radius:12px;padding:16px;background:#fff}
-.label{color:#64748b;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
-.value{color:#0f172a;font-size:14px;font-weight:700}
-.secao{margin-top:30px}
-.secao-titulo{margin:0 0 14px;font-size:17px;font-weight:800;color:#073f3d}
-.tabela{width:100%;border-collapse:collapse;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden}
-.tabela th{padding:13px 14px;background:#f1f5f9;color:#475569;font-size:11px;font-weight:800;text-align:left;text-transform:uppercase;letter-spacing:.4px}
-.tabela td{padding:13px 14px;border-top:1px solid #e2e8f0;font-size:13px;color:#334155}
-.tabela td.valor,.tabela th.valor{text-align:right}
-.tabela tr.total td{background:#f0fdfa;color:#073f3d;font-weight:800}
-.resumo-final{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:16px}
-.resumo-card{padding:18px;border-radius:12px;border:1px solid #ccfbf1;background:#f0fdfa}
-.resumo-card.liquido{border-color:#99f6e4;background:#ecfdf5}
-.resumo-label{color:#64748b;font-size:11px;font-weight:700;text-transform:uppercase;margin-bottom:7px}
-.resumo-valor{color:#073f3d;font-size:22px;font-weight:800}
-.responsabilidade{margin-top:22px;padding:20px;border-radius:12px;background:#f8fafc;border:1px solid #e2e8f0}
-.responsabilidade h3{margin:0 0 10px;color:#0f172a;font-size:14px}
-.responsabilidade p{margin:0;color:#64748b;font-size:12px;line-height:1.7}
+.aviso{padding:14px 16px;text-align:justify;border-left:3px solid #d6a531;border-radius:6px;background:#fbf6e8;color:#6b5010;font-size:11.5px;line-height:1.65;margin-bottom:28px}
+.aviso strong{display:block;margin-bottom:4px;font-size:12px;color:#4a3907}
+
+.informacoes{display:grid;grid-template-columns:repeat(3,1fr);gap:0;margin-bottom:30px;border:1px solid #e4e9ef;border-radius:10px;overflow:hidden}
+.info-card{padding:14px 16px;background:#fff;border-right:1px solid #e4e9ef;border-bottom:1px solid #e4e9ef}
+.info-card:nth-child(3n){border-right:none}
+.label{color:#8a94a3;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px}
+.value{color:#111827;font-size:13px;font-weight:700;word-break:break-word}
+
+.secao{margin-top:28px}
+.secao-cabecalho{display:flex;align-items:center;gap:8px;margin:0 0 14px}
+.secao-numero{width:20px;height:20px;border-radius:5px;background:#0b3b38;color:#fff;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.secao-titulo{margin:0;font-size:14.5px;font-weight:800;color:#0b3b38;letter-spacing:.1px}
+
+.tabela-wrap{width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid #e4e9ef;border-radius:10px}
+.tabela{width:100%;min-width:320px;border-collapse:collapse}
+.tabela th{padding:11px 16px;background:#f4f6f8;color:#5b6472;font-size:10.5px;font-weight:800;text-align:left;text-transform:uppercase;letter-spacing:.4px;white-space:nowrap;border-bottom:1px solid #e4e9ef}
+.tabela td{padding:11px 16px;border-top:1px solid #edf0f3;font-size:12.5px;color:#374151}
+.tabela tr.zebra td{background:#fafbfc}
+.tabela td.valor,.tabela th.valor{text-align:right;font-variant-numeric:tabular-nums}
+.tabela tr.total td{background:#eaf6f3;color:#0b3b38;font-weight:800;border-top:1px solid #cfe8e1}
+
+.resumo-final{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:18px}
+.resumo-card{padding:16px 18px;border-radius:10px;border:1px solid #e4e9ef;background:#f8fafb;min-width:0}
+.resumo-card.liquido{border-color:#bfe6dc;background:#eefaf6}
+.resumo-label{color:#8a94a3;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px}
+.resumo-valor{color:#0b3b38;font-size:20px;font-weight:800;font-variant-numeric:tabular-nums;word-break:break-word}
+
+.responsabilidade{margin-top:24px;padding:18px 20px;border-radius:10px;background:#f8fafb;border:1px solid #e4e9ef}
+.responsabilidade h3{margin:0 0 8px;color:#111827;font-size:12.5px;font-weight:800}
+.responsabilidade p{text-align:justify;margin:0;color:#6b7280;font-size:11px;line-height:1.7}
+
+.rodape{margin-top:26px;padding-top:16px;border-top:1px solid #e4e9ef;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;font-size:9.5px;color:#9aa3b0}
+
 @media(max-width:650px){
 body{padding:12px}
-.cabecalho,.conteudo{padding:22px}
-.informacoes,.resumo-final{grid-template-columns:1fr}
-.titulo{font-size:22px}
-.tabela th,.tabela td{padding:10px}
+.cabecalho-topo{flex-direction:column;align-items:flex-start;gap:10px;padding:18px 20px}
+.doc-meta{text-align:left}
+.cabecalho-titulo,.conteudo{padding:20px}
+.informacoes{grid-template-columns:1fr}
+.info-card{border-right:none}
+.resumo-final{grid-template-columns:1fr}
+.titulo{font-size:20px}
+.tabela th,.tabela td{padding:9px 12px}
+}
+@media(max-width:420px){
+body{padding:8px}
+.cabecalho-topo,.cabecalho-titulo,.conteudo{padding:16px}
+.titulo{font-size:18px}
+.subtitulo{font-size:11.5px}
+.resumo-valor{font-size:17px}
 }
 @media print{
 @page{size:A4 portrait;margin:7mm}
-html,body{width:100%;min-height:0;margin:0!important;padding:0!important;background:#fff!important;color:#0f172a}
+html,body{width:100%;min-height:0;margin:0!important;padding:0!important;background:#fff!important;color:#111827}
 body{font-size:9px}
 .documento{width:100%;max-width:none;margin:0;padding:0;border:none;border-radius:0;box-shadow:none;overflow:visible}
-.cabecalho{padding:14px 18px;border-radius:14px;print-color-adjust:exact;-webkit-print-color-adjust:exact}
-.titulo{font-size:20px;line-height:1.1}
-.subtitulo{margin-top:3px;font-size:10px;line-height:1.2}
-.conteudo{padding:12px 18px}
+.cabecalho-topo{padding:10px 16px;print-color-adjust:exact;-webkit-print-color-adjust:exact}
+.cabecalho-titulo{padding:10px 16px 14px;print-color-adjust:exact;-webkit-print-color-adjust:exact}
+.marca-selo{width:26px;height:26px;font-size:10px}
+.marca-nome{font-size:10px}
+.marca-sub,.doc-meta{font-size:8px}
+.titulo{font-size:17px;line-height:1.1}
+.subtitulo{margin-top:3px;font-size:9px;line-height:1.2}
+.conteudo{padding:12px 16px}
 .aviso{display:none!important}
-.informacoes{display:grid!important;grid-template-columns:repeat(3,1fr);gap:6px;margin:0 0 10px}
-.info-card{padding:7px 9px;border-radius:6px;min-height:42px}
-.label{font-size:7px;letter-spacing:.3px;margin-bottom:3px}
-.value{font-size:9px;line-height:1.2}
-.secao{margin-top:10px!important;margin-bottom:0!important}
-.secao-titulo{margin:0 0 5px!important;font-size:11px;line-height:1.2}
+.informacoes{display:grid!important;grid-template-columns:repeat(3,1fr);gap:0;margin:0 0 10px}
+.info-card{padding:6px 8px;min-height:38px}
+.label{font-size:6.5px;letter-spacing:.3px;margin-bottom:2px}
+.value{font-size:8.5px;line-height:1.2}
+.secao{margin-top:9px!important;margin-bottom:0!important}
+.secao-cabecalho{margin:0 0 5px!important}
+.secao-numero{width:14px;height:14px;font-size:8px}
+.secao-titulo{font-size:10px;line-height:1.2}
 .tabela{width:100%;margin:0!important;border-collapse:collapse;page-break-inside:avoid}
-.tabela th{padding:5px 7px;font-size:7px;line-height:1.1}
-.tabela td{padding:4px 7px;font-size:8px;line-height:1.15}
+.tabela th{padding:4px 6px;font-size:6.5px;line-height:1.1}
+.tabela td{padding:4px 6px;font-size:7.5px;line-height:1.15}
 .tabela tr{height:auto}
 .tabela tr.total td{font-weight:800}
-.resumo-final{display:grid!important;grid-template-columns:1fr 1fr;gap:7px;margin-top:8px}
-.resumo-card{padding:8px 10px;border-radius:6px}
-.resumo-label{font-size:7px;margin-bottom:3px}
-.resumo-valor{font-size:13px;line-height:1.1}
-.responsabilidade{display:block!important;margin-top:8px;padding:8px 10px;border-radius:6px}
-.responsabilidade h3{margin:0 0 4px;font-size:9px}
-.responsabilidade p{font-size:7px;line-height:1.35}
+.resumo-final{display:grid!important;grid-template-columns:1fr 1fr;gap:6px;margin-top:7px}
+.resumo-card{padding:7px 9px;border-radius:6px}
+.resumo-label{font-size:6.5px;margin-bottom:2px}
+.resumo-valor{font-size:12px;line-height:1.1}
+.responsabilidade{margin-top:7px;padding:7px 9px;border-radius:6px}
+.responsabilidade h3{margin:0 0 3px;font-size:8.5px}
+.responsabilidade p{font-size:6.5px;line-height:1.35}
+.rodape{margin-top:8px;padding-top:6px;font-size:7px}
 .informacoes,.secao,.tabela,.resumo-final,.responsabilidade{break-inside:avoid;page-break-inside:avoid}
-.cabecalho,.tabela th,.tabela tr.total td,.resumo-card{print-color-adjust:exact;-webkit-print-color-adjust:exact}
 }
 </style>
 </head>
 <body>
 <div class="documento">
 <header class="cabecalho">
+<div class="cabecalho-topo">
+<div class="marca">
+<div class="marca-selo">MT</div>
+<div>
+<div class="marca-nome">Maylon Trip Tecnologia LTDA</div>
+<div class="marca-sub">Plataforma de mobilidade</div>
+</div>
+</div>
+<div class="doc-meta">
+<strong>${numeroDocumento}</strong>
+Emitido em ${emissao}
+</div>
+</div>
+<div class="cabecalho-titulo">
 <h1 class="titulo">Informe de Rendimentos</h1>
-<div class="subtitulo">Motorista parceiro</div>
+<div class="subtitulo">Ano-calendário ${anoCalendario} · Motorista parceiro</div>
+</div>
 </header>
 <main class="conteudo">
 <div class="aviso">
@@ -386,7 +454,11 @@ Este informe apresenta os rendimentos e demais valores registrados pela Maylon T
 <div class="value">${anoSelecionado}</div>
 </div>
 <div class="info-card">
-<div class="label">Nome do Motorista</div>
+<div class="label">Nº do documento</div>
+<div class="value">${numeroDocumento}</div>
+</div>
+<div class="info-card">
+<div class="label">Nome do motorista</div>
 <div class="value">${nomeMotorista}</div>
 </div>
 <div class="info-card">
@@ -394,16 +466,16 @@ Este informe apresenta os rendimentos e demais valores registrados pela Maylon T
 <div class="value">${formatarCPF(identificationNumber)}</div>
 </div>
 <div class="info-card">
-<div class="label">Empresa</div>
-<div class="value">Maylon Trip Tecnologia LTDA</div>
-</div>
-<div class="info-card">
-<div class="label">Categoria</div>
-<div class="value">Motorista parceiro</div>
+<div class="label">E-mail</div>
+<div class="value">${emailMotorista}</div>
 </div>
 </section>
 <section class="secao">
+<div class="secao-cabecalho">
+<span class="secao-numero">1</span>
 <h2 class="secao-titulo">Resumo de valores recebidos pela plataforma</h2>
+</div>
+<div class="tabela-wrap">
 <table class="tabela">
 <thead>
 <tr>
@@ -416,7 +488,7 @@ Este informe apresenta os rendimentos e demais valores registrados pela Maylon T
 <td>Corridas realizadas</td>
 <td class="valor">R$ ${formatarMoeda(corridas)}</td>
 </tr>
-<tr>
+<tr class="zebra">
 <td>Taxas/ajustes</td>
 <td class="valor">R$ ${formatarMoeda(taxas)}</td>
 </tr>
@@ -430,9 +502,14 @@ Este informe apresenta os rendimentos e demais valores registrados pela Maylon T
 </tr>
 </tbody>
 </table>
+</div>
 </section>
 <section class="secao">
+<div class="secao-cabecalho">
+<span class="secao-numero">2</span>
 <h2 class="secao-titulo">Resumo mensal</h2>
+</div>
+<div class="tabela-wrap">
 <table class="tabela">
 <thead>
 <tr>
@@ -446,6 +523,7 @@ ${tabelaMensal ||
       }
 </tbody>
 </table>
+</div>
 </section>
 <div class="resumo-final">
 <div class="resumo-card">
@@ -458,9 +536,14 @@ ${tabelaMensal ||
 </div>
 </div>
 <section class="responsabilidade">
-<h3>Declaração de Responsabilidade</h3>
+<h3>Declaração de responsabilidade</h3>
 <p>Os valores apresentados neste informe são baseados nos registros disponíveis no sistema da Maylon para o período selecionado. Antes da impressão e utilização deste documento, o contribuinte deverá conferir os dados e valores informados, observando a legislação tributária vigente, sua situação fiscal específica e os respectivos documentos comprobatórios.</p>
 </section>
+<div class="rodape">
+<span>${numeroDocumento}</span>
+<span>Maylon Trip Tecnologia LTDA</span>
+<span>Documento gerado eletronicamente</span>
+</div>
 </main>
 </div>
 </body>
@@ -471,7 +554,7 @@ ${tabelaMensal ||
   if (loadingUser) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-transparent px-4">
-        <div className="flex w-full max-w-[340px] flex-col items-center rounded-[28px] bg-white p-10 text-center shadow-xl ring-1 ring-black/5">
+        <div className="flex w-full max-w-[340px] flex-col items-center rounded-2xl bg-white p-10 text-center shadow-xl ring-1 ring-black/5">
           <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-teal-50">
             <Loader2
               size={32}
@@ -521,104 +604,173 @@ ${tabelaMensal ||
   }
 
   return (
-    <main className="min-h-screen">
+    <main className="min-h-screen px-1 py-3 sm:px-3 lg:px-8">
       <div className="mx-auto w-full max-w-8xl">
-        <header className="mb-8">
-          <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">
-            Imposto de Renda
-          </h1>
-          <p className="mt-1 max-w-2xl text-sm leading-6 text-white/50">
-            Consulte e imprima seu informe de rendimentos referente ao ano selecionado.
-          </p>
+        <header className="mb-6 flex flex-col gap-4 sm:mb-8 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3 sm:gap-4">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white/10 text-white ring-1 ring-white/15 sm:h-12 sm:w-12">
+              <svg
+                className="h-5 w-5 sm:h-6 sm:w-6"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.7"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M7 3h7l4 4v14H7a2 2 0 01-2-2V5a2 2 0 012-2z"
+                />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M14 3v5h5M9 13h6M9 17h4"
+                />
+              </svg>
+            </div>
+            <div>
+              <h1 className="text-xl font-bold tracking-tight text-white sm:text-2xl lg:text-3xl">
+                Imposto de Renda
+              </h1>
+              <p className="mt-0.5 max-w-2xl text-sm text-white/50 md:text-sm lg:text-sm xl:text-sm 2xl:text-sm">
+                Consulte e imprima seu informe de rendimentos referente ao ano selecionado.
+              </p>
+            </div>
+          </div>
         </header>
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[320px_minmax(0,1fr)]">
-          <aside className="h-fit rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="mb-5">
-              <h2 className="text-sm font-semibold text-slate-900">
-                Configurações
-              </h2>
-              <p className="mt-1 text-xs leading-5 text-slate-500">
-                Selecione o ano para visualizar seu informe de rendimentos.
-              </p>
-            </div>
-
-            <div>
-              <label
-                htmlFor="year"
-                className="mb-2 block text-sm font-medium text-slate-700"
-              >
-                Ano de declaração
-              </label>
-
-              <div className="relative">
-                <select
-                  id="year"
-                  value={selectedYear}
-                  onChange={(e) => setSelectedYear(e.target.value)}
-                  className="w-full cursor-pointer appearance-none rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 pr-10 text-sm font-medium text-slate-700 outline-none transition-all hover:border-slate-300 focus:border-teal-500 focus:bg-white focus:ring-4 focus:ring-teal-500/10"
-                >
-                  <option value="" disabled>
-                    Selecione o ano
-                  </option>
-                  <option value={currentYear}>{currentYear}</option>
-                  <option value={previousYear}>{previousYear}</option>
-                </select>
-
-                <svg
-                  className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="m6 9 6 6 6-6"
-                  />
-                </svg>
+          <div className="flex flex-col gap-6">
+            <aside className="h-fit rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+              <div className="mb-5 flex items-center gap-2.5">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-slate-500">
+                  <svg
+                    className="h-4 w-4"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+                    />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                    />
+                  </svg>
+                </div>
+                <div>
+                  <h2 className="text-sm font-semibold text-slate-900">
+                    Configurações
+                  </h2>
+                  <p className="text-xs leading-5 text-slate-500">
+                    Selecione o exercício desejado.
+                  </p>
+                </div>
               </div>
 
-              <p className="mt-2 text-xs leading-5 text-slate-400">
-                Escolha o exercício referente ao informe que deseja consultar.
-              </p>
-            </div>
+              <div>
+                <label
+                  htmlFor="year"
+                  className="mb-2 block text-sm font-medium text-slate-700"
+                >
+                  Ano de declaração
+                </label>
 
-            {selectedYear && (
-              <div className="mt-6 rounded-xl bg-teal-50 p-4">
-                <div className="flex gap-3">
-                  <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-teal-100 text-teal-600">
-                    <svg
-                      className="h-4 w-4"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M5 13l4 4L19 7"
-                      />
-                    </svg>
+                <div className="relative">
+                  <select
+                    id="year"
+                    value={selectedYear}
+                    onChange={(e) => setSelectedYear(e.target.value)}
+                    className="w-full cursor-pointer appearance-none rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 pr-10 text-sm font-medium text-slate-700 outline-none transition-all hover:border-slate-300 focus:border-teal-500 focus:bg-white focus:ring-4 focus:ring-teal-500/10"
+                  >
+                    <option value="" disabled>
+                      Selecione o ano
+                    </option>
+                    <option value={currentYear}>{currentYear}</option>
+                    <option value={previousYear}>{previousYear}</option>
+                  </select>
+
+                  <svg
+                    className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="m6 9 6 6 6-6"
+                    />
+                  </svg>
+                </div>
+
+                <p className="mt-2 text-xs leading-5 text-slate-400">
+                  Escolha o exercício referente ao informe que deseja consultar.
+                </p>
+              </div>
+
+              {selectedYear && (
+                <div className="mt-6 rounded-xl bg-teal-50 p-4">
+                  <div className="flex gap-3">
+                    <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-teal-100 text-teal-600">
+                      <svg
+                        className="h-4 w-4"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M5 13l4 4L19 7"
+                        />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-teal-900">
+                        Ano selecionado
+                      </p>
+                      <p className="mt-0.5 text-xs text-teal-700">
+                        Exercício {selectedYear}
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-sm font-semibold text-teal-900">
-                      Ano selecionado
-                    </p>
-                    <p className="mt-0.5 text-xs text-teal-700">
-                      Exercício {selectedYear}
-                    </p>
-                  </div>
+                </div>
+              )}
+            </aside>
+
+            {selectedYear && dadosInforme && !loadingInforme && !erroInforme && (
+              <div className="grid grid-cols-2 gap-3 lg:grid-cols-1">
+                <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                    Total bruto
+                  </p>
+                  <p className="mt-1.5 text-lg font-bold text-slate-900 sm:text-xl">
+                    R$ {formatarMoeda(totalBruto)}
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-teal-100 bg-teal-50 p-4 shadow-sm">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-teal-700/70">
+                    Total líquido
+                  </p>
+                  <p className="mt-1.5 text-lg font-bold text-teal-800 sm:text-xl">
+                    R$ {formatarMoeda(totalLiquido)}
+                  </p>
                 </div>
               </div>
             )}
-          </aside>
+          </div>
 
           <section className="min-w-0">
             <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-              <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+              <div className="flex flex-col gap-3 border-b border-slate-100 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
                 <div>
                   <h2 className="text-sm font-semibold text-slate-900">
                     Prévia da declaração
@@ -635,7 +787,7 @@ ${tabelaMensal ||
                     type="button"
                     onClick={handlePrint}
                     disabled={loadingInforme || !dadosInforme}
-                    className="inline-flex cursor-pointer items-center gap-2 rounded-xl bg-teal-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-teal-700 hover:shadow-md focus:outline-none focus:ring-4 focus:ring-teal-500/20 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+                    className="inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-teal-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-teal-700 hover:shadow-md focus:outline-none focus:ring-4 focus:ring-teal-500/20 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
                   >
                     {loadingInforme ? (
                       <Loader2
@@ -664,7 +816,7 @@ ${tabelaMensal ||
 
               <div className="w-full bg-white p-0">
                 {!selectedYear ? (
-                  <div className="flex h-[700px] items-center justify-center">
+                  <div className="flex h-[420px] items-center justify-center sm:h-[550px] lg:h-[700px]">
                     <div className="px-6 text-center">
                       <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100">
                         <svg
@@ -695,7 +847,7 @@ ${tabelaMensal ||
                     </div>
                   </div>
                 ) : loadingInforme ? (
-                  <div className="flex h-[700px] items-center justify-center">
+                  <div className="flex h-[420px] items-center justify-center sm:h-[550px] lg:h-[700px]">
                     <div className="flex flex-col items-center text-center">
                       <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-teal-50">
                         <Loader2
@@ -713,7 +865,7 @@ ${tabelaMensal ||
                     </div>
                   </div>
                 ) : erroInforme ? (
-                  <div className="flex h-[700px] items-center justify-center">
+                  <div className="flex h-[420px] items-center justify-center sm:h-[550px] lg:h-[700px]">
                     <div className="max-w-md px-6 text-center">
                       <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-red-50">
                         <svg
@@ -739,7 +891,7 @@ ${tabelaMensal ||
                     </div>
                   </div>
                 ) : !dadosInforme ? (
-                  <div className="flex h-[700px] items-center justify-center">
+                  <div className="flex h-[420px] items-center justify-center sm:h-[550px] lg:h-[700px]">
                     <div className="px-6 text-center">
                       <h3 className="text-sm font-semibold text-slate-700">
                         Informe não encontrado
@@ -755,7 +907,7 @@ ${tabelaMensal ||
                       ref={iframeRef}
                       title={`Informe de rendimentos de ${selectedYear}`}
                       srcDoc={gerarDocumentoHTML()}
-                      className="block h-[850px] w-full border-0 bg-white"
+                      className="block h-[70vh] w-full border-0 bg-white sm:h-[750px] lg:h-[850px]"
                       style={{
                         display: "block",
                         width: "100%",

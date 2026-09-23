@@ -180,7 +180,7 @@ function LoginPage() {
           )}
         </AnimatePresence>
 
-        <div className="relative z-10 w-full max-w-sm sm:max-w-md md:max-w-md lg:max-w-lg xl:max-w-lg 2xl:max-w-xl p-5 sm:p-6 md:p-8 lg:p-10 rounded-2xl backdrop-blur-md bg-white/10 border border-white/20 shadow-2xl">
+        <div className="relative z-10 w-full max-w-sm sm:max-w-md md:max-w-md lg:max-w-lg xl:max-w-lg 2xl:max-w-lg p-5 sm:p-6 md:p-8 lg:p-10 rounded-2xl backdrop-blur-md bg-white/10 border border-white/20 shadow-2xl">
           <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-white text-center mb-4">
             Portal Connect
           </h1>

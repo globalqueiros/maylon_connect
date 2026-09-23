@@ -51,7 +51,21 @@ type VerificationData = {
   rejectionReason?: string | null;
 };
 
+// Resumo mínimo de um benefício, usado apenas para checar se o usuário
+// possui o Maylon Pass ativo (mesma fonte de dados da página de Benefícios).
+type BeneficioResumo = {
+  id: number;
+  tipo?: string;
+  titulo?: string;
+  status: boolean; // false = já contratado/ativo (mesma convenção da página de Benefícios)
+};
+
 type Usuario = {
+  data_aquisicao: string | number | Date;
+  usuario: string | number | Date;
+  nome_plano: any;
+  plano_nome: any;
+  plano: any;
   id?: number | string;
   user_id?: number | string;
   profile_image?: string | null;
@@ -1014,6 +1028,12 @@ export default function PerfilPage() {
   const [uploadingLaudo, setUploadingLaudo] =
     useState(false);
 
+  // Controla se o cartão virtual Maylon Pass deve aparecer: só quando
+  // o usuário tiver esse benefício efetivamente ativo (status === false,
+  // seguindo a mesma convenção usada na página de Benefícios).
+  const [possuiMaylonPassAtivo, setPossuiMaylonPassAtivo] =
+    useState(false);
+
   const showAlert = useCallback(
     (
       type: AlertState["type"],
@@ -1217,6 +1237,78 @@ export default function PerfilPage() {
   useEffect(() => {
     void carregarUsuario();
   }, [carregarUsuario]);
+
+  // Verifica se o usuário possui o Maylon Pass ativo, usando o mesmo
+  // endpoint /api/beneficios da página de Benefícios. Um benefício é
+  // considerado ativo quando "status === false" (mesma regra usada lá).
+  useEffect(() => {
+    if (!usuario?.id) {
+      setPossuiMaylonPassAtivo(false);
+      return;
+    }
+
+    let cancelado = false;
+
+    const verificarMaylonPass = async () => {
+      try {
+        const tipoUsuario = String(
+          usuario.user_type ??
+          usuario.userType ??
+          ""
+        );
+
+        const res = await fetch("/api/beneficios", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+          cache: "no-store",
+          body: JSON.stringify({
+            usuario_id: usuario.id,
+            tipo: tipoUsuario,
+          }),
+        });
+
+        const data = await res.json().catch(() => null);
+
+        if (!res.ok || !data) {
+          if (!cancelado) setPossuiMaylonPassAtivo(false);
+          return;
+        }
+
+        let lista: BeneficioResumo[] = [];
+
+        if (Array.isArray(data)) {
+          lista = data;
+        } else if (Array.isArray(data.beneficios)) {
+          lista = data.beneficios;
+        } else if (Array.isArray(data.data)) {
+          lista = data.data;
+        }
+
+        const ativo = lista.some((b) => {
+          const naoStatus = !b?.status; // false = ativo/contratado
+          const titulo = String(b?.titulo ?? "").toLowerCase();
+          return naoStatus && titulo.includes("maylon pass");
+        });
+
+        if (!cancelado) {
+          setPossuiMaylonPassAtivo(ativo);
+        }
+      } catch {
+        if (!cancelado) {
+          setPossuiMaylonPassAtivo(false);
+        }
+      }
+    };
+
+    void verificarMaylonPass();
+
+    return () => {
+      cancelado = true;
+    };
+  }, [usuario?.id, usuario?.user_type, usuario?.userType]);
 
   useEffect(() => {
     const savedSidebar =
@@ -2336,65 +2428,51 @@ export default function PerfilPage() {
 
         <div className="grid gap-7 lg:grid-cols-[minmax(0,1fr)_360px]">
           <div className="min-w-0 space-y-7">
-            <section className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
-              <div className="flex flex-col gap-4 border-b border-slate-100 pb-5 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#35a989]/10 text-[#35a989]">
-                    <ShieldCheck className="h-5 w-5" />
+            <section className="rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+              {/* Cabeçalho */}
+              <div className="flex flex-col gap-4 border-b border-slate-100 pb-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex min-w-0 items-center gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#35a989]/10 text-[#35a989]">
+                    <ShieldCheck className="h-[18px] w-[18px]" />
                   </div>
 
-                  <div>
-                    <h2 className="text-lg font-bold text-slate-900">
+                  <div className="min-w-0">
+                    <h2 className="text-base font-bold leading-tight text-slate-900 sm:text-lg">
                       Verificação da conta
                     </h2>
 
-                    <p className="mt-0.5 text-sm text-slate-500">
+                    <p className="mt-0 text-xs leading-relaxed text-slate-500 sm:text-sm">
                       Acompanhe o status das suas verificações.
                     </p>
                   </div>
                 </div>
 
                 {possuiVerificacaoPendente && (
-                  <span className="inline-flex w-fit items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700">
+                  <span className="inline-flex w-fit shrink-0 items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 text-[11px] font-semibold text-amber-700 sm:text-xs">
                     <Clock3 className="h-3.5 w-3.5" />
-                    Existem verificações em análise
+                    <span>Verificações em análise</span>
                   </span>
                 )}
               </div>
 
-              <div className="mt-6 grid gap-4 xl:grid-cols-2">
+              {/* Verificações */}
+              <div className="mt-4 grid gap-3 lg:grid-cols-2">
                 <VerificationCard
                   title="Justificativa"
                   description="Validação das informações e documentos necessários para sua conta."
-                  verification={
-                    verificationJustification
-                  }
-                  icon={
-                    <FileCheck2 className="h-5 w-5" />
-                  }
-                  onRefresh={
-                    atualizarVerificacoes
-                  }
-                  refreshing={
-                    refreshingVerification
-                  }
+                  verification={verificationJustification}
+                  icon={<FileCheck2 className="h-5 w-5" />}
+                  onRefresh={atualizarVerificacoes}
+                  refreshing={refreshingVerification}
                 />
 
                 <VerificationCard
                   title="LiveSheet / Liveness"
                   description="Verificação de identidade e prova de vida."
-                  verification={
-                    verificationLivesheet
-                  }
-                  icon={
-                    <Eye className="h-5 w-5" />
-                  }
-                  onRefresh={
-                    atualizarVerificacoes
-                  }
-                  refreshing={
-                    refreshingVerification
-                  }
+                  verification={verificationLivesheet}
+                  icon={<Eye className="h-5 w-5" />}
+                  onRefresh={atualizarVerificacoes}
+                  refreshing={refreshingVerification}
                 />
               </div>
             </section>
@@ -2633,6 +2711,63 @@ export default function PerfilPage() {
           </div>
 
           <aside className="space-y-5">
+            {/* Cartão virtual Maylon Pass — só aparece quando o usuário
+                possui o benefício Maylon Pass efetivamente ativo. */}
+            {possuiMaylonPassAtivo && (
+              <section className="mb-7 overflow-hidden rounded-[30px]">
+                <div className="mx-auto w-full max-w-5xl">
+                  <div className="relative aspect-[1585/992] w-full overflow-hidden rounded-[24px] shadow-lg ring-1 ring-black/5">
+                    <Image
+                      src="/cartao_maylon_pass.png"
+                      alt="Cartão virtual Maylon Pass"
+                      fill
+                      priority
+                      sizes="(max-width: 1024px) 100vw, 1024px"
+                      className="object-cover"
+                    />
+                    <div className="absolute left-[4%] top-[56%] flex w-[100%] items-end gap-[8%]">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[clamp(6px,0.65vw,9px)] font-medium uppercase tracking-[0.12em] text-white/70">
+                          Titular
+                        </p>
+                        <p className="mt-1 truncate text-[clamp(9px,1.05vw,15px)] font-bold uppercase leading-none text-white">
+                          {usuario?.full_name ||
+                            usuario?.full_name ||
+                            usuario?.name ||
+                            usuario?.nome ||
+                            "NOME COMPLETO"}
+                        </p>
+                      </div>
+                      <div className="shrink-0">
+                        <p className="text-[clamp(6px,0.65vw,9px)] font-medium uppercase tracking-[0.12em] text-white/70">
+                          Data da aquisição
+                        </p>
+                        <p className="mt-1 text-[clamp(9px,1vw,14px)] font-semibold leading-none text-white">
+                          {usuario?.data_aquisicao
+                            ? new Date(usuario.data_aquisicao).toLocaleDateString("pt-BR")
+                            : usuario?.data_aquisicao
+                              ? new Date(usuario.data_aquisicao).toLocaleDateString("pt-BR")
+                              : "--/--/----"}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="absolute left-[4%] top-[75%]">
+                      <p className="text-[clamp(6px,0.65vw,9px)] font-medium uppercase tracking-[0.12em] text-white/70">
+                        Plano
+                      </p>
+                      <p className="mt-1 text-[clamp(10px,1.1vw,16px)] font-bold leading-none text-white">
+                        {usuario?.nome_plano ||
+                          usuario?.plano_nome ||
+                          usuario?.plano_nome ||
+                          usuario?.plano ||
+                          "Maylon Pass"}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </section>
+            )}
+
             <section className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
               <div className="flex items-center gap-3">
                 <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#35a989]/10 text-[#35a989]">
