@@ -101,18 +101,28 @@ export default function ViagensPage() {
     return (
       <main className="min-h-screen bg-transparent">
         <div className="flex min-h-screen items-center justify-center px-4">
-          <div className="flex w-full max-w-[340px] flex-col items-center rounded-[28px] bg-white p-10 text-center shadow-xl ring-1 ring-black/5">
-            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[#e8f7f3]">
+          <div className="flex w-full max-w-[280px] flex-col items-center rounded-2xl bg-white p-6 text-center shadow-xl ring-1 ring-black/5 sm:max-w-[320px] sm:rounded-[24px] sm:p-8 md:max-w-[340px] md:rounded-[28px] md:p-10">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#e8f7f3] sm:h-14 sm:w-14 sm:rounded-2xl md:h-16 md:w-16">
+              <Loader2
+                size={24}
+                strokeWidth={2.5}
+                className="animate-spin text-[#35a989] sm:hidden"
+              />
+              <Loader2
+                size={28}
+                strokeWidth={2.5}
+                className="hidden animate-spin text-[#35a989] sm:block md:hidden"
+              />
               <Loader2
                 size={32}
                 strokeWidth={2.5}
-                className="animate-spin text-[#35a989]"
+                className="hidden animate-spin text-[#35a989] md:block"
               />
             </div>
-            <p className="mt-5 text-sm font-bold text-[#23886f]">
+            <p className="mt-4 text-xs font-bold text-[#23886f] sm:mt-5 sm:text-sm">
               Carregando viagens
             </p>
-            <p className="mt-1 text-xs text-slate-400">
+            <p className="mt-1 text-[11px] text-slate-400 sm:text-xs">
               Aguarde um momento...
             </p>
           </div>
@@ -122,45 +132,48 @@ export default function ViagensPage() {
   }
 
   return (
-    <main className="min-h-screen overflow-hidden text-slate-900">
-      <section className="overflow-hidden rounded-[28px] border border-slate-200/80 bg-white shadow-[0_10px_40px_rgba(15,23,42,0.06)]">
-        <div className="flex flex-col gap-4 border-b border-slate-100 px-5 py-5 sm:px-6 lg:flex-row lg:items-center lg:justify-between">
-          <div>
+    <main className="min-h-screen min-w-0 w-full overflow-hidden text-slate-900">
+      <section className="min-w-0 w-full overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-[0_10px_40px_rgba(15,23,42,0.06)] sm:rounded-[24px] lg:rounded-[28px]">
+        <div className="flex flex-row items-center justify-between gap-3 border-b border-slate-100 px-4 py-4 sm:gap-4 sm:px-6 sm:py-5">
+          <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#e8f7f3]">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#e8f7f3] sm:h-9 sm:w-9 sm:rounded-xl">
+                <Route
+                  size={15}
+                  strokeWidth={2.3}
+                  className="text-[#35a989] sm:hidden"
+                />
                 <Route
                   size={17}
                   strokeWidth={2.3}
-                  className="text-[#35a989]"
+                  className="hidden text-[#35a989] sm:block"
                 />
               </div>
-              <h2 className="text-lg font-extrabold text-slate-900">
+              <h2 className="truncate text-base font-extrabold text-slate-900 sm:text-lg">
                 Histórico de viagens
               </h2>
             </div>
-            <p className="mt-1.5 text-xs text-slate-400 sm:text-sm">
+            <p className="mt-0 hidden text-xs text-slate-400 sm:mt-1.5 sm:block sm:text-sm">
               Dados carregados diretamente do sistema.
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => void loadTrips()}
-              disabled={loading}
-              className="group cursor-pointer inline-flex cursor-pointer items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-600 shadow-sm transition-all hover:border-[#35a989] hover:text-[#35a989] disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <RefreshCw
-                size={14}
-                className="transition-transform duration-500 group-hover:rotate-180"
-              />
-              Atualizar
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => void loadTrips()}
+            disabled={loading}
+            className="group inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs font-bold text-slate-600 shadow-sm transition-all hover:border-[#35a989] hover:text-[#35a989] disabled:cursor-not-allowed disabled:opacity-50 sm:gap-2 sm:rounded-xl sm:px-3.5"
+          >
+            <RefreshCw
+              size={14}
+              className="transition-transform duration-500 group-hover:rotate-180"
+            />
+            <span className="hidden sm:inline">Atualizar</span>
+          </button>
         </div>
 
-        <div className="w-full overflow-x-auto">
-          <div className="min-w-[1050px]">
+        <div className="w-full min-w-0 overflow-x-auto">
+          <div className="min-w-[720px] sm:min-w-[850px] lg:min-w-[1050px]">
             <TripsTable
               trips={currentTrips}
               loading={loading}
@@ -170,8 +183,8 @@ export default function ViagensPage() {
           </div>
         </div>
 
-        <div className="border-t border-slate-100 bg-slate-50/40 px-5 py-5 sm:px-6">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="border-t border-slate-100 bg-slate-50/40 px-4 py-4 sm:px-6 sm:py-5">
+          <div className="flex flex-col gap-3 sm:gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
               {viagens.length > 0 ? (
                 <p className="text-xs font-medium text-slate-500 sm:text-sm">
@@ -190,13 +203,13 @@ export default function ViagensPage() {
                   viagens
                 </p>
               ) : (
-                <p className="text-sm text-slate-400">
+                <p className="text-xs text-slate-400 sm:text-sm">
                   Nenhum registro disponível.
                 </p>
               )}
             </div>
 
-            <div className="flex items-center justify-between gap-2 sm:justify-end">
+            <div className="flex items-center justify-between gap-1.5 sm:gap-2 lg:justify-end">
               <button
                 type="button"
                 onClick={() =>
@@ -205,24 +218,22 @@ export default function ViagensPage() {
                   )
                 }
                 disabled={currentPage === 1}
-                className="group cursor-pointer inline-flex h-10 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-600 shadow-sm transition hover:border-[#35a989] hover:text-[#35a989] disabled:cursor-not-allowed disabled:opacity-40 sm:px-4 sm:text-sm"
+                className="group inline-flex h-9 cursor-pointer items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-bold text-slate-600 shadow-sm transition hover:border-[#35a989] hover:text-[#35a989] disabled:cursor-not-allowed disabled:opacity-40 sm:h-10 sm:gap-1.5 sm:rounded-xl sm:px-3 sm:text-sm md:px-4"
               >
                 <ChevronLeft
                   size={16}
                   className="transition-transform group-hover:-translate-x-0.5"
                 />
-                <span className="hidden sm:inline">
-                  Anterior
-                </span>
+                <span className="hidden sm:inline">Anterior</span>
               </button>
 
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1 sm:gap-1.5">
                 {paginationPages.map((page) => (
                   <button
                     key={page}
                     type="button"
                     onClick={() => setCurrentPage(page)}
-                    className={`h-10 cursor-pointer min-w-10 rounded-xl px-2 text-xs font-extrabold transition-all duration-200 sm:text-sm ${
+                    className={`h-9 min-w-9 cursor-pointer rounded-lg px-1.5 text-xs font-extrabold transition-all duration-200 sm:h-10 sm:min-w-10 sm:rounded-xl sm:px-2 sm:text-sm ${
                       currentPage === page
                         ? "bg-[#35a989] text-white shadow-md shadow-[#35a989]/20"
                         : "border border-slate-200 bg-white text-slate-600 hover:-translate-y-0.5 hover:border-[#35a989] hover:text-[#35a989]"
@@ -241,11 +252,9 @@ export default function ViagensPage() {
                   )
                 }
                 disabled={currentPage === totalPages}
-                className="group cursor-pointer inline-flex h-10 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-600 shadow-sm transition hover:border-[#35a989] hover:text-[#35a989] disabled:cursor-not-allowed disabled:opacity-40 sm:px-4 sm:text-sm"
+                className="group inline-flex h-9 cursor-pointer items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-bold text-slate-600 shadow-sm transition hover:border-[#35a989] hover:text-[#35a989] disabled:cursor-not-allowed disabled:opacity-40 sm:h-10 sm:gap-1.5 sm:rounded-xl sm:px-3 sm:text-sm md:px-4"
               >
-                <span className="hidden sm:inline">
-                  Próxima
-                </span>
+                <span className="hidden sm:inline">Próxima</span>
                 <ChevronRight
                   size={16}
                   className="transition-transform group-hover:translate-x-0.5"

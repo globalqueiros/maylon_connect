@@ -96,7 +96,7 @@ export default function Header({ toggleSidebar }: HeaderProps) {
   };
 
   return (
-    <header className="sticky top-0 z-[60] flex h-16 w-full items-center justify-between border-b border-gray-200 bg-white px-3 sm:px-4">
+    <header className="relative top-0 z-[60] flex h-16 w-full items-center justify-between border-b border-gray-200 bg-white px-3 sm:px-4">
       <div className="flex items-center">
         <button
           type="button"

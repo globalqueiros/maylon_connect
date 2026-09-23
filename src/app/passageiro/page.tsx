@@ -916,13 +916,13 @@ export default function PassageiroDashboard() {
 
   return (
     <main className="min-h-screen text-white">
-      <div className="mx-auto max-w-8xl">
+      <div className="mx-auto w-full max-w-8xl px-3 sm:px-4 md:px-6 lg:px-0 2xl:max-w-[1600px]">
 
         {/* HEADER */}
 
-        <section className="relative mt-3 overflow-hidden rounded-[32px] bg-white shadow-[0_20px_60px_rgba(6,43,79,0.12)]">
+        <section className="relative mt-3 overflow-hidden rounded-2xl sm:rounded-[28px] lg:rounded-[32px] bg-white shadow-[0_20px_60px_rgba(6,43,79,0.12)]">
 
-          <div className="relative min-h-[245px] overflow-hidden">
+          <div className="relative min-h-[190px] sm:min-h-[210px] md:min-h-[230px] lg:min-h-[245px] overflow-hidden">
             <div
               className="absolute inset-0 bg-cover bg-center"
               style={{
@@ -933,23 +933,23 @@ export default function PassageiroDashboard() {
 
             <div className="absolute inset-0 bg-gradient-to-br from-[#0a9d86]/95 via-[#0b9b85]/80 to-[#062b4f]/85" />
 
-            <div className="absolute -right-24 -top-32 h-80 w-80 rounded-full bg-white/10 blur-3xl" />
+            <div className="absolute -right-16 -top-20 h-56 w-56 sm:-right-24 sm:-top-32 sm:h-80 sm:w-80 rounded-full bg-white/10 blur-3xl" />
 
-            <div className="absolute -bottom-40 right-1/4 h-80 w-80 rounded-full bg-[#5be0c8]/10 blur-3xl" />
+            <div className="absolute -bottom-28 right-1/4 h-56 w-56 sm:-bottom-40 sm:h-80 sm:w-80 rounded-full bg-[#5be0c8]/10 blur-3xl" />
 
-            <div className="relative z-10 px-6 py-8 sm:px-8 lg:px-12 lg:py-10">
-              <p className="mt-7 text-base font-medium text-white/85">
+            <div className="relative z-10 px-4 py-6 sm:px-6 sm:py-7 md:px-8 md:py-8 lg:px-10 lg:py-9 xl:px-12 xl:py-10">
+              <p className="mt-4 sm:mt-6 lg:mt-7 text-sm sm:text-base font-medium text-white/85">
                 {texto},
               </p>
 
-              <h1 className="mt-1 max-w-3xl text-3xl font-black tracking-tight text-white sm:text-4xl lg:text-5xl">
+              <h1 className="mt-1 max-w-3xl text-2xl sm:text-3xl md:text-3xl lg:text-4xl xl:text-5xl font-black tracking-tight text-white">
                 {loading
                   ? "Carregando..."
                   : user?.full_name ||
                   "Bem-vindo à Maylon"}
               </h1>
 
-              <p className="mt-3 max-w-2xl text-sm leading-6 text-white/80 sm:text-base">
+              <p className="mt-2 sm:mt-3 max-w-2xl text-xs sm:text-sm leading-6 text-white/80 lg:text-base">
                 Acompanhe suas viagens, seus gastos
                 e tudo o que acontece na sua conta
                 Maylon.
@@ -962,7 +962,7 @@ export default function PassageiroDashboard() {
         {/* ERRO */}
 
         {error && (
-          <div className="mt-6 rounded-2xl border border-red-200 bg-white px-5 py-4 text-sm text-red-600 shadow-sm">
+          <div className="mt-5 sm:mt-6 rounded-xl sm:rounded-2xl border border-red-200 bg-white px-4 py-3 sm:px-5 sm:py-4 text-xs sm:text-sm text-red-600 shadow-sm">
             <strong>
               Erro ao carregar viagens:
             </strong>{" "}
@@ -972,9 +972,9 @@ export default function PassageiroDashboard() {
 
         {banners.length > 0 &&
           banners[0]?.image && (
-            <section className="mt-7 overflow-hidden rounded-[28px] border border-white/60 bg-white shadow-[0_15px_45px_rgba(6,43,79,0.1)]">
+            <section className="mt-5 sm:mt-6 lg:mt-7 overflow-hidden rounded-2xl sm:rounded-[24px] lg:rounded-[28px] border border-white/60 bg-white shadow-[0_15px_45px_rgba(6,43,79,0.1)]">
 
-              <div className="relative min-h-[220px] overflow-hidden sm:min-h-[240px]">
+              <div className="relative min-h-[150px] sm:min-h-[180px] md:min-h-[200px] lg:min-h-[220px] xl:min-h-[240px] overflow-hidden">
 
                 <img
                   src={banners[0].image}
@@ -983,11 +983,12 @@ export default function PassageiroDashboard() {
                     "Banner Maylon"
                   }
                   className="absolute inset-0 h-full w-full object-cover"
+                  loading="lazy"
                 />
 
                 <div className="absolute inset-0" />
 
-                <div className="relative z-10 flex min-h-[250px] items-center px-7 py-8 sm:min-h-[260px] sm:px-10 lg:px-12">
+                <div className="relative z-10 flex min-h-[150px] sm:min-h-[180px] md:min-h-[210px] lg:min-h-[250px] xl:min-h-[260px] items-center px-4 py-6 sm:px-6 sm:py-7 md:px-8 md:py-8 lg:px-10 xl:px-12">
 
                 </div>
               </div>
@@ -998,56 +999,57 @@ export default function PassageiroDashboard() {
 
         <section className="mt-1">
 
-          <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div className="mb-4 sm:mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <h2 className="mt-1 text-2xl font-black tracking-tight text-white">
+              <h2 className="mt-1 text-xl sm:text-2xl font-black tracking-tight text-white">
                 Sua movimentação
               </h2>
 
-              <p className="mt-0 text-sm text-white">
+              <p className="mt-0 text-xs sm:text-sm text-white">
                 Uma visão rápida da sua atividade na Maylon.
               </p>
             </div>
 
             <Link
               href="/passageiro/viagens"
-              className="inline-flex items-center gap-2 self-start rounded-xl border border-[#dce5e9] bg-white px-4 py-2.5 text-sm font-bold text-[#163a59] shadow-sm transition hover:border-[#08a89d] hover:text-[#08a89d] sm:self-auto"
+              className="inline-flex items-center gap-2 self-start rounded-xl border border-[#dce5e9] bg-white px-3.5 py-2 sm:px-4 sm:py-2.5 text-xs sm:text-sm font-bold text-[#163a59] shadow-sm transition hover:border-[#08a89d] hover:text-[#08a89d] sm:self-auto"
             >
               Ver histórico
               <ArrowUpRight size={16} />
             </Link>
           </div>
 
-          <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3">
 
             {/* CARD 1 */}
 
-            <div className="group relative overflow-hidden rounded-[26px] border border-[#e2ebee] bg-white p-6 shadow-[0_10px_35px_rgba(6,43,79,0.07)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_18px_45px_rgba(6,43,79,0.11)]">
+            <div className="group relative overflow-hidden rounded-2xl sm:rounded-[26px] border border-[#e2ebee] bg-white p-5 sm:p-6 shadow-[0_10px_35px_rgba(6,43,79,0.07)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_18px_45px_rgba(6,43,79,0.11)]">
 
               <div className="absolute -right-12 -top-12 h-32 w-32 rounded-full bg-[#08a89d]/5 transition group-hover:scale-125" />
 
               <div className="relative">
                 <div className="flex items-start justify-between">
-                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#e5f8f4] text-[#08a89d]">
-                    <Car size={25} />
+                  <div className="flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-2xl bg-[#e5f8f4] text-[#08a89d]">
+                    <Car size={22} className="sm:hidden" />
+                    <Car size={25} className="hidden sm:block" />
                   </div>
 
-                  <span className="rounded-full bg-[#effaf8] px-3 py-1 text-[10px] font-bold uppercase tracking-wide text-[#078f80]">
+                  <span className="rounded-full bg-[#effaf8] px-2.5 py-1 sm:px-3 text-[9px] sm:text-[10px] font-bold uppercase tracking-wide text-[#078f80]">
                     Mês atual
                   </span>
                 </div>
 
-                <p className="mt-6 text-sm font-semibold text-[#71869a]">
+                <p className="mt-5 sm:mt-6 text-xs sm:text-sm font-semibold text-[#71869a]">
                   Viagens no mês
                 </p>
 
-                <p className="mt-1 text-3xl font-black text-[#062b4f]">
+                <p className="mt-1 text-2xl sm:text-3xl font-black text-[#062b4f]">
                   {loading
                     ? "—"
                     : viagensMes.length}
                 </p>
 
-                <p className="mt-2 text-xs font-medium text-[#08a89d]">
+                <p className="mt-2 text-[11px] sm:text-xs font-medium text-[#08a89d]">
                   Atividade deste mês
                 </p>
               </div>
@@ -1055,32 +1057,33 @@ export default function PassageiroDashboard() {
 
             {/* CARD 2 */}
 
-            <div className="group relative overflow-hidden rounded-[26px] border border-[#e2ebee] bg-white p-6 shadow-[0_10px_35px_rgba(6,43,79,0.07)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_18px_45px_rgba(6,43,79,0.11)]">
+            <div className="group relative overflow-hidden rounded-2xl sm:rounded-[26px] border border-[#e2ebee] bg-white p-5 sm:p-6 shadow-[0_10px_35px_rgba(6,43,79,0.07)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_18px_45px_rgba(6,43,79,0.11)]">
 
               <div className="absolute -right-12 -top-12 h-32 w-32 rounded-full bg-[#0c75bd]/5 transition group-hover:scale-125" />
 
               <div className="relative">
                 <div className="flex items-start justify-between">
-                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#e5f8f4] text-[#08a89d]">
-                    <Car size={25} />
+                  <div className="flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-2xl bg-[#e5f8f4] text-[#08a89d]">
+                    <Car size={22} className="sm:hidden" />
+                    <Car size={25} className="hidden sm:block" />
                   </div>
 
-                  <span className="rounded-full bg-[#effaf8] px-3 py-1 text-[10px] font-bold uppercase tracking-wide text-[#078f80]">
+                  <span className="rounded-full bg-[#effaf8] px-2.5 py-1 sm:px-3 text-[9px] sm:text-[10px] font-bold uppercase tracking-wide text-[#078f80]">
                     Histórico
                   </span>
                 </div>
 
-                <p className="mt-6 text-sm font-semibold text-[#71869a]">
+                <p className="mt-5 sm:mt-6 text-xs sm:text-sm font-semibold text-[#71869a]">
                   Total de viagens
                 </p>
 
-                <p className="mt-1 text-3xl font-black text-[#062b4f]">
+                <p className="mt-1 text-2xl sm:text-3xl font-black text-[#062b4f]">
                   {loading
                     ? "—"
                     : totalViagens}
                 </p>
 
-                <p className="mt-2 text-xs font-medium text-[#1676b7]">
+                <p className="mt-2 text-[11px] sm:text-xs font-medium text-[#1676b7]">
                   Todas as viagens registradas
                 </p>
               </div>
@@ -1088,26 +1091,27 @@ export default function PassageiroDashboard() {
 
             {/* CARD 3 */}
 
-            <div className="group relative overflow-hidden rounded-[26px] border border-[#e2ebee] bg-white p-6 shadow-[0_10px_35px_rgba(6,43,79,0.07)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_18px_45px_rgba(6,43,79,0.11)]">
+            <div className="group relative overflow-hidden rounded-2xl sm:rounded-[26px] border border-[#e2ebee] bg-white p-5 sm:p-6 shadow-[0_10px_35px_rgba(6,43,79,0.07)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_18px_45px_rgba(6,43,79,0.11)] sm:col-span-2 lg:col-span-1">
 
               <div className="absolute -right-12 -top-12 h-32 w-32 rounded-full bg-[#08a89d]/5 transition group-hover:scale-125" />
 
               <div className="relative">
                 <div className="flex items-start justify-between">
-                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#e5f8f4] text-[#08a89d]">
-                    <Wallet size={25} />
+                  <div className="flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-2xl bg-[#e5f8f4] text-[#08a89d]">
+                    <Wallet size={22} className="sm:hidden" />
+                    <Wallet size={25} className="hidden sm:block" />
                   </div>
 
-                  <span className="rounded-full bg-[#effaf8] px-3 py-1 text-[10px] font-bold uppercase tracking-wide text-[#078f80]">
+                  <span className="rounded-full bg-[#effaf8] px-2.5 py-1 sm:px-3 text-[9px] sm:text-[10px] font-bold uppercase tracking-wide text-[#078f80]">
                     Gastos
                   </span>
                 </div>
 
-                <p className="mt-6 text-sm font-semibold text-[#71869a]">
+                <p className="mt-5 sm:mt-6 text-xs sm:text-sm font-semibold text-[#71869a]">
                   Gasto do mês
                 </p>
 
-                <p className="mt-1 text-3xl font-black text-[#062b4f]">
+                <p className="mt-1 text-2xl sm:text-3xl font-black text-[#062b4f]">
                   {loading
                     ? "—"
                     : formatCurrency(
@@ -1115,7 +1119,7 @@ export default function PassageiroDashboard() {
                     )}
                 </p>
 
-                <p className="mt-2 text-xs font-medium text-[#08a89d]">
+                <p className="mt-2 text-[11px] sm:text-xs font-medium text-[#08a89d]">
                   Total acumulado no mês
                 </p>
               </div>
@@ -1125,42 +1129,42 @@ export default function PassageiroDashboard() {
 
         {/* CONTEÚDO PRINCIPAL */}
 
-        <section className="mt-7 grid grid-cols-1 gap-7 xl:grid-cols-[1.45fr_0.95fr]">
+        <section className="mt-6 sm:mt-7 grid grid-cols-1 gap-5 sm:gap-6 lg:gap-7 xl:grid-cols-[1.45fr_0.95fr] 2xl:grid-cols-[1.6fr_1fr]">
 
           {/* GRÁFICO */}
 
-          <div className="overflow-hidden rounded-[28px] border border-[#e2ebee] bg-white shadow-[0_12px_40px_rgba(6,43,79,0.07)]">
+          <div className="overflow-hidden rounded-2xl sm:rounded-[28px] border border-[#e2ebee] bg-white shadow-[0_12px_40px_rgba(6,43,79,0.07)]">
 
-            <div className="flex flex-col gap-4 border-b border-[#edf1f4] px-6 py-6 sm:flex-row sm:items-center sm:justify-between lg:px-8">
+            <div className="flex flex-col gap-3 sm:gap-4 border-b border-[#edf1f4] px-4 py-5 sm:px-6 sm:py-6 sm:flex-row sm:items-center sm:justify-between lg:px-8">
 
               <div>
                 <div className="flex items-center gap-3">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#e5f8f4] text-[#08a89d]">
+                  <div className="flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-xl bg-[#e5f8f4] text-[#08a89d]">
                     <Car size={20} />
                   </div>
 
                   <div>
-                    <h2 className="text-lg font-black text-[#062b4f]">
+                    <h2 className="text-base sm:text-lg font-black text-[#062b4f]">
                       Atividade recente
                     </h2>
 
-                    <p className="mt-0 text-xs text-[#71869a]">
+                    <p className="mt-0 text-[11px] sm:text-xs text-[#71869a]">
                       Viagens dos últimos 7 dias
                     </p>
                   </div>
                 </div>
               </div>
 
-              <div className="self-start rounded-xl bg-[#eaf8f5] px-4 py-2 text-xs font-bold text-[#078f80] sm:self-auto">
+              <div className="self-start rounded-xl bg-[#eaf8f5] px-3.5 py-1.5 sm:px-4 sm:py-2 text-[11px] sm:text-xs font-bold text-[#078f80] sm:self-auto">
                 Últimos 7 dias
               </div>
             </div>
 
-            <div className="p-6 lg:p-8">
+            <div className="p-4 sm:p-6 lg:p-8">
 
-              <div className="relative h-[310px] w-full">
+              <div className="relative h-[240px] sm:h-[270px] md:h-[290px] lg:h-[310px] w-full">
 
-                <div className="absolute inset-0 flex flex-col justify-between pb-10 pt-3">
+                <div className="absolute inset-0 flex flex-col justify-between pb-9 sm:pb-10 pt-3">
                   {[4, 3, 2, 1, 0].map(
                     (item) => (
                       <div
@@ -1173,7 +1177,7 @@ export default function PassageiroDashboard() {
                   )}
                 </div>
 
-                <div className="absolute inset-0 flex items-end gap-2 px-1 pb-10 pt-5 sm:gap-4">
+                <div className="absolute inset-0 flex items-end gap-1.5 px-1 pb-9 pt-5 sm:gap-2 sm:pb-10 md:gap-3 lg:gap-4">
 
                   {chartData.map(
                     (item, index) => {
@@ -1195,7 +1199,7 @@ export default function PassageiroDashboard() {
 
                           {item.value > 0 && (
                             <div
-                              className="absolute left-1/2 z-20 flex -translate-x-1/2 -translate-y-2 items-center justify-center rounded-lg bg-[#062b4f] px-2 py-1 text-[10px] font-bold text-white opacity-0 shadow-lg transition group-hover:opacity-100"
+                              className="absolute left-1/2 z-20 flex -translate-x-1/2 -translate-y-2 items-center justify-center rounded-lg bg-[#062b4f] px-1.5 py-0.5 sm:px-2 sm:py-1 text-[9px] sm:text-[10px] font-bold text-white opacity-0 shadow-lg transition group-hover:opacity-100"
                               style={{
                                 bottom: `${height}%`,
                               }}
@@ -1205,7 +1209,7 @@ export default function PassageiroDashboard() {
                           )}
 
                           <div
-                            className="relative w-full overflow-hidden rounded-t-2xl bg-gradient-to-t from-[#07947e] via-[#12aa91] to-[#54d1ba] shadow-[0_8px_20px_rgba(8,168,157,0.18)] transition duration-300 group-hover:from-[#067e6d] group-hover:to-[#3bc0a8]"
+                            className="relative w-full overflow-hidden rounded-t-xl sm:rounded-t-2xl bg-gradient-to-t from-[#07947e] via-[#12aa91] to-[#54d1ba] shadow-[0_8px_20px_rgba(8,168,157,0.18)] transition duration-300 group-hover:from-[#067e6d] group-hover:to-[#3bc0a8]"
                             style={{
                               height: `${height}%`,
                               opacity:
@@ -1217,7 +1221,7 @@ export default function PassageiroDashboard() {
                             <div className="absolute inset-x-0 top-0 h-1 bg-white/30" />
                           </div>
 
-                          <span className="absolute -bottom-8 left-1/2 -translate-x-1/2 whitespace-nowrap text-[10px] font-semibold text-[#71869a]">
+                          <span className="absolute -bottom-7 sm:-bottom-8 left-1/2 -translate-x-1/2 whitespace-nowrap text-[9px] sm:text-[10px] font-semibold text-[#71869a]">
                             {item.label}
                           </span>
                         </div>
@@ -1229,17 +1233,21 @@ export default function PassageiroDashboard() {
                 {!loading &&
                   rows.length === 0 && (
                     <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="rounded-2xl border border-dashed border-[#dbe5e9] bg-[#fbfcfd] px-6 py-5 text-center">
+                      <div className="rounded-2xl border border-dashed border-[#dbe5e9] bg-[#fbfcfd] px-5 py-4 sm:px-6 sm:py-5 text-center">
+                        <Car
+                          size={26}
+                          className="mx-auto text-[#9aafbd] sm:hidden"
+                        />
                         <Car
                           size={28}
-                          className="mx-auto text-[#9aafbd]"
+                          className="mx-auto hidden text-[#9aafbd] sm:block"
                         />
 
-                        <p className="mt-2 text-sm font-semibold text-[#506a82]">
+                        <p className="mt-2 text-xs sm:text-sm font-semibold text-[#506a82]">
                           Nenhuma viagem encontrada
                         </p>
 
-                        <p className="mt-1 text-xs text-[#8ca0b2]">
+                        <p className="mt-1 text-[11px] sm:text-xs text-[#8ca0b2]">
                           Suas próximas viagens aparecerão aqui.
                         </p>
                       </div>
@@ -1251,36 +1259,36 @@ export default function PassageiroDashboard() {
 
           {/* ATIVIDADES */}
 
-          <div className="overflow-hidden rounded-[28px] border border-[#e2ebee] bg-white shadow-[0_12px_40px_rgba(6,43,79,0.07)]">
+          <div className="overflow-hidden rounded-2xl sm:rounded-[28px] border border-[#e2ebee] bg-white shadow-[0_12px_40px_rgba(6,43,79,0.07)]">
 
-            <div className="flex items-center justify-between border-b border-[#edf1f4] px-6 py-6">
+            <div className="flex items-center justify-between border-b border-[#edf1f4] px-4 py-5 sm:px-6 sm:py-6">
 
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#08a89d]">
+                <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-[0.16em] text-[#08a89d]">
                   Histórico
                 </p>
 
-                <h2 className="my-0 text-lg font-black text-[#062b4f]">
+                <h2 className="my-0 text-base sm:text-lg font-black text-[#062b4f]">
                   Últimas atividades
                 </h2>
 
-                <p className="mt-0 text-xs text-[#71869a]">
+                <p className="mt-0 text-[11px] sm:text-xs text-[#71869a]">
                   Suas viagens mais recentes
                 </p>
               </div>
 
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#e6f7f4] text-[#08a89d]">
+              <div className="flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-xl bg-[#e6f7f4] text-[#08a89d]">
                 <Clock3 size={20} />
               </div>
             </div>
 
-            <div className="px-6">
+            <div className="px-4 sm:px-6">
 
               {loading && (
-                <div className="py-12 text-center">
-                  <div className="mx-auto h-7 w-7 animate-spin rounded-full border-2 border-[#dceceb] border-t-[#08a89d]" />
+                <div className="py-10 sm:py-12 text-center">
+                  <div className="mx-auto h-6 w-6 sm:h-7 sm:w-7 animate-spin rounded-full border-2 border-[#dceceb] border-t-[#08a89d]" />
 
-                  <p className="mt-3 text-xs font-medium text-[#71869a]">
+                  <p className="mt-3 text-[11px] sm:text-xs font-medium text-[#71869a]">
                     Carregando atividades...
                   </p>
                 </div>
@@ -1288,16 +1296,17 @@ export default function PassageiroDashboard() {
 
               {!loading &&
                 ultimasViagens.length === 0 && (
-                  <div className="py-12 text-center">
-                    <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#f2f6f7] text-[#91a5b3]">
-                      <CalendarDays size={23} />
+                  <div className="py-10 sm:py-12 text-center">
+                    <div className="mx-auto flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-2xl bg-[#f2f6f7] text-[#91a5b3]">
+                      <CalendarDays size={22} className="sm:hidden" />
+                      <CalendarDays size={23} className="hidden sm:block" />
                     </div>
 
-                    <p className="mt-4 text-sm font-bold text-[#506a82]">
+                    <p className="mt-4 text-xs sm:text-sm font-bold text-[#506a82]">
                       Nenhuma atividade recente
                     </p>
 
-                    <p className="mt-1 text-xs text-[#8ca0b2]">
+                    <p className="mt-1 text-[11px] sm:text-xs text-[#8ca0b2]">
                       Você ainda não possui viagens.
                     </p>
                   </div>
@@ -1315,24 +1324,29 @@ export default function PassageiroDashboard() {
 
                       window.location.href = `/passageiro/viagens/${tripId}`;
                     }}
-                    className="group flex cursor-pointer gap-3 border-b border-[#edf1f4] py-5 transition hover:bg-[#f8fbfc] last:border-0"
+                    className="group flex cursor-pointer gap-2.5 sm:gap-3 border-b border-[#edf1f4] py-4 sm:py-5 transition hover:bg-[#f8fbfc] last:border-0"
                   >
-                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#e6f7f4] text-[#08a89d] transition group-hover:bg-[#08a89d] group-hover:text-white">
+                    <div className="flex h-10 w-10 sm:h-11 sm:w-11 shrink-0 items-center justify-center rounded-xl bg-[#e6f7f4] text-[#08a89d] transition group-hover:bg-[#08a89d] group-hover:text-white">
                       {index === 0 ? (
-                        <CheckCircle2 size={19} />
+                        <CheckCircle2 size={18} className="sm:hidden" />
                       ) : (
-                        <CalendarDays size={19} />
+                        <CalendarDays size={18} className="sm:hidden" />
+                      )}
+                      {index === 0 ? (
+                        <CheckCircle2 size={19} className="hidden sm:block" />
+                      ) : (
+                        <CalendarDays size={19} className="hidden sm:block" />
                       )}
                     </div>
 
                     <div className="min-w-0 flex-1">
                       <div className="flex items-start justify-between gap-2">
-                        <p className="truncate text-sm font-bold text-[#163a59]">
+                        <p className="truncate text-xs sm:text-sm font-bold text-[#163a59]">
                           {getTripTitle(trip)}
                         </p>
 
                         <span
-                          className={`shrink-0 rounded-full border px-2 py-1 text-[9px] font-bold ${getTripStatusClass(
+                          className={`shrink-0 rounded-full border px-1.5 py-0.5 sm:px-2 sm:py-1 text-[8px] sm:text-[9px] font-bold ${getTripStatusClass(
                             trip.status
                           )}`}
                         >
@@ -1340,7 +1354,7 @@ export default function PassageiroDashboard() {
                         </span>
                       </div>
 
-                      <div className="mt-2 flex items-center gap-1.5 text-xs text-[#71869a]">
+                      <div className="mt-1.5 sm:mt-2 flex items-center gap-1.5 text-[11px] sm:text-xs text-[#71869a]">
                         <MapPin size={12} className="shrink-0" />
 
                         <span className="truncate">
@@ -1348,7 +1362,7 @@ export default function PassageiroDashboard() {
                         </span>
                       </div>
 
-                      <div className="mt-2 flex items-center gap-3 text-[10px] text-[#8ca0b2]">
+                      <div className="mt-1.5 sm:mt-2 flex items-center gap-2.5 sm:gap-3 text-[9px] sm:text-[10px] text-[#8ca0b2]">
                         <span>{formatDate(trip.created_at)}</span>
 
                         <span className="h-1 w-1 rounded-full bg-[#c5d1d8]" />
@@ -1360,10 +1374,10 @@ export default function PassageiroDashboard() {
                 ))}
             </div>
 
-            <div className="p-6 pt-3">
+            <div className="p-4 pt-2 sm:p-6 sm:pt-3">
               <Link
                 href="/passageiro/viagens"
-                className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#08a89d] px-4 py-3.5 text-sm font-bold text-white shadow-[0_8px_20px_rgba(8,168,157,0.2)] transition hover:-translate-y-0.5 hover:bg-[#078f80]"
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#08a89d] px-4 py-3 sm:py-3.5 text-xs sm:text-sm font-bold text-white shadow-[0_8px_20px_rgba(8,168,157,0.2)] transition hover:-translate-y-0.5 hover:bg-[#078f80]"
               >
                 Ver todas as viagens
                 <ArrowUpRight size={17} />

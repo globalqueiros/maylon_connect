@@ -269,9 +269,9 @@ export default function VisualizacaoViagem() {
   if (loading) {
     return (
       <main className="flex min-h-screen items-center justify-center px-4">
-        <div className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
-          <div className="mx-auto mb-4 h-9 w-9 animate-spin rounded-full border-4 border-slate-200 border-t-teal-600" />
-          <div className="text-sm font-bold text-slate-600">
+        <div className="w-full max-w-[280px] rounded-xl border border-slate-200 bg-white p-6 text-center shadow-sm sm:max-w-sm sm:rounded-2xl sm:p-8">
+          <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-teal-600 sm:h-9 sm:w-9" />
+          <div className="text-xs font-bold text-slate-600 sm:text-sm">
             Carregando viagem...
           </div>
         </div>
@@ -282,22 +282,23 @@ export default function VisualizacaoViagem() {
   if (erro || !viagem) {
     return (
       <main className="flex min-h-screen items-center justify-center px-4">
-        <div className="w-full max-w-md rounded-2xl border border-red-200 bg-white p-7 text-center shadow-sm">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-red-50 text-red-600">
-            <XCircle size={28} />
+        <div className="w-full max-w-sm rounded-xl border border-red-200 bg-white p-5 text-center shadow-sm sm:max-w-md sm:rounded-2xl sm:p-7">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-50 text-red-600 sm:h-14 sm:w-14">
+            <XCircle size={24} className="sm:hidden" />
+            <XCircle size={28} className="hidden sm:block" />
           </div>
 
-          <h1 className="mt-4 text-xl font-black text-slate-900">
+          <h1 className="mt-4 text-lg font-black text-slate-900 sm:text-xl">
             Viagem não encontrada
           </h1>
 
-          <div className="mt-2 text-sm leading-6 text-slate-500">
+          <div className="mt-2 text-xs leading-6 text-slate-500 sm:text-sm">
             {erro || "Não foi possível localizar esta viagem."}
           </div>
 
           <Link
             href="/passageiro/viagens"
-            className="mt-6 inline-flex items-center gap-2 rounded-xl bg-teal-600 px-5 py-3 text-sm font-black text-white transition hover:bg-teal-700"
+            className="mt-6 inline-flex items-center gap-2 rounded-xl bg-teal-600 px-4 py-2.5 text-xs font-black text-white transition hover:bg-teal-700 sm:px-5 sm:py-3 sm:text-sm"
           >
             <ArrowLeft size={17} />
             Voltar para viagens
@@ -863,49 +864,48 @@ export default function VisualizacaoViagem() {
     Number(comissao) > 0;
 
   return (
-    <main className="min-h-screen">
-      <div className="mx-auto max-w-8xl">
-        <div className="mb-5 flex items-center justify-between gap-3 print:hidden">
+    <main className="min-h-screen min-w-0">
+      <div className="mx-auto w-full min-w-0 max-w-8xl px-0 sm:px-0 md:px-2 lg:px-0 2xl:max-w-8xl">
+        <div className="mb-4 flex flex-col gap-2.5 sm:mb-5 sm:flex-row sm:items-center sm:justify-between sm:gap-3 print:hidden">
           <Link
             href="/passageiro/viagens"
-            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-600 shadow-sm transition hover:border-teal-200 hover:bg-teal-50 hover:text-teal-700"
+            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-600 shadow-sm transition hover:border-teal-200 hover:bg-teal-50 hover:text-teal-700 sm:px-4 sm:py-2.5 sm:text-sm"
           >
             <ArrowLeft size={17} />
             Voltar para viagens
           </Link>
-
           <button
             type="button"
             onClick={imprimirRecibo}
-            className="inline-flex cursor-pointer items-center gap-2 rounded-xl bg-[#087f73] px-4 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-[#066b61]"
+            className="inline-flex cursor-pointer items-center gap-2 rounded-xl bg-[#087f73] px-3.5 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-[#066b61] sm:px-4 sm:py-2.5 sm:text-sm"
           >
             <ReceiptText size={17} />
             Imprimir recibo
           </button>
         </div>
 
-        <section className="overflow-hidden rounded-[26px] border border-slate-200 bg-white shadow-sm print:rounded-none print:border-0 print:shadow-none">
+        <section className="min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm sm:rounded-[26px] print:rounded-none print:border-0 print:shadow-none">
           <header
-            className={`bg-gradient-to-r px-6 py-6 text-white md:px-8 print:px-5 print:py-4 ${statusConfig.header}`}
+            className={`bg-gradient-to-r px-4 py-5 text-white sm:px-6 sm:py-6 md:px-8 xl:px-10 print:px-5 print:py-4 ${statusConfig.header}`}
           >
-            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div className="flex flex-col gap-3 sm:gap-4 md:flex-row md:items-center md:justify-between">
               <div>
-                <div className="mb-2 flex items-center gap-2 text-xs font-bold text-white/75">
+                <div className="mb-2 flex items-center gap-2 text-[11px] font-bold text-white/75 sm:text-xs">
                   <ReceiptText size={15} />
                   Histórico de viagem
                 </div>
 
-                <h1 className="text-2xl font-black tracking-tight md:text-3xl">
+                <h1 className="text-xl font-black tracking-tight sm:text-2xl md:text-3xl">
                   Viagem #{viagem.id || id}
                 </h1>
 
-                <div className="mt-1 text-sm text-white/70">
+                <div className="mt-1 text-xs text-white/70 sm:text-sm">
                   Detalhes completos da sua viagem
                 </div>
               </div>
 
               <div
-                className={`inline-flex w-fit items-center gap-2 rounded-full border px-4 py-2 text-sm font-black ${statusConfig.badge}`}
+                className={`inline-flex w-fit items-center gap-2 rounded-full border px-3.5 py-1.5 text-xs font-black sm:px-4 sm:py-2 sm:text-sm ${statusConfig.badge}`}
               >
                 {statusConfig.icon}
                 {String(statusOriginal)}
@@ -913,17 +913,17 @@ export default function VisualizacaoViagem() {
             </div>
           </header>
 
-          <div className="px-5 pt-5 md:px-7">
+          <div className="px-4 pt-4 sm:px-5 sm:pt-5 md:px-7">
             {cancelada && (
-              <div className="flex items-start gap-3 rounded-2xl border border-red-200 bg-red-50 p-4">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-red-100 text-red-600">
+              <div className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-3.5 sm:rounded-2xl sm:p-4">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-red-100 text-red-600 sm:h-10 sm:w-10">
                   <XCircle size={19} />
                 </div>
                 <div>
-                  <h3 className="font-black text-red-800">
+                  <h3 className="text-sm font-black text-red-800 sm:text-base">
                     Viagem cancelada
                   </h3>
-                  <div className="mt-1 text-sm text-red-700">
+                  <div className="mt-1 text-xs text-red-700 sm:text-sm">
                     {String(motivoCancelamento)}
                   </div>
                 </div>
@@ -931,17 +931,17 @@ export default function VisualizacaoViagem() {
             )}
 
             {finalizada && (
-              <div className="flex items-start gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-600">
+              <div className="flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3.5 sm:rounded-2xl sm:p-4">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-600 sm:h-10 sm:w-10">
                   <CheckCircle2 size={19} />
                 </div>
 
                 <div>
-                  <h3 className="font-black text-emerald-800">
+                  <h3 className="text-sm font-black text-emerald-800 sm:text-base">
                     Viagem finalizada
                   </h3>
 
-                  <div className="mt-1 text-sm text-emerald-700">
+                  <div className="mt-1 text-xs text-emerald-700 sm:text-sm">
                     Viagem concluída com sucesso.
                   </div>
                 </div>
@@ -949,22 +949,22 @@ export default function VisualizacaoViagem() {
             )}
           </div>
 
-          <div className="p-5 md:p-7">
-            <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
-              <div className="space-y-5">
-                <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm print:shadow-none">
-                  <div className="mb-4 flex items-center justify-between">
+          <div className="p-4 sm:p-5 md:p-7">
+            <div className="grid gap-4 sm:gap-5 lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-6 xl:grid-cols-[minmax(0,1fr)_360px] 2xl:grid-cols-[minmax(0,1fr)_400px]">
+              <div className="min-w-0 space-y-4 sm:space-y-5">
+                <section className="min-w-0 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:rounded-2xl sm:p-5 print:shadow-none">
+                  <div className="mb-4 flex items-center justify-between gap-2">
                     <div>
-                      <div className="text-[10px] font-black uppercase tracking-[0.16em] text-teal-600">
+                      <div className="text-[9px] font-black uppercase tracking-[0.16em] text-teal-600 sm:text-[10px]">
                         Motorista
                       </div>
-                      <h2 className="mt-1 text-lg font-black text-slate-900">
+                      <h2 className="mt-1 text-base font-black text-slate-900 sm:text-lg">
                         Seu motorista
                       </h2>
                     </div>
                     {motoristaAvaliacao !== null &&
                       motoristaAvaliacao !== "" && (
-                        <div className="flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1.5 text-sm font-black text-amber-600">
+                        <div className="flex shrink-0 items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-1 text-xs font-black text-amber-600 sm:px-3 sm:py-1.5 sm:text-sm">
                           <Star
                             size={15}
                             fill="currentColor"
@@ -975,9 +975,9 @@ export default function VisualizacaoViagem() {
                         </div>
                       )}
                   </div>
-                  <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-5">
                     <div className="relative shrink-0">
-                      <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-teal-100 to-slate-100 ring-4 ring-white shadow-sm">
+                      <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-teal-100 to-slate-100 ring-4 ring-white shadow-sm sm:h-20 sm:w-20">
                         {motoristaFoto ? (
                           <img
                             src={String(motoristaFoto)}
@@ -986,26 +986,36 @@ export default function VisualizacaoViagem() {
                           />
                         ) : (
                           <UserRound
+                            size={28}
+                            className="text-teal-700 sm:hidden"
+                          />
+                        )}
+                        {!motoristaFoto && (
+                          <UserRound
                             size={34}
-                            className="text-teal-700"
+                            className="hidden text-teal-700 sm:block"
                           />
                         )}
                       </div>
 
-                      <span className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full border-2 border-white bg-emerald-500">
+                      <span className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full border-2 border-white bg-emerald-500 sm:h-6 sm:w-6">
+                        <CheckCircle2
+                          size={12}
+                          className="text-white sm:hidden"
+                        />
                         <CheckCircle2
                           size={14}
-                          className="text-white"
+                          className="hidden text-white sm:block"
                         />
                       </span>
                     </div>
 
                     <div className="min-w-0 flex-1">
-                      <h3 className="text-xl font-black text-slate-900">
+                      <h3 className="text-lg font-black text-slate-900 sm:text-xl">
                         {String(motoristaNome)}
                       </h3>
 
-                      <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-slate-500">
+                      <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500 sm:text-sm">
                         {motoristaAvaliacao !== null &&
                           motoristaAvaliacao !== "" && (
                             <span className="flex items-center gap-1">
@@ -1036,9 +1046,9 @@ export default function VisualizacaoViagem() {
                           )}
                       </div>
 
-                      <div className="mt-4 flex flex-wrap gap-2">
+                      <div className="mt-3 flex flex-wrap gap-2 sm:mt-4">
                         {categoria !== "-" && (
-                          <span className="rounded-lg bg-teal-50 px-3 py-1.5 text-xs font-bold text-teal-700">
+                          <span className="rounded-lg bg-teal-50 px-2.5 py-1.5 text-[11px] font-bold text-teal-700 sm:px-3 sm:text-xs">
                             {String(categoria)}
                           </span>
                         )}
@@ -1048,7 +1058,7 @@ export default function VisualizacaoViagem() {
                             href={`tel:${formatarTelefone(
                               motoristaTelefone
                             )}`}
-                            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-600 transition hover:border-teal-200 hover:text-teal-700 print:hidden"
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5 text-[11px] font-bold text-slate-600 transition hover:border-teal-200 hover:text-teal-700 sm:px-3 sm:text-xs print:hidden"
                           >
                             <Phone size={13} />
                             Contatar
@@ -1059,68 +1069,68 @@ export default function VisualizacaoViagem() {
                   </div>
                 </section>
 
-                <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm print:shadow-none">
+                <section className="min-w-0 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:rounded-2xl sm:p-5 print:shadow-none">
                   <div className="mb-4 flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-50 text-teal-700">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-teal-50 text-teal-700 sm:h-10 sm:w-10">
                       <CarFront size={19} />
                     </div>
 
                     <div>
-                      <h2 className="font-black text-slate-900">
+                      <h2 className="text-sm font-black text-slate-900 sm:text-base">
                         Veículo
                       </h2>
 
-                      <div className="text-xs text-slate-500">
+                      <div className="text-[11px] text-slate-500 sm:text-xs">
                         Informações do veículo utilizado
                       </div>
                     </div>
                   </div>
 
-                  <div className="grid gap-3 sm:grid-cols-3">
-                    <div className="rounded-xl bg-slate-50 p-4">
-                      <div className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                  <div className="grid grid-cols-3 gap-2 sm:gap-3">
+                    <div className="rounded-xl bg-slate-50 p-3.5 sm:p-4">
+                      <div className="text-[9px] font-black uppercase tracking-wider text-slate-400 sm:text-[10px]">
                         Modelo
                       </div>
 
-                      <div className="mt-1 font-black text-slate-800">
+                      <div className="mt-1 text-sm font-black text-slate-800 sm:text-base">
                         {String(veiculo)}
                       </div>
                     </div>
 
-                    <div className="rounded-xl bg-slate-50 p-4">
-                      <div className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                    <div className="rounded-xl bg-slate-50 p-3.5 sm:p-4">
+                      <div className="text-[9px] font-black uppercase tracking-wider text-slate-400 sm:text-[10px]">
                         Cor
                       </div>
 
-                      <div className="mt-1 font-black text-slate-800">
+                      <div className="mt-1 text-sm font-black text-slate-800 sm:text-base">
                         {String(cor)}
                       </div>
                     </div>
 
-                    <div className="rounded-xl bg-slate-50 p-4">
-                      <div className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                    <div className="rounded-xl bg-slate-50 p-3.5 sm:p-4">
+                      <div className="text-[9px] font-black uppercase tracking-wider text-slate-400 sm:text-[10px]">
                         Placa
                       </div>
 
-                      <div className="mt-1 font-black tracking-wide text-slate-800">
+                      <div className="mt-1 text-sm font-black tracking-wide text-slate-800 sm:text-base">
                         {String(placa)}
                       </div>
                     </div>
                   </div>
                 </section>
 
-                <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm print:shadow-none">
-                  <div className="mb-5 flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-50 text-teal-700">
+                <section className="min-w-0 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:rounded-2xl sm:p-5 print:shadow-none">
+                  <div className="mb-4 flex items-center gap-3 sm:mb-5">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-teal-50 text-teal-700 sm:h-10 sm:w-10">
                       <Navigation size={19} />
                     </div>
 
                     <div>
-                      <h2 className="font-black text-slate-900">
+                      <h2 className="text-sm font-black text-slate-900 sm:text-base">
                         Rota da viagem
                       </h2>
 
-                      <div className="text-xs text-slate-500">
+                      <div className="text-[11px] text-slate-500 sm:text-xs">
                         Percurso registrado
                       </div>
                     </div>
@@ -1129,13 +1139,13 @@ export default function VisualizacaoViagem() {
                   <div className="relative">
                     <div className="absolute bottom-8 left-4 top-8 border-l border-dashed border-slate-300" />
 
-                    <div className="relative flex gap-4">
-                      <div className="z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-teal-600 text-white ring-4 ring-white">
+                    <div className="relative flex gap-3 sm:gap-4">
+                      <div className="z-10 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-teal-600 text-white ring-4 ring-white sm:h-8 sm:w-8">
                         <MapPin size={15} />
                       </div>
 
-                      <div className="pb-7">
-                        <div className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                      <div className="min-w-0 pb-6 sm:pb-7">
+                        <div className="text-[9px] font-black uppercase tracking-wider text-slate-400 sm:text-[10px]">
                           Origem
                         </div>
 
@@ -1144,7 +1154,7 @@ export default function VisualizacaoViagem() {
                         </div>
 
                         {pickupCoordinates && (
-                          <div className="mt-1 text-[11px] text-slate-400">
+                          <div className="mt-1 text-[10px] text-slate-400 sm:text-[11px]">
                             Coordenadas:{" "}
                             {String(pickupCoordinates)}
                           </div>
@@ -1152,13 +1162,13 @@ export default function VisualizacaoViagem() {
                       </div>
                     </div>
 
-                    <div className="relative flex gap-4">
-                      <div className="z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-800 text-white ring-4 ring-white">
+                    <div className="relative flex gap-3 sm:gap-4">
+                      <div className="z-10 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-800 text-white ring-4 ring-white sm:h-8 sm:w-8">
                         <MapPin size={15} />
                       </div>
 
-                      <div>
-                        <div className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                      <div className="min-w-0">
+                        <div className="text-[9px] font-black uppercase tracking-wider text-slate-400 sm:text-[10px]">
                           Destino
                         </div>
 
@@ -1167,7 +1177,7 @@ export default function VisualizacaoViagem() {
                         </div>
 
                         {destinationCoordinates && (
-                          <div className="mt-1 text-[11px] text-slate-400">
+                          <div className="mt-1 text-[10px] text-slate-400 sm:text-[11px]">
                             Coordenadas:{" "}
                             {String(
                               destinationCoordinates
@@ -1179,15 +1189,15 @@ export default function VisualizacaoViagem() {
                   </div>
                 </section>
 
-                <section className="grid gap-3 sm:grid-cols-3">
-                  <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                <section className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                  <div className="rounded-xl border border-slate-200 bg-white p-3.5 shadow-sm sm:rounded-2xl sm:p-4">
                     <div className="flex items-center gap-3">
-                      <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-teal-50 text-teal-700">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-teal-50 text-teal-700 sm:h-9 sm:w-9">
                         <CalendarDays size={17} />
                       </div>
 
                       <div>
-                        <div className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                        <div className="text-[9px] font-black uppercase tracking-wider text-slate-400 sm:text-[10px]">
                           Data
                         </div>
 
@@ -1198,14 +1208,14 @@ export default function VisualizacaoViagem() {
                     </div>
                   </div>
 
-                  <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                  <div className="rounded-xl border border-slate-200 bg-white p-3.5 shadow-sm sm:rounded-2xl sm:p-4">
                     <div className="flex items-center gap-3">
-                      <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-teal-50 text-teal-700">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-teal-50 text-teal-700 sm:h-9 sm:w-9">
                         <Clock3 size={17} />
                       </div>
 
                       <div>
-                        <div className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                        <div className="text-[9px] font-black uppercase tracking-wider text-slate-400 sm:text-[10px]">
                           Horário
                         </div>
 
@@ -1216,14 +1226,14 @@ export default function VisualizacaoViagem() {
                     </div>
                   </div>
 
-                  <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                  <div className="rounded-xl border border-slate-200 bg-white p-3.5 shadow-sm sm:rounded-2xl sm:p-4">
                     <div className="flex items-center gap-3">
-                      <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-teal-50 text-teal-700">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-teal-50 text-teal-700 sm:h-9 sm:w-9">
                         <Navigation size={17} />
                       </div>
 
                       <div>
-                        <div className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                        <div className="text-[9px] font-black uppercase tracking-wider text-slate-400 sm:text-[10px]">
                           Distância
                         </div>
 
@@ -1241,18 +1251,18 @@ export default function VisualizacaoViagem() {
                 </section>
 
                 {temDetalhamentoFinanceiro && (
-                  <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm print:shadow-none">
-                    <div className="mb-5 flex items-center gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-50 text-teal-700">
+                  <section className="min-w-0 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:rounded-2xl sm:p-5 print:shadow-none">
+                    <div className="mb-4 flex items-center gap-3 sm:mb-5">
+                      <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-teal-50 text-teal-700 sm:h-10 sm:w-10">
                         <ReceiptText size={19} />
                       </div>
 
                       <div>
-                        <h2 className="font-black text-slate-900">
+                        <h2 className="text-sm font-black text-slate-900 sm:text-base">
                           Detalhamento financeiro
                         </h2>
 
-                        <div className="text-xs text-slate-500">
+                        <div className="text-[11px] text-slate-500 sm:text-xs">
                           Taxas e valores adicionais da viagem
                         </div>
                       </div>
@@ -1260,7 +1270,7 @@ export default function VisualizacaoViagem() {
 
                     <div className="space-y-3">
                       {Number(taxaCancelamento) > 0 && (
-                        <div className="flex justify-between gap-4 text-sm">
+                        <div className="flex justify-between gap-4 text-xs sm:text-sm">
                           <span className="text-slate-500">
                             Taxa de cancelamento
                           </span>
@@ -1274,7 +1284,7 @@ export default function VisualizacaoViagem() {
                       )}
 
                       {Number(taxaRetorno) > 0 && (
-                        <div className="flex justify-between gap-4 text-sm">
+                        <div className="flex justify-between gap-4 text-xs sm:text-sm">
                           <span className="text-slate-500">
                             Taxa de retorno
                           </span>
@@ -1286,7 +1296,7 @@ export default function VisualizacaoViagem() {
                       )}
 
                       {Number(taxaEspera) > 0 && (
-                        <div className="flex justify-between gap-4 text-sm">
+                        <div className="flex justify-between gap-4 text-xs sm:text-sm">
                           <span className="text-slate-500">
                             Taxa de espera
                           </span>
@@ -1298,7 +1308,7 @@ export default function VisualizacaoViagem() {
                       )}
 
                       {Number(taxaOciosidade) > 0 && (
-                        <div className="flex justify-between gap-4 text-sm">
+                        <div className="flex justify-between gap-4 text-xs sm:text-sm">
                           <span className="text-slate-500">
                             Taxa de ociosidade
                           </span>
@@ -1312,7 +1322,7 @@ export default function VisualizacaoViagem() {
                       )}
 
                       {Number(taxaAtraso) > 0 && (
-                        <div className="flex justify-between gap-4 text-sm">
+                        <div className="flex justify-between gap-4 text-xs sm:text-sm">
                           <span className="text-slate-500">
                             Taxa de atraso
                           </span>
@@ -1324,7 +1334,7 @@ export default function VisualizacaoViagem() {
                       )}
 
                       {Number(imposto) > 0 && (
-                        <div className="flex justify-between gap-4 text-sm">
+                        <div className="flex justify-between gap-4 text-xs sm:text-sm">
                           <span className="text-slate-500">
                             Impostos
                           </span>
@@ -1336,7 +1346,7 @@ export default function VisualizacaoViagem() {
                       )}
 
                       {Number(gorjeta) > 0 && (
-                        <div className="flex justify-between gap-4 text-sm">
+                        <div className="flex justify-between gap-4 text-xs sm:text-sm">
                           <span className="text-slate-500">
                             Gorjeta
                           </span>
@@ -1348,7 +1358,7 @@ export default function VisualizacaoViagem() {
                       )}
 
                       {Number(comissao) > 0 && (
-                        <div className="flex justify-between gap-4 text-sm">
+                        <div className="flex justify-between gap-4 text-xs sm:text-sm">
                           <span className="text-slate-500">
                             Comissão administrativa
                           </span>
@@ -1363,25 +1373,25 @@ export default function VisualizacaoViagem() {
                 )}
               </div>
 
-              <aside className="space-y-5">
-                <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm print:shadow-none">
-                  <div className="border-b border-slate-100 px-5 py-4">
-                    <div className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">
+              <aside className="min-w-0 space-y-4 sm:space-y-5">
+                <div className="min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm sm:rounded-2xl print:shadow-none">
+                  <div className="border-b border-slate-100 px-4 py-3.5 sm:px-5 sm:py-4">
+                    <div className="text-[9px] font-black uppercase tracking-[0.16em] text-slate-400 sm:text-[10px]">
                       Resumo financeiro
                     </div>
 
-                    <h2 className="mt-1 text-lg font-black text-slate-900">
+                    <h2 className="mt-1 text-base font-black text-slate-900 sm:text-lg">
                       Pagamento
                     </h2>
                   </div>
 
-                  <div className="p-5">
-                    <div className="text-sm font-medium text-slate-500">
+                  <div className="p-4 sm:p-5">
+                    <div className="text-xs font-medium text-slate-500 sm:text-sm">
                       Valor total
                     </div>
 
                     <div
-                      className={`mt-1 text-4xl font-black tracking-tight ${cancelada
+                      className={`mt-1 text-3xl font-black tracking-tight sm:text-4xl ${cancelada
                           ? "text-red-600"
                           : finalizada
                             ? "text-emerald-600"
@@ -1393,35 +1403,35 @@ export default function VisualizacaoViagem() {
                       {formatarValor(valor)}
                     </div>
 
-                    <div className="my-5 h-px bg-slate-100" />
+                    <div className="my-4 h-px bg-slate-100 sm:my-5" />
 
-                    <div className="space-y-4">
+                    <div className="space-y-3 sm:space-y-4">
                       <div className="flex items-center justify-between gap-4">
-                        <span className="text-sm text-slate-500">
+                        <span className="text-xs text-slate-500 sm:text-sm">
                           Passageiro
                         </span>
 
-                        <span className="text-right text-sm font-black text-slate-800">
+                        <span className="text-right text-xs font-black text-slate-800 sm:text-sm">
                           {String(passageiro)}
                         </span>
                       </div>
 
                       <div className="flex items-center justify-between gap-4">
-                        <span className="text-sm text-slate-500">
+                        <span className="text-xs text-slate-500 sm:text-sm">
                           Categoria
                         </span>
 
-                        <span className="text-right text-sm font-black text-slate-800">
+                        <span className="text-right text-xs font-black text-slate-800 sm:text-sm">
                           {String(categoria)}
                         </span>
                       </div>
 
                       <div className="flex items-center justify-between gap-4">
-                        <span className="text-sm text-slate-500">
+                        <span className="text-xs text-slate-500 sm:text-sm">
                           Distância
                         </span>
 
-                        <span className="text-sm font-black text-slate-800">
+                        <span className="text-xs font-black text-slate-800 sm:text-sm">
                           {distancia !== "-"
                             ? `${formatarNumero(
                               distancia,
@@ -1432,11 +1442,11 @@ export default function VisualizacaoViagem() {
                       </div>
 
                       <div className="flex items-center justify-between gap-4">
-                        <span className="text-sm text-slate-500">
+                        <span className="text-xs text-slate-500 sm:text-sm">
                           Duração
                         </span>
 
-                        <span className="text-sm font-black text-slate-800">
+                        <span className="text-xs font-black text-slate-800 sm:text-sm">
                           {duracao !== "-"
                             ? `${String(duracao)} min`
                             : "-"}
@@ -1446,14 +1456,14 @@ export default function VisualizacaoViagem() {
 
                     {pagamento !== "-" && (
                       <div
-                        className={`mt-5 rounded-xl border p-4 ${cancelada
+                        className={`mt-4 rounded-xl border p-3.5 sm:mt-5 sm:p-4 ${cancelada
                             ? "border-red-200 bg-red-50"
                             : "border-emerald-200 bg-emerald-50"
                           }`}
                       >
                         <div className="flex items-center gap-3">
                           <div
-                            className={`flex h-9 w-9 items-center justify-center rounded-lg ${cancelada
+                            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg sm:h-9 sm:w-9 ${cancelada
                                 ? "bg-red-100 text-red-600"
                                 : "bg-emerald-100 text-emerald-600"
                               }`}
@@ -1461,9 +1471,9 @@ export default function VisualizacaoViagem() {
                             <CreditCard size={17} />
                           </div>
 
-                          <div>
+                          <div className="min-w-0">
                             <div
-                              className={`text-[10px] font-black uppercase tracking-wider ${cancelada
+                              className={`text-[9px] font-black uppercase tracking-wider sm:text-[10px] ${cancelada
                                   ? "text-red-600"
                                   : "text-emerald-600"
                                 }`}
@@ -1472,7 +1482,7 @@ export default function VisualizacaoViagem() {
                             </div>
 
                             <div
-                              className={`mt-1 capitalize text-sm font-black ${cancelada
+                              className={`mt-1 truncate text-xs font-black capitalize sm:text-sm ${cancelada
                                   ? "text-red-800"
                                   : "text-emerald-800"
                                 }`}
@@ -1481,7 +1491,7 @@ export default function VisualizacaoViagem() {
                             </div>
 
                             {pagamentoStatus !== "-" && (
-                              <div className="mt-0.5 text-xs text-slate-500">
+                              <div className="mt-0.5 text-[11px] text-slate-500 sm:text-xs">
                                 Status:{" "}
                                 {String(
                                   pagamentoStatus
@@ -1496,86 +1506,86 @@ export default function VisualizacaoViagem() {
                 </div>
 
                 {Object.keys(tarifa).length > 0 && (
-                  <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm print:shadow-none">
+                  <div className="min-w-0 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:rounded-2xl sm:p-5 print:shadow-none">
                     <div className="flex items-start justify-between gap-3">
                       <div>
-                        <div className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">
+                        <div className="text-[9px] font-black uppercase tracking-[0.16em] text-slate-400 sm:text-[10px]">
                           Configuração da tarifa
                         </div>
 
-                        <h2 className="mt-1 text-base font-black text-slate-900">
+                        <h2 className="mt-1 text-sm font-black text-slate-900 sm:text-base">
                           Tarifa aplicada
                         </h2>
 
-                        <div className="mt-1 text-xs text-slate-500">
+                        <div className="mt-1 text-[11px] text-slate-500 sm:text-xs">
                           Valores utilizados no cálculo desta viagem
                         </div>
                       </div>
 
                       {tarifa.id && (
-                        <span className="rounded-lg bg-teal-50 px-2.5 py-1 text-[11px] font-black text-teal-700">
+                        <span className="shrink-0 rounded-lg bg-teal-50 px-2.5 py-1 text-[10px] font-black text-teal-700 sm:text-[11px]">
                           #{String(tarifa.id)}
                         </span>
                       )}
                     </div>
 
-                    <div className="mt-5 grid gap-3 sm:grid-cols-2">
-                      <div className="rounded-xl bg-slate-50 p-4">
-                        <div className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                    <div className="mt-4 grid grid-cols-2 gap-3 sm:mt-5 2xl:grid-cols-2">
+                      <div className="rounded-xl bg-slate-50 p-3.5 sm:p-4">
+                        <div className="text-[9px] font-black uppercase tracking-wider text-slate-400 sm:text-[10px]">
                           Tarifa base
                         </div>
 
-                        <div className="mt-1 text-lg font-black text-slate-900">
+                        <div className="mt-1 text-base font-black text-slate-900 sm:text-lg">
                           {formatarValor(tarifa.base_fare)}
                         </div>
                       </div>
 
-                      <div className="rounded-xl bg-slate-50 p-4">
-                        <div className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                      <div className="rounded-xl bg-slate-50 p-3.5 sm:p-4">
+                        <div className="text-[9px] font-black uppercase tracking-wider text-slate-400 sm:text-[10px]">
                           Valor por km
                         </div>
 
-                        <div className="mt-1 text-lg font-black text-slate-900">
+                        <div className="mt-1 text-base font-black text-slate-900 sm:text-lg">
                           {formatarValor(tarifa.base_fare_per_km)}
                         </div>
                       </div>
 
-                      <div className="rounded-xl bg-slate-50 p-4">
-                        <div className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                      <div className="rounded-xl bg-slate-50 p-3.5 sm:p-4">
+                        <div className="text-[9px] font-black uppercase tracking-wider text-slate-400 sm:text-[10px]">
                           Espera por minuto
                         </div>
 
-                        <div className="mt-1 text-lg font-black text-slate-900">
+                        <div className="mt-1 text-base font-black text-slate-900 sm:text-lg">
                           {formatarValor(tarifa.waiting_fee_per_min)}
                         </div>
                       </div>
 
-                      <div className="rounded-xl bg-slate-50 p-4">
-                        <div className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                      <div className="rounded-xl bg-slate-50 p-3.5 sm:p-4">
+                        <div className="text-[9px] font-black uppercase tracking-wider text-slate-400 sm:text-[10px]">
                           Ociosidade por minuto
                         </div>
 
-                        <div className="mt-1 text-lg font-black text-slate-900">
+                        <div className="mt-1 text-base font-black text-slate-900 sm:text-lg">
                           {formatarValor(tarifa.idle_fee_per_min)}
                         </div>
                       </div>
 
-                      <div className="rounded-xl bg-slate-50 p-4">
-                        <div className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                      <div className="rounded-xl bg-slate-50 p-3.5 sm:p-4">
+                        <div className="text-[9px] font-black uppercase tracking-wider text-slate-400 sm:text-[10px]">
                           Atraso por minuto
                         </div>
 
-                        <div className="mt-1 text-lg font-black text-slate-900">
+                        <div className="mt-1 text-base font-black text-slate-900 sm:text-lg">
                           {formatarValor(tarifa.trip_delay_fee_per_min)}
                         </div>
                       </div>
 
-                      <div className="rounded-xl bg-slate-50 p-4">
-                        <div className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                      <div className="rounded-xl bg-slate-50 p-3.5 sm:p-4">
+                        <div className="text-[9px] font-black uppercase tracking-wider text-slate-400 sm:text-[10px]">
                           Cancelamento
                         </div>
 
-                        <div className="mt-1 text-lg font-black text-slate-900">
+                        <div className="mt-1 text-base font-black text-slate-900 sm:text-lg">
                           {formatarNumero(
                             tarifa.cancellation_fee_percent,
                             2
@@ -1584,24 +1594,24 @@ export default function VisualizacaoViagem() {
                         </div>
                       </div>
 
-                      <div className="rounded-xl bg-slate-50 p-4">
-                        <div className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                      <div className="rounded-xl bg-slate-50 p-3.5 sm:p-4">
+                        <div className="text-[9px] font-black uppercase tracking-wider text-slate-400 sm:text-[10px]">
                           Mínimo de cancelamento
                         </div>
 
-                        <div className="mt-1 text-lg font-black text-slate-900">
+                        <div className="mt-1 text-base font-black text-slate-900 sm:text-lg">
                           {formatarValor(
                             tarifa.min_cancellation_fee
                           )}
                         </div>
                       </div>
 
-                      <div className="rounded-xl bg-slate-50 p-4">
-                        <div className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                      <div className="rounded-xl bg-slate-50 p-3.5 sm:p-4">
+                        <div className="text-[9px] font-black uppercase tracking-wider text-slate-400 sm:text-[10px]">
                           Penalidade por cancelamento
                         </div>
 
-                        <div className="mt-1 text-lg font-black text-slate-900">
+                        <div className="mt-1 text-base font-black text-slate-900 sm:text-lg">
                           {formatarValor(
                             tarifa.penalty_fee_for_cancel
                           )}
@@ -1609,23 +1619,23 @@ export default function VisualizacaoViagem() {
                       </div>
                     </div>
 
-                    <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                      <div className="rounded-xl border border-slate-100 p-4">
-                        <div className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                    <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <div className="rounded-xl border border-slate-100 p-3.5 sm:p-4">
+                        <div className="text-[9px] font-black uppercase tracking-wider text-slate-400 sm:text-[10px]">
                           Adicionar taxa à próxima viagem
                         </div>
 
-                        <div className="mt-1 text-sm font-black text-slate-800">
+                        <div className="mt-1 text-xs font-black text-slate-800 sm:text-sm">
                           {formatarValor(tarifa.fee_add_to_next)}
                         </div>
                       </div>
 
-                      <div className="rounded-xl border border-slate-100 p-4">
-                        <div className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                      <div className="rounded-xl border border-slate-100 p-3.5 sm:p-4">
+                        <div className="text-[9px] font-black uppercase tracking-wider text-slate-400 sm:text-[10px]">
                           Zona
                         </div>
 
-                        <div className="mt-1 text-sm font-black text-slate-800">
+                        <div className="mt-1 text-xs font-black text-slate-800 sm:text-sm">
                           {String(
                             tarifa.zone_id ??
                             viagem.zone_id ??
@@ -1634,12 +1644,12 @@ export default function VisualizacaoViagem() {
                         </div>
                       </div>
 
-                      <div className="rounded-xl border border-slate-100 p-4">
-                        <div className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                      <div className="rounded-xl border border-slate-100 p-3.5 sm:p-4">
+                        <div className="text-[9px] font-black uppercase tracking-wider text-slate-400 sm:text-[10px]">
                           Categoria do veículo
                         </div>
 
-                        <div className="mt-1 text-sm font-black text-slate-800">
+                        <div className="mt-1 text-xs font-black text-slate-800 sm:text-sm">
                           {String(
                             tarifa.vehicle_category_id ??
                             viagem.vehicle_category_id ??
@@ -1648,12 +1658,12 @@ export default function VisualizacaoViagem() {
                         </div>
                       </div>
 
-                      <div className="rounded-xl border border-slate-100 p-4">
-                        <div className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                      <div className="rounded-xl border border-slate-100 p-3.5 sm:p-4">
+                        <div className="text-[9px] font-black uppercase tracking-wider text-slate-400 sm:text-[10px]">
                           Tarifa padrão
                         </div>
 
-                        <div className="mt-1 text-sm font-black text-slate-800">
+                        <div className="mt-1 text-xs font-black text-slate-800 sm:text-sm">
                           {String(
                             tarifa.zone_wise_default_trip_fare_id ??
                             "-"
@@ -1664,27 +1674,27 @@ export default function VisualizacaoViagem() {
                   </div>
                 )}
 
-                <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm print:shadow-none">
-                  <div className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">
+                <div className="min-w-0 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:rounded-2xl sm:p-5 print:shadow-none">
+                  <div className="text-[9px] font-black uppercase tracking-[0.16em] text-slate-400 sm:text-[10px]">
                     Status
                   </div>
 
                   <div
-                    className={`mt-3 flex items-center gap-3 rounded-xl border p-4 ${statusConfig.border} ${statusConfig.soft}`}
+                    className={`mt-3 flex items-center gap-3 rounded-xl border p-3.5 sm:p-4 ${statusConfig.border} ${statusConfig.soft}`}
                   >
                     <span
-                      className={`flex h-9 w-9 items-center justify-center rounded-full ${statusConfig.iconBg} ${statusConfig.iconColor}`}
+                      className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full sm:h-9 sm:w-9 ${statusConfig.iconBg} ${statusConfig.iconColor}`}
                     >
                       {statusConfig.icon}
                     </span>
 
-                    <div>
-                      <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                    <div className="min-w-0">
+                      <div className="text-[9px] font-bold uppercase tracking-wider text-slate-400 sm:text-[10px]">
                         Situação atual
                       </div>
 
                       <div
-                        className={`mt-0.5 text-sm font-black ${statusConfig.text}`}
+                        className={`mt-0.5 truncate text-xs font-black sm:text-sm ${statusConfig.text}`}
                       >
                         {String(statusOriginal)}
                       </div>
