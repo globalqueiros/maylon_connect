@@ -659,18 +659,18 @@ export default function DashboardLayout({
     }
   };
 
- if (loading) {
+  if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center px-4">
-        <div className="flex w-full max-w-[320px] flex-col items-center rounded-[28px] bg-white p-10 shadow-xl ring-1 ring-black/5">
-          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[#e8f7f4]">
-            <div className="h-8 w-8 animate-spin rounded-full border-[3px] border-[#149C8B] border-t-transparent" />
+        <div className="flex w-full max-w-[280px] flex-col items-center rounded-[24px] bg-white p-8 shadow-xl ring-1 ring-black/5 sm:max-w-[320px] sm:rounded-[28px] sm:p-10 2xl:max-w-[380px]">
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#e8f7f4] sm:h-16 sm:w-16">
+            <div className="h-7 w-7 animate-spin rounded-full border-[3px] border-[#149C8B] border-t-transparent sm:h-8 sm:w-8" />
           </div>
-          <p className="mt-5 text-sm font-semibold text-gray-700">
+          <p className="mt-5 text-sm font-semibold text-gray-700 2xl:text-base">
             Carregando seus acessos
           </p>
-          <p className="mt-1 text-xs text-gray-400">
-            Aguarde um momemento...
+          <p className="mt-1 text-xs text-gray-400 2xl:text-sm">
+            Aguarde um momento...
           </p>
         </div>
       </div>
@@ -679,29 +679,28 @@ export default function DashboardLayout({
 
   return (
     <div className="min-h-screen">
-      <div className="mx-auto max-w-8xl">
+      <div className="mx-auto w-full max-w-full 2xl:max-w-[1600px]">
 
         {/* HEADER */}
-        <header className="relative overflow-hidden rounded-[32px] bg-[#102F2C] p-6 shadow-xl sm:p-8">
-          <div className="absolute -right-20 -top-20 h-72 w-72 rounded-full bg-[#149C8B]/30 blur-3xl" />
+        <header className="relative overflow-hidden rounded-[22px] bg-[#102F2C] p-5 shadow-xl sm:rounded-[26px] sm:p-7 lg:rounded-[30px] lg:p-8 2xl:rounded-[32px] 2xl:p-10">
+          <div className="absolute -right-20 -top-20 h-56 w-56 rounded-full bg-[#149C8B]/30 blur-3xl sm:h-72 sm:w-72" />
 
-          <div className="absolute -bottom-32 left-1/3 h-72 w-72 rounded-full bg-[#149C8B]/20 blur-3xl" />
+          <div className="absolute -bottom-32 left-1/3 h-56 w-56 rounded-full bg-[#149C8B]/20 blur-3xl sm:h-72 sm:w-72" />
 
           <div className="relative flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex items-center gap-5">
-              <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-[#149C8B] shadow-lg shadow-[#149C8B]/20">
+            <div className="flex items-center gap-4 sm:gap-5">
+              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[#149C8B] shadow-lg shadow-[#149C8B]/20 sm:h-16 sm:w-16 2xl:h-20 2xl:w-20">
                 <ShieldCheck
-                  size={32}
-                  className="text-white"
+                  className="h-7 w-7 text-white sm:h-8 sm:w-8 2xl:h-10 2xl:w-10"
                 />
               </div>
 
               <div>
-                <h1 className="text-2xl font-bold text-white sm:text-3xl">
+                <h1 className="text-xl font-bold text-white sm:text-2xl lg:text-3xl 2xl:text-4xl">
                   Dispositivos conectados
                 </h1>
 
-                <p className="mt-0 max-w-xl text-sm leading-6 text-white/60">
+                <p className="mt-0 max-w-xl text-xs leading-5 text-white/60 sm:text-sm sm:leading-6 2xl:max-w-2xl 2xl:text-base 2xl:leading-7">
                   Veja onde sua conta está conectada e encerre acessos que você não reconhece.
                 </p>
               </div>
@@ -711,20 +710,20 @@ export default function DashboardLayout({
 
         {/* ERRO */}
         {error && (
-          <div className="mt-5 flex items-center gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700">
+          <div className="mt-4 flex items-center gap-3 rounded-2xl border border-red-200 bg-red-50 p-3 text-xs font-semibold text-red-700 sm:mt-5 sm:p-4 sm:text-sm 2xl:text-base">
             <AlertTriangle
               size={19}
               className="shrink-0"
             />
 
-            <span className="flex-1">
+            <span className="min-w-0 flex-1 break-words">
               {error}
             </span>
           </div>
         )}
 
         {/* ESTATÍSTICAS */}
-        <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mt-4 grid grid-cols-2 gap-3 sm:mt-5 sm:gap-4 lg:grid-cols-4 2xl:gap-5">
           <StatCard
             icon={<ShieldCheck size={22} />}
             label="Sessões"
@@ -752,14 +751,14 @@ export default function DashboardLayout({
         </div>
 
         {/* SESSÕES */}
-        <section className="mt-5">
-          <div className="mb-4 flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+        <section className="mt-4 sm:mt-5">
+          <div className="mb-4 flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:p-5 2xl:p-6">
             <div>
-              <h2 className="text-lg font-bold text-[#173B3A]">
+              <h2 className="text-base font-bold text-[#173B3A] sm:text-lg 2xl:text-xl">
                 Seus acessos
               </h2>
 
-              <p className="mt-1 text-sm text-slate-500">
+              <p className="mt-1 text-xs text-slate-500 sm:text-sm 2xl:text-base">
                 {sessions.length}{" "}
                 {sessions.length === 1
                   ? "dispositivo conectado"
@@ -773,7 +772,7 @@ export default function DashboardLayout({
                 void atualizar()
               }
               disabled={refreshing}
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#149C8B] px-5 py-3 text-sm font-bold text-white transition hover:bg-[#11897D] disabled:opacity-50"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#149C8B] px-5 py-3 text-sm font-bold text-white transition hover:bg-[#11897D] disabled:opacity-50 sm:w-auto 2xl:text-base"
             >
               <RefreshCw
                 size={17}
@@ -789,26 +788,26 @@ export default function DashboardLayout({
           </div>
 
           {sessions.length === 0 ? (
-            <div className="rounded-[28px] border border-slate-200 bg-white px-6 py-20 text-center shadow-sm">
-              <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-3xl bg-[#149C8B]/10">
+            <div className="rounded-[22px] border border-slate-200 bg-white px-5 py-14 text-center shadow-sm sm:rounded-[28px] sm:px-6 sm:py-20">
+              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-[#149C8B]/10 sm:h-20 sm:w-20">
                 <Wifi
                   size={34}
                   className="text-[#149C8B]"
                 />
               </div>
 
-              <h2 className="mt-6 text-xl font-bold text-[#173B3A]">
+              <h2 className="mt-5 text-lg font-bold text-[#173B3A] sm:mt-6 sm:text-xl 2xl:text-2xl">
                 Nenhuma sessão encontrada
               </h2>
 
-              <p className="mx-auto mt-2 max-w-md text-sm text-slate-500">
+              <p className="mx-auto mt-2 max-w-md text-xs text-slate-500 sm:text-sm 2xl:text-base">
                 Não encontramos outros dispositivos conectados à sua conta.
               </p>
             </div>
           ) : (
             <>
               {/* GRID DE DISPOSITIVOS */}
-              <div className="grid gap-4 lg:grid-cols-2">
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 2xl:grid-cols-3 2xl:gap-5">
                 {paginatedSessions.map(
                   (session) => {
                     const info =
@@ -824,11 +823,11 @@ export default function DashboardLayout({
                     return (
                       <div
                         key={`${session.id}-${session.created_at}`}
-                        className="group rounded-[26px] border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-[#149C8B]/30 hover:shadow-xl"
+                        className="group min-w-0 rounded-[22px] border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-[#149C8B]/30 hover:shadow-xl sm:rounded-[26px] sm:p-5 2xl:p-6"
                       >
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="flex items-center gap-4">
-                            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[#EAF7F4]">
+                        <div className="flex items-start justify-between gap-3 sm:gap-4">
+                          <div className="flex min-w-0 items-center gap-3 sm:gap-4">
+                            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#EAF7F4] sm:h-14 sm:w-14">
                               {mobile ? (
                                 <Smartphone
                                   size={27}
@@ -842,9 +841,9 @@ export default function DashboardLayout({
                               )}
                             </div>
 
-                            <div>
+                            <div className="min-w-0">
                               <div className="flex flex-wrap items-center gap-2">
-                                <h3 className="font-bold text-[#173B3A]">
+                                <h3 className="font-bold text-[#173B3A] 2xl:text-lg">
                                   {info.device}
                                 </h3>
 
@@ -853,11 +852,11 @@ export default function DashboardLayout({
                                 </span>
                               </div>
 
-                              <p className="mt-1 text-sm font-semibold text-[#149C8B]">
+                              <p className="mt-1 truncate text-sm font-semibold text-[#149C8B] 2xl:text-base">
                                 {info.browser}
                               </p>
 
-                              <p className="mt-0.5 text-xs text-slate-400">
+                              <p className="mt-0.5 text-xs text-slate-400 2xl:text-sm">
                                 {info.os}
                               </p>
                             </div>
@@ -870,14 +869,14 @@ export default function DashboardLayout({
                                 session
                               )
                             }
-                            className="rounded-xl cursor-pointer p-2 text-slate-400 transition hover:bg-red-50 hover:text-red-500"
+                            className="shrink-0 rounded-xl cursor-pointer p-2 text-slate-400 transition hover:bg-red-50 hover:text-red-500"
                             title="Encerrar acesso"
                           >
                             <LogOut size={18} />
                           </button>
                         </div>
 
-                        <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                        <div className="mt-4 grid grid-cols-1 gap-3 sm:mt-5 sm:grid-cols-2">
                           <InfoItem
                             icon={
                               <MapPin
@@ -911,7 +910,7 @@ export default function DashboardLayout({
                               session
                             )
                           }
-                          className="mt-4 cursor-pointer flex w-full items-center justify-between rounded-xl border border-slate-200 px-4 py-3 text-sm font-bold text-slate-600 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600"
+                          className="mt-4 cursor-pointer flex w-full items-center justify-between rounded-xl border border-slate-200 px-4 py-3 text-sm font-bold text-slate-600 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600 2xl:text-base"
                         >
                           Encerrar este acesso
 
@@ -927,9 +926,9 @@ export default function DashboardLayout({
 
               {/* PAGINAÇÃO */}
               {totalPages > 1 && (
-                <div className="mt-6 flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+                <div className="mt-5 flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:mt-6 md:flex-row md:items-center md:justify-between 2xl:p-5">
                   {/* CONTADOR */}
-                  <p className="text-center text-sm text-slate-500 sm:text-left">
+                  <p className="text-center text-xs text-slate-500 sm:text-sm md:text-left 2xl:text-base">
                     Mostrando{" "}
                     <span className="font-bold text-slate-700">
                       {firstItem}
@@ -958,13 +957,18 @@ export default function DashboardLayout({
                       disabled={
                         currentPage === 1
                       }
-                      className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-bold text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                      className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 sm:px-4 sm:text-sm"
                     >
                       Anterior
                     </button>
 
+                    {/* PÁGINA ATUAL (MOBILE) */}
+                    <span className="px-2 text-xs font-bold text-slate-600 sm:hidden">
+                      {currentPage} / {totalPages}
+                    </span>
+
                     {/* NÚMEROS */}
-                    <div className="flex items-center gap-1">
+                    <div className="hidden flex-wrap items-center justify-center gap-1 sm:flex">
                       {Array.from(
                         {
                           length: totalPages,
@@ -1002,7 +1006,7 @@ export default function DashboardLayout({
                         currentPage ===
                         totalPages
                       }
-                      className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-bold text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                      className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 sm:px-4 sm:text-sm"
                     >
                       Próxima
                     </button>
@@ -1019,12 +1023,12 @@ export default function DashboardLayout({
       {/* MODAL LOGOUT */}
       {showLogoutModal &&
         selectedSession && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-sm">
-            <div className="w-full max-w-md overflow-hidden rounded-[28px] bg-white shadow-2xl">
-              <div className="flex items-center justify-between border-b border-slate-100 p-5">
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/50 p-3 backdrop-blur-sm sm:p-4">
+            <div className="max-h-[92vh] w-full max-w-sm overflow-y-auto rounded-[24px] bg-white shadow-2xl sm:max-w-md sm:rounded-[28px] 2xl:max-w-lg">
+              <div className="flex items-center justify-between border-b border-slate-100 p-4 sm:p-5">
                 <div>
 
-                  <h2 className="mt-1 text-lg font-bold text-[#173B3A]">
+                  <h2 className="mt-1 text-base font-bold text-[#173B3A] sm:text-lg 2xl:text-xl">
                     Encerrar acesso
                   </h2>
                 </div>
@@ -1041,19 +1045,19 @@ export default function DashboardLayout({
                 </button>
               </div>
 
-              <div className="p-6">
-                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-red-50">
+              <div className="p-5 sm:p-6 2xl:p-8">
+                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-red-50 sm:h-16 sm:w-16">
                   <AlertTriangle
                     size={30}
                     className="text-red-500"
                   />
                 </div>
 
-                <h3 className="mt-5 text-center text-xl font-bold text-[#173B3A]">
+                <h3 className="mt-4 text-center text-lg font-bold text-[#173B3A] sm:mt-5 sm:text-xl 2xl:text-2xl">
                   Encerrar esta sessão?
                 </h3>
 
-                <p className="mt-2 text-center text-sm text-slate-500">
+                <p className="mt-2 text-center text-xs text-slate-500 sm:text-sm 2xl:text-base">
                   O dispositivo perderá imediatamente o acesso à sua conta.
                 </p>
 
@@ -1069,9 +1073,9 @@ export default function DashboardLayout({
                     ) === "mobile";
 
                   return (
-                    <div className="mt-6 rounded-2xl bg-slate-50 p-4">
-                      <div className="flex items-center gap-4">
-                        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white">
+                    <div className="mt-5 rounded-2xl bg-slate-50 p-3 sm:mt-6 sm:p-4">
+                      <div className="flex items-center gap-3 sm:gap-4">
+                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white sm:h-12 sm:w-12">
                           {mobile ? (
                             <Smartphone
                               size={23}
@@ -1085,12 +1089,12 @@ export default function DashboardLayout({
                           )}
                         </div>
 
-                        <div>
+                        <div className="min-w-0">
                           <p className="font-bold text-[#173B3A]">
                             {info.device}
                           </p>
 
-                          <p className="text-sm font-semibold text-[#149C8B]">
+                          <p className="truncate text-sm font-semibold text-[#149C8B]">
                             {info.browser}
                           </p>
 
@@ -1101,18 +1105,18 @@ export default function DashboardLayout({
                       </div>
 
                       <div className="mt-4 space-y-3 border-t border-slate-200 pt-4">
-                        <div className="flex justify-between gap-4 text-sm">
+                        <div className="flex justify-between gap-4 text-xs sm:text-sm">
                           <span className="text-slate-500">
                             IP
                           </span>
 
-                          <strong className="text-right text-slate-700">
+                          <strong className="break-all text-right text-slate-700">
                             {selectedSession.ip ||
                               "Não informado"}
                           </strong>
                         </div>
 
-                        <div className="flex justify-between gap-4 text-sm">
+                        <div className="flex justify-between gap-4 text-xs sm:text-sm">
                           <span className="text-slate-500">
                             Acesso
                           </span>
@@ -1128,14 +1132,14 @@ export default function DashboardLayout({
                   );
                 })()}
 
-                <div className="mt-6 flex gap-3">
+                <div className="mt-5 flex flex-col-reverse gap-3 sm:mt-6 sm:flex-row">
                   <button
                     type="button"
                     onClick={
                       fecharModalLogout
                     }
                     disabled={loadingLogout}
-                    className="flex-1 cursor-pointer rounded-xl border border-slate-200 px-4 py-3.5 text-sm font-bold text-slate-600 hover:bg-slate-50"
+                    className="flex-1 cursor-pointer rounded-xl border border-slate-200 px-4 py-3.5 text-sm font-bold text-slate-600 hover:bg-slate-50 2xl:text-base"
                   >
                     Cancelar
                   </button>
@@ -1146,7 +1150,7 @@ export default function DashboardLayout({
                       void logoutDevice()
                     }
                     disabled={loadingLogout}
-                    className="flex-1 cursor-pointer rounded-xl bg-red-500 px-4 py-3.5 text-sm font-bold text-white hover:bg-red-600 disabled:opacity-50"
+                    className="flex-1 cursor-pointer rounded-xl bg-red-500 px-4 py-3.5 text-sm font-bold text-white hover:bg-red-600 disabled:opacity-50 2xl:text-base"
                   >
                     {loadingLogout
                       ? "Encerrando..."
@@ -1173,19 +1177,19 @@ function StatCard({
   green?: boolean;
 }) {
   return (
-    <div className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm">
-      <div className="flex items-center gap-4">
-        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#EAF7F4] text-[#149C8B]">
+    <div className="rounded-[20px] border border-slate-200 bg-white p-4 shadow-sm sm:rounded-[24px] sm:p-5 2xl:p-6">
+      <div className="flex items-center gap-3 sm:gap-4">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#EAF7F4] text-[#149C8B] sm:h-12 sm:w-12 2xl:h-14 2xl:w-14">
           {icon}
         </div>
 
-        <div>
-          <p className="text-[10px] font-extrabold uppercase tracking-[0.15em] text-slate-400">
+        <div className="min-w-0">
+          <p className="truncate text-[9px] font-extrabold uppercase tracking-[0.15em] text-slate-400 sm:text-[10px] 2xl:text-xs">
             {label}
           </p>
 
           <p
-            className={`mt-0' text-xl font-bold ${
+            className={`mt-0 text-lg font-bold sm:text-xl 2xl:text-2xl ${
               green
                 ? "text-emerald-600"
                 : "text-[#173B3A]"
@@ -1215,11 +1219,11 @@ function InfoItem({
       </div>
 
       <div className="min-w-0">
-        <p className="text-[9px] font-extrabold uppercase tracking-wider text-slate-400">
+        <p className="text-[9px] font-extrabold uppercase tracking-wider text-slate-400 2xl:text-[10px]">
           {label}
         </p>
 
-        <p className="mt-1 truncate text-xs font-bold text-slate-700">
+        <p className="mt-1 truncate text-xs font-bold text-slate-700 2xl:text-sm">
           {value}
         </p>
       </div>

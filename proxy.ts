@@ -6,7 +6,7 @@ function normalize(value: unknown) {
     .toLowerCase();
 }
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   const motorista =
@@ -57,9 +57,9 @@ export async function middleware(request: NextRequest) {
 
     const userType = normalize(
       user?.user_type ??
-      user?.tipo ??
-      data?.user_type ??
-      data?.tipo
+        user?.tipo ??
+        data?.user_type ??
+        data?.tipo
     );
 
     const isDriver =
@@ -98,9 +98,7 @@ export async function middleware(request: NextRequest) {
     }
 
     return NextResponse.next();
-  } catch (error) {
-    console.error("Erro na proteção:", error);
-
+  } catch {
     return NextResponse.redirect(
       new URL("/", request.url)
     );
