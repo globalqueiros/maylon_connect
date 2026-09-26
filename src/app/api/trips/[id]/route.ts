@@ -21,6 +21,15 @@ export async function GET(
           tr.payment_status,
           tr.created_at,
           tr.payment_method,
+          tr.encoded_polyline,
+
+          /* Trajeto - endereços e coordenadas gravados na corrida */
+          c.pickup_address,
+          c.destination_address,
+          ST_Y(c.pickup_coordinates) AS pickup_lat,
+          ST_X(c.pickup_coordinates) AS pickup_lng,
+          ST_Y(c.destination_coordinates) AS destination_lat,
+          ST_X(c.destination_coordinates) AS destination_lng,
 
           /* Passageiro - tabela users */
           u.id AS passenger_id,
@@ -33,6 +42,10 @@ export async function GET(
           d.phone AS driver_phone
 
         FROM trip_requests tr
+
+        /* Trajeto */
+        LEFT JOIN trip_request_coordinates c
+          ON c.trip_request_id = tr.id
 
         /* Passageiro */
         LEFT JOIN users u
@@ -69,6 +82,16 @@ export async function GET(
 
           entrance: trip.entrance,
           note: trip.note,
+
+          pickup_address: trip.pickup_address,
+          destination_address: trip.destination_address,
+
+          pickup_lat: trip.pickup_lat,
+          pickup_lng: trip.pickup_lng,
+          destination_lat: trip.destination_lat,
+          destination_lng: trip.destination_lng,
+
+          encoded_polyline: trip.encoded_polyline,
 
           actual_fare: trip.actual_fare,
           actual_distance: trip.actual_distance,

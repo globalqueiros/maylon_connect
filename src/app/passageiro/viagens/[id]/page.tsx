@@ -33,6 +33,11 @@ type Trip = {
   dropoff_address?: string | null;
   dropoff?: string | null;
 
+  pickup_lat?: number | string | null;
+  pickup_lng?: number | string | null;
+  destination_lat?: number | string | null;
+  destination_lng?: number | string | null;
+
   current_status: string;
 
   actual_fare: number;
@@ -59,6 +64,28 @@ type Trip = {
 
   payment_method?: string | null;
 };
+
+/**
+ * Monta "lat,lng" a partir do que veio do banco, ou devolve vazio quando a
+ * corrida não tem coordenada gravada.
+ */
+function montarCoordenada(
+  lat?: number | string | null,
+  lng?: number | string | null
+): string {
+  const latitude = Number(lat);
+  const longitude = Number(lng);
+
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+    return "";
+  }
+
+  if (latitude === 0 && longitude === 0) {
+    return "";
+  }
+
+  return `${latitude},${longitude}`;
+}
 
 export default function DetalhesCorrida({
   params,
@@ -316,33 +343,61 @@ export default function DetalhesCorrida({
   }, [trip]);
 
   /**
+   * Ponto de embarque e de destino no formato "lat,lng".
+   *
+   * A coordenada é mais confiável que o endereço escrito: o endereço pode vir
+   * com nome de estabelecimento e o Google acaba marcando outro ponto.
+   */
+  const coordenadaOrigem = useMemo(
+    () => montarCoordenada(trip?.pickup_lat, trip?.pickup_lng),
+    [trip]
+  );
+
+  const coordenadaDestino = useMemo(
+    () => montarCoordenada(trip?.destination_lat, trip?.destination_lng),
+    [trip]
+  );
+
+  const pontoOrigem = coordenadaOrigem || origem;
+  const pontoDestino = coordenadaDestino || destino;
+
+  /**
    * URL do mapa
    */
   const mapaUrl = useMemo(() => {
-    if (!origem || !destino) {
+    if (!pontoOrigem || !pontoDestino) {
       return "";
     }
 
-    const origemEncoded = encodeURIComponent(origem);
-    const destinoEncoded = encodeURIComponent(destino);
+    const chave = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 
-    return `https://www.google.com/maps?q=${origemEncoded}%20to%20${destinoEncoded}&output=embed`;
-  }, [origem, destino]);
+    if (!chave) {
+      return "";
+    }
+
+    return (
+      `https://www.google.com/maps/embed/v1/directions` +
+      `?key=${chave}` +
+      `&origin=${encodeURIComponent(pontoOrigem)}` +
+      `&destination=${encodeURIComponent(pontoDestino)}` +
+      `&mode=driving`
+    );
+  }, [pontoOrigem, pontoDestino]);
 
   /**
    * URL da rota no Google Maps
    */
   const googleMapsRouteUrl = useMemo(() => {
-    if (!origem || !destino) {
+    if (!pontoOrigem || !pontoDestino) {
       return "https://www.google.com/maps";
     }
 
     return `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(
-      origem
+      pontoOrigem
     )}&destination=${encodeURIComponent(
-      destino
+      pontoDestino
     )}&travelmode=driving`;
-  }, [origem, destino]);
+  }, [pontoOrigem, pontoDestino]);
 
   /**
    * Tela de carregamento
@@ -656,7 +711,7 @@ export default function DetalhesCorrida({
 
                   {/* MAPA */}
                   <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 shadow-sm">
-                    {mapaUrl && origem && destino ? (
+                    {mapaUrl ? (
                       <iframe
                         title="Mapa com rota da corrida"
                         src={mapaUrl}
@@ -687,7 +742,7 @@ export default function DetalhesCorrida({
                   </div>
 
                   {/* GOOGLE MAPS */}
-                  {origem && destino && !isTripCanceled && (
+                  {pontoOrigem && pontoDestino && !isTripCanceled && (
                     <a
                       href={googleMapsRouteUrl}
                       target="_blank"
