@@ -127,7 +127,7 @@ async function loadBeneficios(
           AND ub2.beneficio_id = b.id
       )
     WHERE b.status = 1
-      AND LOWER(TRIM(b.tipo)) = 'motorista'
+      AND LOWER(TRIM(COALESCE(b.tipo, ''))) IN ('motorista', 'ambos')
     ORDER BY
   CASE
     WHEN LOWER(TRIM(b.titulo)) LIKE '%btg pactual%' THEN 0

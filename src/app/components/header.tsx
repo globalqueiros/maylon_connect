@@ -219,7 +219,7 @@ export default function Header({ toggleSidebar }: HeaderProps) {
               <div className="my-2 border-t border-gray-100" />
 
               <Link
-                href={`${prefix}/saindo`}
+                href={`/saindo`}
                 onClick={() => setOpen(false)}
                 className="flex w-full items-center gap-2 rounded-lg p-2.5 text-xs text-red-500 hover:bg-red-50"
               >

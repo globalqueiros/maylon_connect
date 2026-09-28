@@ -6,7 +6,6 @@ import {
   Eye,
   MapPin,
   Navigation,
-  Pencil,
   ReceiptText,
   XCircle,
 } from "lucide-react";
@@ -15,19 +14,31 @@ import Link from "next/link";
 export type TripRow = {
   id?: number | string | null;
   trip_request_id?: number | string | null;
+
   status?: string | number | null;
+
   origin?: string | null;
   pickup_address?: string | null;
   origin_address?: string | null;
   pickupAddress?: string | null;
   originAddress?: string | null;
+
   destination?: string | null;
   destination_address?: string | null;
   dropoff_address?: string | null;
   destinationAddress?: string | null;
   dropoffAddress?: string | null;
+
+  /**
+   * Valor pago da viagem.
+   * Este campo tem prioridade sobre os demais campos de valor.
+   */
+  paid_fare?: number | string | null;
+  paidFare?: number | string | null;
+
   base_fare?: number | string | null;
   baseFare?: number | string | null;
+
   fare?: number | string | null;
   price?: number | string | null;
   total?: number | string | null;
@@ -43,19 +54,23 @@ export type TripRow = {
   totalValue?: number | string | null;
   amount_paid?: number | string | null;
   amountPaid?: number | string | null;
+
   valor?: number | string | null;
   valor_corrida?: number | string | null;
   valor_viagem?: number | string | null;
   valor_total?: number | string | null;
   valor_pago?: number | string | null;
   preco?: number | string | null;
+
   created_at?: string | null;
   requested_at?: string | null;
   started_at?: string | null;
   completed_at?: string | null;
+
   date?: string | null;
   data?: string | null;
   data_viagem?: string | null;
+
   status_pending?: number | boolean | null;
   status_accepted?: number | boolean | null;
   status_out_for_pickup?: number | boolean | null;
@@ -66,9 +81,11 @@ export type TripRow = {
   status_failed?: number | boolean | null;
   status_returning?: number | boolean | null;
   status_returned?: number | boolean | null;
+
   status_note?: string | null;
   status_created_at?: string | null;
   status_updated_at?: string | null;
+
   [key: string]: unknown;
 };
 
@@ -123,12 +140,14 @@ function getValue(trip: TripRow, keys: string[]): unknown {
 
     const record = object as Record<string, unknown>;
 
+    // 1. Procura primeiro pelas chaves exatamente como foram informadas.
     for (const key of keys) {
       if (hasValue(record[key])) {
         return record[key];
       }
     }
 
+    // 2. Procura ignorando maiúsculas, _, -, acentos etc.
     for (const [key, value] of Object.entries(record)) {
       if (!hasValue(value)) {
         continue;
@@ -141,6 +160,7 @@ function getValue(trip: TripRow, keys: string[]): unknown {
       }
     }
 
+    // 3. Procura dentro de objetos aninhados.
     for (const value of Object.values(record)) {
       if (value && typeof value === "object") {
         const result = search(value, depth + 1);
@@ -399,19 +419,20 @@ function LoadingRows() {
                   animate-pulse
                   rounded-md
                   bg-slate-100
-                  ${cell === 0
-                    ? "w-20"
-                    : cell === 1
-                      ? "w-44"
-                      : cell === 2
+                  ${
+                    cell === 0
+                      ? "w-20"
+                      : cell === 1
                         ? "w-44"
-                        : cell === 3
-                          ? "w-24"
-                          : cell === 4
-                            ? "w-28"
-                            : cell === 5
+                        : cell === 2
+                          ? "w-44"
+                          : cell === 3
+                            ? "w-24"
+                            : cell === 4
                               ? "w-28"
-                              : "w-20"
+                              : cell === 5
+                                ? "w-28"
+                                : "w-20"
                   }
                 `}
               />
@@ -423,85 +444,29 @@ function LoadingRows() {
   );
 }
 
-function ActionButton({
-  title,
-  onClick,
-  children,
-  variant,
-}: {
-  title: string;
-  onClick?: () => void;
-  children: React.ReactNode;
-  variant: "view" | "edit";
-}) {
-  const styles =
-    variant === "view"
-      ? `
-        bg-slate-50
-        text-slate-500
-        ring-slate-200
-        hover:bg-[#e8f7f3]
-        hover:text-[#23886f]
-        hover:ring-[#bce9dd]
-      `
-      : `
-        bg-slate-50
-        text-slate-500
-        ring-slate-200
-        hover:bg-blue-50
-        hover:text-blue-600
-        hover:ring-blue-200
-      `;
-
-  return (
-    <button
-      type="button"
-      title={title}
-      aria-label={title}
-      onClick={onClick}
-      className={`
-        flex
-        h-9
-        w-9
-        items-center
-        justify-center
-        rounded-xl
-        ring-1
-        transition-all
-        duration-200
-        hover:-translate-y-0.5
-        hover:shadow-sm
-        ${styles}
-      `}
-    >
-      {children}
-    </button>
-  );
-}
-
 export default function TripsTable({
   trips,
   loading = false,
   emptyMessage = "Nenhuma viagem encontrada.",
   headerTone = "dark",
-  onView,
-  onEdit,
 }: TripsTableProps) {
+  const headers = [
+    "Viagem",
+    "Origem",
+    "Destino",
+    "Valor",
+    "Data",
+    "Status",
+    "Ações",
+  ];
+
   if (loading) {
     return (
       <div className="w-full overflow-x-auto">
         <table className="w-full min-w-[1050px] border-collapse">
           <thead>
             <tr className="border-b border-slate-200 bg-slate-50">
-              {[
-                "Viagem",
-                "Origem",
-                "Destino",
-                "Valor",
-                "Data",
-                "Status",
-                "Ações",
-              ].map((title) => (
+              {headers.map((title) => (
                 <th
                   key={title}
                   className="
@@ -521,6 +486,7 @@ export default function TripsTable({
               ))}
             </tr>
           </thead>
+
           <LoadingRows />
         </table>
       </div>
@@ -531,11 +497,16 @@ export default function TripsTable({
     return (
       <div className="flex min-h-[380px] flex-col items-center justify-center px-6 text-center">
         <div className="flex h-16 w-16 items-center justify-center rounded-[22px] bg-slate-100">
-          <ReceiptText size={27} className="text-slate-400" />
+          <ReceiptText
+            size={27}
+            className="text-slate-400"
+          />
         </div>
+
         <h3 className="mt-5 text-base font-bold text-slate-800">
           Nenhuma viagem encontrada
         </h3>
+
         <p className="mt-2 max-w-sm text-sm text-slate-400">
           {emptyMessage}
         </p>
@@ -554,15 +525,7 @@ export default function TripsTable({
                 : "bg-slate-50"
             }
           >
-            {[
-              "Viagem",
-              "Origem",
-              "Destino",
-              "Valor",
-              "Data",
-              "Status",
-              "Ações",
-            ].map((title) => (
+            {headers.map((title) => (
               <th
                 key={title}
                 className={`
@@ -573,9 +536,10 @@ export default function TripsTable({
                   font-extrabold
                   uppercase
                   tracking-[0.08em]
-                  ${headerTone === "dark"
-                    ? "text-white/80"
-                    : "text-slate-500"
+                  ${
+                    headerTone === "dark"
+                      ? "text-white/80"
+                      : "text-slate-500"
                   }
                 `}
               >
@@ -615,28 +579,44 @@ export default function TripsTable({
               "endereco_chegada",
             ]);
 
+            /*
+             * paid_fare é a fonte principal do valor.
+             *
+             * Se paid_fare não existir, o componente tenta
+             * os demais campos como fallback.
+             */
             const price = getValue(trip, [
+              "paid_fare",
+              "paidFare",
+
               "base_fare",
               "baseFare",
+
               "valor",
               "valor_corrida",
               "valor_viagem",
               "valor_total",
               "valor_pago",
+
               "price",
               "fare",
               "fare_amount",
               "fareAmount",
+
               "trip_price",
               "tripPrice",
+
               "ride_price",
               "ridePrice",
+
               "total",
               "total_value",
               "totalValue",
+
               "amount",
               "amount_paid",
               "amountPaid",
+
               "value",
               "preco",
             ]);
@@ -655,11 +635,17 @@ export default function TripsTable({
               "data_viagem",
             ]);
 
-            const status = getValue(trip, ["status"]);
+            const status = getValue(trip, [
+              "status",
+            ]);
+
+            const displayTripId = hasValue(tripId)
+              ? String(tripId)
+              : "—";
 
             return (
               <tr
-                key={`${String(tripId ?? "trip")}-${index}`}
+                key={`${displayTripId}-${index}`}
                 className="
                   group
                   transition-colors
@@ -667,6 +653,7 @@ export default function TripsTable({
                   hover:bg-[#f7fcfa]
                 "
               >
+                {/* VIAGEM */}
                 <td className="px-5 py-4">
                   <div className="flex items-center gap-3">
                     <div
@@ -690,8 +677,9 @@ export default function TripsTable({
 
                     <div>
                       <p className="text-xs font-extrabold text-slate-800">
-                        #${trip.trip_request_id}
+                        #{displayTripId}
                       </p>
+
                       <p className="mt-0.5 text-[10px] text-slate-400">
                         Viagem
                       </p>
@@ -699,6 +687,7 @@ export default function TripsTable({
                   </div>
                 </td>
 
+                {/* ORIGEM */}
                 <td className="px-5 py-4">
                   <div className="flex max-w-[250px] items-start gap-2.5">
                     <div className="mt-0.5 shrink-0 text-[#35a989]">
@@ -712,7 +701,11 @@ export default function TripsTable({
                         leading-5
                         text-slate-600
                       "
-                      title={String(origin ?? "")}
+                      title={
+                        hasValue(origin)
+                          ? String(origin)
+                          : ""
+                      }
                     >
                       {hasValue(origin)
                         ? String(origin)
@@ -721,6 +714,7 @@ export default function TripsTable({
                   </div>
                 </td>
 
+                {/* DESTINO */}
                 <td className="px-5 py-4">
                   <div className="flex max-w-[250px] items-start gap-2.5">
                     <div className="mt-0.5 shrink-0 text-red-400">
@@ -734,7 +728,11 @@ export default function TripsTable({
                         leading-5
                         text-slate-600
                       "
-                      title={String(destination ?? "")}
+                      title={
+                        hasValue(destination)
+                          ? String(destination)
+                          : ""
+                      }
                     >
                       {hasValue(destination)
                         ? String(destination)
@@ -743,6 +741,7 @@ export default function TripsTable({
                   </div>
                 </td>
 
+                {/* VALOR */}
                 <td className="px-5 py-4">
                   <span
                     className="
@@ -756,6 +755,7 @@ export default function TripsTable({
                   </span>
                 </td>
 
+                {/* DATA */}
                 <td className="px-5 py-4">
                   <span
                     className="
@@ -769,18 +769,49 @@ export default function TripsTable({
                   </span>
                 </td>
 
+                {/* STATUS */}
                 <td className="px-5 py-4">
                   <StatusBadge value={status} />
                 </td>
 
+                {/* AÇÕES */}
                 <td className="px-5 py-4">
                   <div className="flex items-center justify-center gap-2">
                     <Link
-                      href={`/passageiro/viagens/${String(tripId)}`}
+                      href={
+                        hasValue(tripId)
+                          ? `/passageiro/viagens/${String(tripId)}`
+                          : "#"
+                      }
                       title="Visualização"
-                      className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:border-teal-200 hover:bg-teal-50 hover:text-teal-600"
+                      aria-label="Visualização"
+                      onClick={(event) => {
+                        if (!hasValue(tripId)) {
+                          event.preventDefault();
+                        }
+                      }}
+                      className="
+                        flex
+                        h-10
+                        w-10
+                        cursor-pointer
+                        items-center
+                        justify-center
+                        rounded-lg
+                        border
+                        border-slate-200
+                        bg-white
+                        text-slate-500
+                        transition
+                        hover:border-teal-200
+                        hover:bg-teal-50
+                        hover:text-teal-600
+                      "
                     >
-                      <Eye size={16} strokeWidth={2.2} />
+                      <Eye
+                        size={16}
+                        strokeWidth={2.2}
+                      />
                     </Link>
                   </div>
                 </td>

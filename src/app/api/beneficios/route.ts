@@ -99,7 +99,7 @@ async function loadBeneficios(usuarioId: number) {
           )
 
         WHERE b.status = 1
-          AND LOWER(TRIM(COALESCE(b.tipo, ''))) = 'passageiro'
+          AND LOWER(TRIM(COALESCE(b.tipo, ''))) IN ('passageiro', 'ambos')
       `,
       params: [usuarioId, usuarioId],
     },

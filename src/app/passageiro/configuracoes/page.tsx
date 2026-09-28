@@ -345,18 +345,18 @@ export default function ConfiguracoesPage() {
     },
   ];
 
- if (loading) {
+  if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center px-4">
-        <div className="flex w-full max-w-[320px] flex-col items-center rounded-[28px] bg-white p-10 shadow-xl ring-1 ring-black/5">
-          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[#e8f7f4]">
-            <div className="h-8 w-8 animate-spin rounded-full border-[3px] border-[#149C8B] border-t-transparent" />
+        <div className="flex w-full max-w-[280px] flex-col items-center rounded-[24px] bg-white p-8 shadow-xl ring-1 ring-black/5 sm:max-w-[320px] sm:rounded-[28px] sm:p-10 2xl:max-w-[380px]">
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#e8f7f4] sm:h-16 sm:w-16">
+            <div className="h-7 w-7 animate-spin rounded-full border-[3px] border-[#149C8B] border-t-transparent sm:h-8 sm:w-8" />
           </div>
-          <p className="mt-5 text-sm font-semibold text-gray-700">
+          <p className="mt-5 text-sm font-semibold text-gray-700 2xl:text-base">
             Carregando suas configurações
           </p>
-          <p className="mt-1 text-xs text-gray-400">
-            Aguarde um momemento...
+          <p className="mt-1 text-xs text-gray-400 2xl:text-sm">
+            Aguarde um momento...
           </p>
         </div>
       </div>
@@ -365,40 +365,41 @@ export default function ConfiguracoesPage() {
 
   return (
     <div className="min-h-screen">
-      <div className="mx-auto w-full max-w-8xl">
-        <header className="relative mb-6 overflow-hidden rounded-[30px] bg-gradient-to-br from-[#149C8B] via-[#159F8E] to-[#0E8274] shadow-xl shadow-[#149C8B]/20">
-          <div className="absolute -right-16 -top-20 h-64 w-64 rounded-full bg-white/10 blur-3xl" />
-          <div className="absolute -bottom-20 left-1/3 h-52 w-52 rounded-full bg-[#7DE0CF]/20 blur-3xl" />
+      <div className="mx-auto w-full max-w-full 2xl:max-w-[1600px]">
+        {/* HEADER */}
+        <header className="relative mb-5 overflow-hidden rounded-[22px] bg-gradient-to-br from-[#149C8B] via-[#159F8E] to-[#0E8274] shadow-xl shadow-[#149C8B]/20 sm:mb-6 sm:rounded-[26px] lg:rounded-[30px]">
+          <div className="absolute -right-16 -top-20 h-48 w-48 rounded-full bg-white/10 blur-3xl sm:h-64 sm:w-64" />
+          <div className="absolute -bottom-20 left-1/3 h-40 w-40 rounded-full bg-[#7DE0CF]/20 blur-3xl sm:h-52 sm:w-52" />
 
-          <div className="relative flex flex-col gap-6 p-6 sm:p-8 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex items-center gap-5">
-              <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-white/15 ring-1 ring-white/20 backdrop-blur-sm">
-                <UserRound className="h-8 w-8 text-white" />
+          <div className="relative flex flex-col gap-5 p-5 sm:gap-6 sm:p-7 lg:flex-row lg:items-center lg:justify-between lg:p-8 2xl:p-10">
+            <div className="flex items-center gap-4 sm:gap-5">
+              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-white/15 ring-1 ring-white/20 backdrop-blur-sm sm:h-16 sm:w-16 2xl:h-20 2xl:w-20">
+                <UserRound className="h-7 w-7 text-white sm:h-8 sm:w-8 2xl:h-10 2xl:w-10" />
               </div>
 
               <div>
-                <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">
+                <h1 className="text-xl font-bold tracking-tight text-white sm:text-2xl lg:text-3xl 2xl:text-4xl">
                   Configurações
                 </h1>
 
-                <p className="mt-0 max-w-xl text-sm leading-6 text-white/75">
+                <p className="mt-0 max-w-xl text-xs leading-5 text-white/75 sm:text-sm sm:leading-6 2xl:max-w-2xl 2xl:text-base 2xl:leading-7">
                   Personalize sua experiência e escolha como deseja
                   receber informações da Maylon.
                 </p>
               </div>
             </div>
 
-            <div className="flex w-fit items-center gap-3 rounded-2xl bg-white/15 px-4 py-3 ring-1 ring-white/15 backdrop-blur-sm">
+            <div className="flex w-full items-center gap-3 rounded-2xl bg-white/15 px-4 py-3 ring-1 ring-white/15 backdrop-blur-sm sm:w-fit 2xl:px-5 2xl:py-4">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/20">
                 <Check className="h-5 w-5 text-white" />
               </div>
 
               <div>
-                <p className="text-xs font-medium text-white/70">
+                <p className="text-xs font-medium text-white/70 2xl:text-sm">
                   Preferências ativas
                 </p>
 
-                <p className="text-lg font-bold text-white">
+                <p className="text-lg font-bold text-white 2xl:text-xl">
                   {totalAtivas} de 6
                 </p>
               </div>
@@ -406,9 +407,10 @@ export default function ConfiguracoesPage() {
           </div>
         </header>
 
+        {/* MENSAGEM */}
         {mensagem && (
           <div
-            className={`mb-6 flex items-center gap-3 rounded-2xl border px-5 py-4 text-sm font-semibold shadow-sm ${
+            className={`mb-5 flex items-center gap-3 rounded-2xl border px-4 py-3 text-xs font-semibold shadow-sm sm:mb-6 sm:px-5 sm:py-4 sm:text-sm 2xl:text-base ${
               mensagem.tipo === "success"
                 ? "border-[#A8DED5] bg-[#E8F7F4] text-[#0B7568]"
                 : "border-red-200 bg-red-50 text-red-700"
@@ -428,32 +430,33 @@ export default function ConfiguracoesPage() {
               )}
             </div>
 
-            <span>{mensagem.texto}</span>
+            <span className="min-w-0 break-words">{mensagem.texto}</span>
           </div>
         )}
 
-        <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
-          <main className="space-y-6">
-            <section className="overflow-hidden rounded-[28px] border border-[#DCEDEA] bg-white shadow-sm">
-              <div className="border-b border-[#E7F1EF] px-6 py-6 sm:px-7">
-                <div className="flex items-center gap-4">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#149C8B]/10">
-                    <Bell className="h-6 w-6 text-[#149C8B]" />
+        <div className="grid gap-5 lg:grid-cols-[1fr_300px] lg:gap-6 xl:grid-cols-[1fr_340px] 2xl:grid-cols-[1fr_400px] 2xl:gap-8">
+          <main className="min-w-0 space-y-5 sm:space-y-6">
+            {/* EXPERIÊNCIA DA CONTA */}
+            <section className="overflow-hidden rounded-[22px] border border-[#DCEDEA] bg-white shadow-sm sm:rounded-[26px] lg:rounded-[28px]">
+              <div className="border-b border-[#E7F1EF] px-4 py-5 sm:px-6 sm:py-6 lg:px-7 2xl:px-8">
+                <div className="flex items-center gap-3 sm:gap-4">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#149C8B]/10 sm:h-12 sm:w-12">
+                    <Bell className="h-5 w-5 text-[#149C8B] sm:h-6 sm:w-6" />
                   </div>
 
                   <div>
-                    <h2 className="text-lg font-bold text-[#173B3A]">
+                    <h2 className="text-base font-bold text-[#173B3A] sm:text-lg 2xl:text-xl">
                       Experiência da conta
                     </h2>
 
-                    <p className="mt-1 text-sm text-[#66807D]">
+                    <p className="mt-1 text-xs text-[#66807D] sm:text-sm 2xl:text-base">
                       Controle como a Maylon interage com você.
                     </p>
                   </div>
                 </div>
               </div>
 
-              <div className="grid gap-3 p-4 sm:p-5">
+              <div className="grid gap-3 p-3 sm:p-5 2xl:p-6">
                 {preferenciasConta.map((item) => {
                   const Icon = item.icon;
                   const ativo = preferencias[item.campo];
@@ -461,14 +464,14 @@ export default function ConfiguracoesPage() {
                   return (
                     <label
                       key={item.campo}
-                      className={`group flex cursor-pointer items-center gap-4 rounded-2xl border p-4 transition-all duration-200 ${
+                      className={`group flex cursor-pointer items-center gap-3 rounded-2xl border p-3 transition-all duration-200 sm:gap-4 sm:p-4 2xl:p-5 ${
                         ativo
                           ? "border-[#149C8B]/40 bg-[#149C8B]/[0.08] shadow-sm shadow-[#149C8B]/5"
                           : "border-[#DCEDEA] bg-[#F8FCFB] hover:border-[#149C8B]/30 hover:bg-[#F2FBF9]"
                       }`}
                     >
                       <div
-                        className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl transition ${
+                        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition sm:h-11 sm:w-11 ${
                           ativo
                             ? "bg-[#149C8B] text-white shadow-md shadow-[#149C8B]/20"
                             : "bg-white text-[#7D9995] ring-1 ring-[#DCEDEA]"
@@ -478,11 +481,11 @@ export default function ConfiguracoesPage() {
                       </div>
 
                       <div className="min-w-0 flex-1">
-                        <p className="text-sm font-bold text-[#254744]">
+                        <p className="text-sm font-bold text-[#254744] 2xl:text-base">
                           {item.titulo}
                         </p>
 
-                        <p className="mt-1 text-xs leading-5 text-[#718B88]">
+                        <p className="mt-1 text-xs leading-5 text-[#718B88] 2xl:text-sm">
                           {item.descricao}
                         </p>
                       </div>
@@ -517,26 +520,27 @@ export default function ConfiguracoesPage() {
               </div>
             </section>
 
-            <section className="overflow-hidden rounded-[28px] border border-[#DCEDEA] bg-white shadow-sm">
-              <div className="border-b border-[#E7F1EF] px-6 py-6 sm:px-7">
-                <div className="flex items-center gap-4">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#149C8B]/10">
-                    <Smartphone className="h-6 w-6 text-[#149C8B]" />
+            {/* CANAIS */}
+            <section className="overflow-hidden rounded-[22px] border border-[#DCEDEA] bg-white shadow-sm sm:rounded-[26px] lg:rounded-[28px]">
+              <div className="border-b border-[#E7F1EF] px-4 py-5 sm:px-6 sm:py-6 lg:px-7 2xl:px-8">
+                <div className="flex items-center gap-3 sm:gap-4">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#149C8B]/10 sm:h-12 sm:w-12">
+                    <Smartphone className="h-5 w-5 text-[#149C8B] sm:h-6 sm:w-6" />
                   </div>
 
                   <div>
-                    <h2 className="text-lg font-bold text-[#173B3A]">
+                    <h2 className="text-base font-bold text-[#173B3A] sm:text-lg 2xl:text-xl">
                       Canais de comunicação
                     </h2>
 
-                    <p className="mt-1 text-sm text-[#66807D]">
+                    <p className="mt-1 text-xs text-[#66807D] sm:text-sm 2xl:text-base">
                       Escolha onde deseja receber suas mensagens.
                     </p>
                   </div>
                 </div>
               </div>
 
-              <div className="grid gap-3 p-4 sm:grid-cols-3 sm:p-5">
+              <div className="grid grid-cols-1 gap-3 p-3 sm:p-5 md:grid-cols-3 2xl:gap-4 2xl:p-6">
                 {canais.map((item) => {
                   const Icon = item.icon;
                   const ativo = preferencias[item.campo];
@@ -544,7 +548,7 @@ export default function ConfiguracoesPage() {
                   return (
                     <label
                       key={item.campo}
-                      className={`group cursor-pointer rounded-2xl border p-5 transition-all duration-200 ${
+                      className={`group cursor-pointer rounded-2xl border p-4 transition-all duration-200 sm:p-5 2xl:p-6 ${
                         ativo
                           ? "border-[#149C8B]/40 bg-[#149C8B]/[0.08] shadow-sm shadow-[#149C8B]/5"
                           : "border-[#DCEDEA] bg-[#F8FCFB] hover:border-[#149C8B]/30 hover:bg-[#F2FBF9]"
@@ -552,7 +556,7 @@ export default function ConfiguracoesPage() {
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div
-                          className={`flex h-11 w-11 items-center justify-center rounded-xl ${
+                          className={`flex h-10 w-10 items-center justify-center rounded-xl sm:h-11 sm:w-11 ${
                             ativo
                               ? "bg-[#149C8B] text-white shadow-md shadow-[#149C8B]/20"
                               : "bg-white text-[#7D9995] ring-1 ring-[#DCEDEA]"
@@ -583,12 +587,12 @@ export default function ConfiguracoesPage() {
                         </div>
                       </div>
 
-                      <div className="mt-5">
-                        <p className="text-sm font-bold text-[#254744]">
+                      <div className="mt-4 sm:mt-5">
+                        <p className="text-sm font-bold text-[#254744] 2xl:text-base">
                           {item.titulo}
                         </p>
 
-                        <p className="mt-1 text-xs leading-5 text-[#718B88]">
+                        <p className="mt-1 text-xs leading-5 text-[#718B88] 2xl:text-sm">
                           {item.descricao}
                         </p>
                       </div>
@@ -598,19 +602,20 @@ export default function ConfiguracoesPage() {
               </div>
             </section>
 
-            <section className="rounded-[28px] border border-[#DCEDEA] bg-white p-5 shadow-sm sm:p-6">
-              <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#149C8B]/10">
-                    <Monitor className="h-6 w-6 text-[#149C8B]" />
+            {/* DISPOSITIVOS */}
+            <section className="rounded-[22px] border border-[#DCEDEA] bg-white p-4 shadow-sm sm:rounded-[26px] sm:p-6 lg:rounded-[28px] 2xl:p-7">
+              <div className="flex flex-col gap-4 sm:gap-5 md:flex-row md:items-center md:justify-between">
+                <div className="flex items-center gap-3 sm:gap-4">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#149C8B]/10 sm:h-12 sm:w-12">
+                    <Monitor className="h-5 w-5 text-[#149C8B] sm:h-6 sm:w-6" />
                   </div>
 
                   <div>
-                    <h2 className="text-lg font-bold text-[#173B3A]">
+                    <h2 className="text-base font-bold text-[#173B3A] sm:text-lg 2xl:text-xl">
                       Dispositivos acessados
                     </h2>
 
-                    <p className="mt-1 text-sm text-[#66807D]">
+                    <p className="mt-1 text-xs text-[#66807D] sm:text-sm 2xl:text-base">
                       Gerencie os dispositivos conectados à sua conta.
                     </p>
                   </div>
@@ -618,7 +623,7 @@ export default function ConfiguracoesPage() {
 
                 <a
                   href="/passageiro/sessoes"
-                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-[#149C8B]/20 bg-[#149C8B]/10 px-5 py-3 text-sm font-bold text-[#11897D] transition hover:bg-[#149C8B] hover:text-white"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-[#149C8B]/20 bg-[#149C8B]/10 px-5 py-3 text-sm font-bold text-[#11897D] transition hover:bg-[#149C8B] hover:text-white md:w-auto 2xl:text-base"
                 >
                   Gerenciar dispositivos
                   <ChevronRight className="h-4 w-4" />
@@ -627,43 +632,44 @@ export default function ConfiguracoesPage() {
             </section>
           </main>
 
+          {/* PRIVACIDADE */}
           <aside className="lg:sticky lg:top-6 lg:h-fit">
-            <div className="overflow-hidden rounded-[28px] bg-gradient-to-br from-[#149C8B] via-[#128F7F] to-[#0B7568] shadow-xl shadow-[#149C8B]/20">
-              <div className="relative overflow-hidden p-6">
+            <div className="overflow-hidden rounded-[22px] bg-gradient-to-br from-[#149C8B] via-[#128F7F] to-[#0B7568] shadow-xl shadow-[#149C8B]/20 sm:rounded-[26px] lg:rounded-[28px]">
+              <div className="relative overflow-hidden p-5 sm:p-6 2xl:p-8">
                 <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-white/10 blur-2xl" />
 
                 <div className="relative">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/15 ring-1 ring-white/20">
-                    <ShieldCheck className="h-6 w-6 text-white" />
+                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/15 ring-1 ring-white/20 sm:h-12 sm:w-12">
+                    <ShieldCheck className="h-5 w-5 text-white sm:h-6 sm:w-6" />
                   </div>
 
-                  <h3 className="mt-5 text-xl font-bold text-white">
+                  <h3 className="mt-4 text-lg font-bold text-white sm:mt-5 sm:text-xl 2xl:text-2xl">
                     Sua privacidade
                   </h3>
 
-                  <p className="mt-2 text-sm leading-6 text-white/70">
+                  <p className="mt-2 text-xs leading-5 text-white/70 sm:text-sm sm:leading-6 2xl:text-base 2xl:leading-7">
                     Você tem controle sobre as comunicações e permissões
                     utilizadas pela sua conta Maylon.
                   </p>
 
-                  <div className="mt-6 space-y-3">
+                  <div className="mt-5 grid gap-3 sm:mt-6 md:grid-cols-3 lg:grid-cols-1">
                     <div className="flex items-center gap-3 rounded-xl bg-white/10 px-4 py-3">
-                      <Check className="h-4 w-4 text-white" />
-                      <span className="text-xs font-medium text-white/85">
+                      <Check className="h-4 w-4 shrink-0 text-white" />
+                      <span className="text-xs font-medium text-white/85 2xl:text-sm">
                         Controle das notificações
                       </span>
                     </div>
 
                     <div className="flex items-center gap-3 rounded-xl bg-white/10 px-4 py-3">
-                      <Check className="h-4 w-4 text-white" />
-                      <span className="text-xs font-medium text-white/85">
+                      <Check className="h-4 w-4 shrink-0 text-white" />
+                      <span className="text-xs font-medium text-white/85 2xl:text-sm">
                         Preferências personalizadas
                       </span>
                     </div>
 
                     <div className="flex items-center gap-3 rounded-xl bg-white/10 px-4 py-3">
-                      <Check className="h-4 w-4 text-white" />
-                      <span className="text-xs font-medium text-white/85">
+                      <Check className="h-4 w-4 shrink-0 text-white" />
+                      <span className="text-xs font-medium text-white/85 2xl:text-sm">
                         Segurança da conta
                       </span>
                     </div>
@@ -671,8 +677,8 @@ export default function ConfiguracoesPage() {
                 </div>
               </div>
 
-              <div className="border-t border-white/10 bg-black/5 p-5">
-                <p className="text-xs leading-5 text-white/60">
+              <div className="border-t border-white/10 bg-black/5 p-4 sm:p-5 2xl:p-6">
+                <p className="text-xs leading-5 text-white/60 2xl:text-sm">
                   As alterações serão aplicadas à sua conta após salvar as
                   configurações.
                 </p>
@@ -681,13 +687,14 @@ export default function ConfiguracoesPage() {
           </aside>
         </div>
 
-        <div className="mt-6 flex flex-col-reverse gap-3 rounded-[28px] border border-[#DCEDEA] bg-white p-4 shadow-sm sm:flex-row sm:justify-end sm:p-5">
+        {/* AÇÕES */}
+        <div className="mt-5 flex flex-col-reverse gap-3 rounded-[22px] border border-[#DCEDEA] bg-white p-4 shadow-sm sm:mt-6 sm:flex-row sm:justify-end sm:rounded-[26px] sm:p-5 lg:rounded-[28px] 2xl:p-6">
           <button
             type="button"
             onClick={() => {
               window.location.href = "/passageiro";
             }}
-            className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-[#DCEDEA] bg-white px-7 py-3.5 text-sm font-bold text-[#607875] transition hover:bg-[#F4F9F8] hover:text-[#173B3A]"
+            className="inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl border border-[#DCEDEA] bg-white px-7 py-3.5 text-sm font-bold text-[#607875] transition hover:bg-[#F4F9F8] hover:text-[#173B3A] sm:w-auto 2xl:text-base"
           >
             <CircleX className="h-[18px] w-[18px]" />
             Cancelar
@@ -697,7 +704,7 @@ export default function ConfiguracoesPage() {
             type="button"
             onClick={() => void salvarPreferencias()}
             disabled={salvando}
-            className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-[#149C8B] px-8 py-3.5 text-sm font-bold text-white shadow-lg shadow-[#149C8B]/20 transition hover:bg-[#11897D] hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-[#149C8B] px-8 py-3.5 text-sm font-bold text-white shadow-lg shadow-[#149C8B]/20 transition hover:bg-[#11897D] hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto 2xl:text-base"
           >
             <Save className="h-[18px] w-[18px]" />
             {salvando ? "Salvando..." : "Salvar alterações"}
@@ -705,9 +712,10 @@ export default function ConfiguracoesPage() {
         </div>
       </div>
 
+      {/* MODAL LOCALIZAÇÃO */}
       {modalLocalizacao && (
         <div
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-3 backdrop-blur-sm sm:p-4"
           onMouseDown={(e) => {
             if (
               e.target === e.currentTarget &&
@@ -718,48 +726,48 @@ export default function ConfiguracoesPage() {
           }}
         >
           <div
-            className="w-full max-w-md overflow-hidden rounded-[30px] bg-white shadow-2xl"
+            className="max-h-[92vh] w-full max-w-sm overflow-y-auto rounded-[24px] bg-white shadow-2xl sm:max-w-md sm:rounded-[30px] 2xl:max-w-lg"
             role="dialog"
             aria-modal="true"
             aria-labelledby="modal-localizacao-titulo"
           >
-            <div className="relative overflow-hidden bg-gradient-to-br from-[#149C8B] via-[#128F7F] to-[#0B7568] px-6 pb-8 pt-7">
+            <div className="relative overflow-hidden bg-gradient-to-br from-[#149C8B] via-[#128F7F] to-[#0B7568] px-5 pb-6 pt-6 sm:px-6 sm:pb-8 sm:pt-7">
               <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-white/10 blur-2xl" />
 
               <div className="relative flex justify-center">
-                <div className="flex h-20 w-20 items-center justify-center rounded-[24px] bg-white/15 ring-1 ring-white/20 backdrop-blur-sm">
-                  <MapPin className="h-10 w-10 text-white" />
+                <div className="flex h-16 w-16 items-center justify-center rounded-[20px] bg-white/15 ring-1 ring-white/20 backdrop-blur-sm sm:h-20 sm:w-20 sm:rounded-[24px]">
+                  <MapPin className="h-8 w-8 text-white sm:h-10 sm:w-10" />
                 </div>
               </div>
 
-              <div className="relative mt-5 text-center">
+              <div className="relative mt-4 text-center sm:mt-5">
                 <h2
                   id="modal-localizacao-titulo"
-                  className="text-xl font-bold text-white"
+                  className="text-lg font-bold text-white sm:text-xl 2xl:text-2xl"
                 >
                   Compartilhar localização
                 </h2>
 
-                <p className="mt-2 text-sm leading-6 text-white/75">
+                <p className="mt-2 text-xs leading-5 text-white/75 sm:text-sm sm:leading-6 2xl:text-base">
                   Você deseja permitir que a Maylon utilize sua localização
                   durante suas viagens?
                 </p>
               </div>
             </div>
 
-            <div className="p-6">
-              <div className="rounded-2xl border border-[#DCEDEA] bg-[#F8FCFB] p-4">
+            <div className="p-5 sm:p-6 2xl:p-8">
+              <div className="rounded-2xl border border-[#DCEDEA] bg-[#F8FCFB] p-3 sm:p-4">
                 <div className="flex gap-3">
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#149C8B]/10">
                     <ShieldCheck className="h-5 w-5 text-[#149C8B]" />
                   </div>
 
                   <div>
-                    <p className="text-sm font-bold text-[#254744]">
+                    <p className="text-sm font-bold text-[#254744] 2xl:text-base">
                       Sua privacidade está protegida
                     </p>
 
-                    <p className="mt-1 text-xs leading-5 text-[#718B88]">
+                    <p className="mt-1 text-xs leading-5 text-[#718B88] 2xl:text-sm">
                       A localização será utilizada apenas para recursos
                       relacionados às suas viagens. Você poderá desativar
                       essa permissão a qualquer momento.
@@ -768,35 +776,35 @@ export default function ConfiguracoesPage() {
                 </div>
               </div>
 
-              <div className="mt-5 space-y-3">
+              <div className="mt-4 space-y-3 sm:mt-5">
                 <div className="flex items-center gap-3">
                   <Check className="h-4 w-4 shrink-0 text-[#149C8B]" />
-                  <span className="text-sm text-[#536E6A]">
+                  <span className="text-xs text-[#536E6A] sm:text-sm 2xl:text-base">
                     Melhor acompanhamento da sua viagem
                   </span>
                 </div>
 
                 <div className="flex items-center gap-3">
                   <Check className="h-4 w-4 shrink-0 text-[#149C8B]" />
-                  <span className="text-sm text-[#536E6A]">
+                  <span className="text-xs text-[#536E6A] sm:text-sm 2xl:text-base">
                     Mais segurança durante o trajeto
                   </span>
                 </div>
 
                 <div className="flex items-center gap-3">
                   <Check className="h-4 w-4 shrink-0 text-[#149C8B]" />
-                  <span className="text-sm text-[#536E6A]">
+                  <span className="text-xs text-[#536E6A] sm:text-sm 2xl:text-base">
                     Você pode revogar a permissão quando quiser
                   </span>
                 </div>
               </div>
 
-              <div className="mt-7 flex flex-col gap-3 sm:flex-row-reverse">
+              <div className="mt-6 flex flex-col gap-3 sm:mt-7 sm:flex-row-reverse">
                 <button
                   type="button"
                   onClick={permitirLocalizacao}
                   disabled={solicitandoLocalizacao}
-                  className="flex-1 cursor-pointer rounded-xl bg-[#149C8B] px-5 py-3.5 text-sm font-bold text-white shadow-lg shadow-[#149C8B]/20 transition hover:bg-[#11897D] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="flex-1 cursor-pointer rounded-xl bg-[#149C8B] px-5 py-3.5 text-sm font-bold text-white shadow-lg shadow-[#149C8B]/20 transition hover:bg-[#11897D] disabled:cursor-not-allowed disabled:opacity-60 2xl:text-base"
                 >
                   {solicitandoLocalizacao
                     ? "Obtendo localização..."
@@ -807,7 +815,7 @@ export default function ConfiguracoesPage() {
                   type="button"
                   onClick={() => setModalLocalizacao(false)}
                   disabled={solicitandoLocalizacao}
-                  className="flex-1 cursor-pointer rounded-xl border border-[#DCEDEA] bg-white px-5 py-3.5 text-sm font-bold text-[#607875] transition hover:bg-[#F4F9F8] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="flex-1 cursor-pointer rounded-xl border border-[#DCEDEA] bg-white px-5 py-3.5 text-sm font-bold text-[#607875] transition hover:bg-[#F4F9F8] disabled:cursor-not-allowed disabled:opacity-60 2xl:text-base"
                 >
                   Agora não
                 </button>

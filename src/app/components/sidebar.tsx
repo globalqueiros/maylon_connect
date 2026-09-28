@@ -11,6 +11,8 @@ import {
   CarFront,
   ShoppingCart,
   X,
+  Smartphone,
+  QrCode,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -20,6 +22,7 @@ const SIDEBAR_TOGGLE_EVENT = "app:toggle-mobile-sidebar";
 
 const menuMotorista = [
   { name: "Dashboard", icon: LayoutDashboard, href: "/motorista" },
+  { name: "Serviços", icon: QrCode, href: "/motorista/servicos" },
   { name: "Viagens", icon: CarFront, href: "/motorista/viagens" },
   { name: "Benefícios", icon: HandCoins, href: "/motorista/beneficios" },
   { name: "Shopping", icon: ShoppingCart, href: "/motorista/shopping" },
@@ -30,9 +33,10 @@ const menuMotorista = [
 
 const menuPassageiro = [
   { name: "Dashboard", icon: LayoutDashboard, href: "/passageiro" },
+  { name: "Serviços", icon: QrCode, href: "/passageiro/servicos" },
   { name: "Viagens", icon: CarFront, href: "/passageiro/viagens" },
   { name: "Benefícios", icon: HandCoins, href: "/passageiro/beneficios" },
-  { name: "Sair", icon: LogOut, href: "/passageiro/saindo" },
+  { name: "Sair", icon: LogOut, href: "/saindo" },
 ];
 
 type User = {

@@ -5,15 +5,20 @@ import {
   CalendarDays,
   Car,
   CheckCircle2,
-  CircleDollarSign,
   Clock3,
+  Loader2,
   MapPin,
-  Plane,
-  UserRound,
+  Receipt,
+  Smartphone,
   Wallet,
+  X,
 } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+
+/* ------------------------------------------------------------------ */
+/* TIPOS                                                               */
+/* ------------------------------------------------------------------ */
 
 type User = {
   id: number;
@@ -42,24 +47,43 @@ type Trip = {
   [key: string]: unknown;
 };
 
+type ModalType = "recarga" | "conta" | null;
+
+/* ------------------------------------------------------------------ */
+/* HELPERS                                                             */
+/* ------------------------------------------------------------------ */
+
+const STATUS_COMPLETED = [
+  "completed",
+  "complete",
+  "concluida",
+  "concluído",
+  "concluída",
+  "realizada",
+  "finished",
+];
+const STATUS_CANCELLED = ["cancelled", "canceled", "cancelada", "cancelado"];
+const STATUS_PENDING = ["pending", "pendente"];
+const STATUS_ACCEPTED = ["accepted", "aceita", "aceitado"];
+const STATUS_IN_PROGRESS = [
+  "started",
+  "in_progress",
+  "em_andamento",
+  "em andamento",
+];
+
 function parseDate(value: unknown): Date | null {
-  if (!value) {
-    return null;
-  }
+  if (!value) return null;
 
   if (value instanceof Date) {
     return Number.isNaN(value.getTime()) ? null : value;
   }
 
   const text = String(value).trim();
-
-  if (!text) {
-    return null;
-  }
+  if (!text) return null;
 
   if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}/.test(text)) {
     const [datePart, timePart] = text.split(" ");
-
     const [year, month, day] = datePart.split("-").map(Number);
     const [hour, minute, second] = timePart.split(":").map(Number);
 
@@ -76,16 +100,12 @@ function parseDate(value: unknown): Date | null {
   }
 
   const date = new Date(text);
-
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
 function isSameMonth(value: unknown, reference: Date): boolean {
   const date = parseDate(value);
-
-  if (!date) {
-    return false;
-  }
+  if (!date) return false;
 
   return (
     date.getFullYear() === reference.getFullYear() &&
@@ -98,18 +118,10 @@ function parseMoney(value: unknown): number {
     return Number.isFinite(value) ? value : 0;
   }
 
-  if (typeof value !== "string") {
-    return 0;
-  }
+  if (typeof value !== "string") return 0;
 
-  let text = value
-    .replace(/R\$/gi, "")
-    .replace(/\s/g, "")
-    .trim();
-
-  if (!text) {
-    return 0;
-  }
+  let text = value.replace(/R\$/gi, "").replace(/\s/g, "").trim();
+  if (!text) return 0;
 
   if (text.includes(",") && text.includes(".")) {
     text = text.replace(/\./g, "").replace(",", ".");
@@ -118,7 +130,6 @@ function parseMoney(value: unknown): number {
   }
 
   const numberValue = Number(text);
-
   return Number.isFinite(numberValue) ? numberValue : 0;
 }
 
@@ -131,10 +142,7 @@ function formatCurrency(value: number): string {
 
 function formatDate(value: unknown): string {
   const date = parseDate(value);
-
-  if (!date) {
-    return "—";
-  }
+  if (!date) return "—";
 
   return date.toLocaleDateString("pt-BR", {
     day: "2-digit",
@@ -144,10 +152,7 @@ function formatDate(value: unknown): string {
 
 function formatTime(value: unknown): string {
   const date = parseDate(value);
-
-  if (!date) {
-    return "—";
-  }
+  if (!date) return "—";
 
   return date.toLocaleTimeString("pt-BR", {
     hour: "2-digit",
@@ -156,12 +161,9 @@ function formatTime(value: unknown): string {
 }
 
 function normalizeUser(response: unknown): User | null {
-  if (!response || typeof response !== "object") {
-    return null;
-  }
+  if (!response || typeof response !== "object") return null;
 
   const root = response as Record<string, unknown>;
-
   let userData: Record<string, unknown> | null = null;
 
   if (root.user && typeof root.user === "object") {
@@ -194,16 +196,9 @@ function normalizeUser(response: unknown): User | null {
     userData.nome_completo ??
     userData.nomeCompleto;
 
-  if (typeof fullName !== "string" || !fullName.trim()) {
-    return null;
-  }
+  if (typeof fullName !== "string" || !fullName.trim()) return null;
 
-  const id =
-    userData.id ??
-    userData.usuario_id ??
-    userData.user_id ??
-    0;
-
+  const id = userData.id ?? userData.usuario_id ?? userData.user_id ?? 0;
   const email = userData.email;
 
   return {
@@ -228,11 +223,7 @@ function normalizeTrip(raw: unknown): Trip {
 
   const trip = raw as Record<string, unknown>;
 
-  const id =
-    trip.id ??
-    trip.trip_request_id ??
-    trip.tripRequestId ??
-    null;
+  const id = trip.id ?? trip.trip_request_id ?? trip.tripRequestId ?? null;
 
   const tripRequestId =
     trip.trip_request_id ??
@@ -296,54 +287,27 @@ function normalizeTrip(raw: unknown): Trip {
   return {
     ...trip,
 
-    id:
-      typeof id === "number" || typeof id === "string"
-        ? id
-        : null,
+    id: typeof id === "number" || typeof id === "string" ? id : null,
 
     trip_request_id:
-      typeof tripRequestId === "number" ||
-        typeof tripRequestId === "string"
+      typeof tripRequestId === "number" || typeof tripRequestId === "string"
         ? tripRequestId
         : null,
 
     created_at:
-      createdAt !== null && createdAt !== undefined
-        ? String(createdAt)
-        : null,
+      createdAt !== null && createdAt !== undefined ? String(createdAt) : null,
 
     valor: parseMoney(valor),
 
-    origin:
-      typeof origin === "string"
-        ? origin.trim()
-        : null,
+    origin: typeof origin === "string" ? origin.trim() : null,
+    destination: typeof destination === "string" ? destination.trim() : null,
+    status: typeof status === "string" ? status.trim() : null,
 
-    destination:
-      typeof destination === "string"
-        ? destination.trim()
-        : null,
-
-    status:
-      typeof status === "string"
-        ? status.trim()
-        : null,
-
-    pickup_city:
-      typeof trip.pickup_city === "string"
-        ? trip.pickup_city
-        : null,
-
+    pickup_city: typeof trip.pickup_city === "string" ? trip.pickup_city : null,
     pickup_state:
-      typeof trip.pickup_state === "string"
-        ? trip.pickup_state
-        : null,
-
+      typeof trip.pickup_state === "string" ? trip.pickup_state : null,
     destination_city:
-      typeof trip.destination_city === "string"
-        ? trip.destination_city
-        : null,
-
+      typeof trip.destination_city === "string" ? trip.destination_city : null,
     destination_state:
       typeof trip.destination_state === "string"
         ? trip.destination_state
@@ -356,108 +320,45 @@ function extractUser(response: unknown): User | null {
 }
 
 function extractTrips(response: unknown): unknown[] {
-  if (Array.isArray(response)) {
-    return response;
-  }
-
-  if (!response || typeof response !== "object") {
-    return [];
-  }
+  if (Array.isArray(response)) return response;
+  if (!response || typeof response !== "object") return [];
 
   const root = response as Record<string, unknown>;
 
-  const possibleArrays = [
-    root.trips,
-    root.viagens,
-    root.rows,
-    root.results,
-  ];
+  const possibleArrays = [root.trips, root.viagens, root.rows, root.results];
 
   for (const item of possibleArrays) {
-    if (Array.isArray(item)) {
-      return item;
-    }
+    if (Array.isArray(item)) return item;
   }
 
-  if (
-    root.data &&
-    typeof root.data === "object"
-  ) {
-    if (Array.isArray(root.data)) {
-      return root.data;
-    }
+  if (root.data && typeof root.data === "object") {
+    if (Array.isArray(root.data)) return root.data;
 
     const data = root.data as Record<string, unknown>;
-
-    const nestedArrays = [
-      data.trips,
-      data.viagens,
-      data.rows,
-      data.results,
-    ];
+    const nestedArrays = [data.trips, data.viagens, data.rows, data.results];
 
     for (const item of nestedArrays) {
-      if (Array.isArray(item)) {
-        return item;
-      }
+      if (Array.isArray(item)) return item;
     }
   }
 
   return [];
 }
 
-function getTripTitle(trip: Trip): string {
-  const status = String(trip.status ?? "")
+function normalizeStatus(status: string | null): string {
+  return String(status ?? "")
     .trim()
     .toLowerCase();
+}
 
-  if (
-    [
-      "completed",
-      "complete",
-      "concluida",
-      "concluído",
-      "concluída",
-      "realizada",
-      "finished",
-    ].includes(status)
-  ) {
-    return "Viagem realizada";
-  }
+function getTripTitle(trip: Trip): string {
+  const status = normalizeStatus(trip.status);
 
-  if (
-    [
-      "cancelled",
-      "canceled",
-      "cancelada",
-      "cancelado",
-    ].includes(status)
-  ) {
-    return "Viagem cancelada";
-  }
-
-  if (
-    ["pending", "pendente"].includes(status)
-  ) {
-    return "Viagem pendente";
-  }
-
-  if (
-    ["accepted", "aceita", "aceitado"].includes(status)
-  ) {
-    return "Viagem aceita";
-  }
-
-  if (
-    [
-      "started",
-      "in_progress",
-      "em_andamento",
-      "em andamento",
-    ].includes(status)
-  ) {
-    return "Viagem em andamento";
-  }
+  if (STATUS_COMPLETED.includes(status)) return "Viagem realizada";
+  if (STATUS_CANCELLED.includes(status)) return "Viagem cancelada";
+  if (STATUS_PENDING.includes(status)) return "Viagem pendente";
+  if (STATUS_ACCEPTED.includes(status)) return "Viagem aceita";
+  if (STATUS_IN_PROGRESS.includes(status)) return "Viagem em andamento";
 
   return "Viagem registrada";
 }
@@ -466,61 +367,25 @@ function getTripLocation(trip: Trip): string {
   const origin = trip.origin?.trim();
   const destination = trip.destination?.trim();
 
-  if (origin && destination) {
-    return `${origin} → ${destination}`;
-  }
-
-  if (destination) {
-    return destination;
-  }
-
-  if (origin) {
-    return origin;
-  }
+  if (origin && destination) return `${origin} → ${destination}`;
+  if (destination) return destination;
+  if (origin) return origin;
 
   return "Local não informado";
 }
 
 function getTripStatusClass(status: string | null): string {
-  const value = String(status ?? "")
-    .trim()
-    .toLowerCase();
+  const value = normalizeStatus(status);
 
-  if (
-    [
-      "completed",
-      "complete",
-      "concluida",
-      "concluído",
-      "concluída",
-      "realizada",
-      "finished",
-    ].includes(value)
-  ) {
+  if (STATUS_COMPLETED.includes(value)) {
     return "bg-emerald-50 text-emerald-700 border-emerald-100";
   }
 
-  if (
-    [
-      "cancelled",
-      "canceled",
-      "cancelada",
-      "cancelado",
-    ].includes(value)
-  ) {
+  if (STATUS_CANCELLED.includes(value)) {
     return "bg-red-50 text-red-600 border-red-100";
   }
 
-  if (
-    [
-      "pending",
-      "pendente",
-      "started",
-      "in_progress",
-      "em_andamento",
-      "em andamento",
-    ].includes(value)
-  ) {
+  if (STATUS_PENDING.includes(value) || STATUS_IN_PROGRESS.includes(value)) {
     return "bg-amber-50 text-amber-700 border-amber-100";
   }
 
@@ -528,60 +393,473 @@ function getTripStatusClass(status: string | null): string {
 }
 
 function getTripStatusLabel(status: string | null): string {
-  const value = String(status ?? "")
-    .trim()
-    .toLowerCase();
+  const value = normalizeStatus(status);
 
-  if (
-    [
-      "completed",
-      "complete",
-      "concluida",
-      "concluído",
-      "concluída",
-      "realizada",
-      "finished",
-    ].includes(value)
-  ) {
-    return "Concluída";
-  }
-
-  if (
-    [
-      "cancelled",
-      "canceled",
-      "cancelada",
-      "cancelado",
-    ].includes(value)
-  ) {
-    return "Cancelada";
-  }
-
-  if (
-    ["pending", "pendente"].includes(value)
-  ) {
-    return "Pendente";
-  }
-
-  if (
-    [
-      "started",
-      "in_progress",
-      "em_andamento",
-      "em andamento",
-    ].includes(value)
-  ) {
-    return "Em andamento";
-  }
-
-  if (
-    ["accepted", "aceita", "aceitado"].includes(value)
-  ) {
-    return "Aceita";
-  }
+  if (STATUS_COMPLETED.includes(value)) return "Concluída";
+  if (STATUS_CANCELLED.includes(value)) return "Cancelada";
+  if (STATUS_PENDING.includes(value)) return "Pendente";
+  if (STATUS_IN_PROGRESS.includes(value)) return "Em andamento";
+  if (STATUS_ACCEPTED.includes(value)) return "Aceita";
 
   return "Registrada";
 }
+
+/* ---------- máscaras / validações dos modais ---------- */
+
+function onlyDigits(value: string): string {
+  return value.replace(/\D/g, "");
+}
+
+function maskPhone(value: string): string {
+  const d = onlyDigits(value).slice(0, 11);
+
+  if (d.length <= 2) return d ? `(${d}` : "";
+  if (d.length <= 6) return `(${d.slice(0, 2)}) ${d.slice(2)}`;
+  if (d.length <= 10) {
+    return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`;
+  }
+
+  return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
+}
+
+function maskBarcode(value: string): string {
+  return onlyDigits(value).slice(0, 48);
+}
+
+async function postJson(
+  url: string,
+  body: Record<string, unknown>
+): Promise<{ ok: boolean; message: string }> {
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      credentials: "include",
+      cache: "no-store",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+
+    let message = "";
+
+    try {
+      const data = (await response.json()) as Record<string, unknown>;
+
+      if (typeof data?.message === "string") message = data.message;
+      else if (typeof data?.error === "string") message = data.error;
+    } catch {
+      /* resposta sem JSON */
+    }
+
+    if (!response.ok) {
+      return {
+        ok: false,
+        message: message || `Não foi possível concluir (${response.status}).`,
+      };
+    }
+
+    return { ok: true, message };
+  } catch (err) {
+    console.error(`Erro em ${url}:`, err);
+
+    return {
+      ok: false,
+      message: "Falha de conexão. Tente novamente.",
+    };
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* MODAL BASE                                                          */
+/* ------------------------------------------------------------------ */
+
+function Modal({
+  open,
+  onClose,
+  title,
+  subtitle,
+  icon,
+  children,
+}: {
+  open: boolean;
+  onClose: () => void;
+  title: string;
+  subtitle: string;
+  icon: ReactNode;
+  children: ReactNode;
+}) {
+  useEffect(() => {
+    if (!open) return;
+
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") onClose();
+    }
+
+    const previousOverflow = document.body.style.overflow;
+
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", onKey);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [open, onClose]);
+
+  if (!open) return null;
+
+  return (
+    <div
+      className="fixed inset-0 z-[100] flex items-end justify-center bg-[#062b4f]/60 p-0 backdrop-blur-sm sm:items-center sm:p-4"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-label={title}
+    >
+      <div
+        className="relative max-h-[92vh] w-full overflow-y-auto rounded-t-[28px] bg-white shadow-[0_30px_80px_rgba(6,43,79,0.35)] sm:max-w-md sm:rounded-[28px]"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="flex items-start justify-between gap-3 border-b border-[#edf1f4] px-5 py-5 sm:px-6">
+          <div className="flex items-center gap-3">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#e5f8f4] text-[#08a89d]">
+              {icon}
+            </div>
+
+            <div>
+              <h3 className="text-base font-black text-[#062b4f] sm:text-lg">
+                {title}
+              </h3>
+              <p className="text-[11px] text-[#71869a] sm:text-xs">
+                {subtitle}
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Fechar"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-[#71869a] transition hover:bg-[#f2f6f7] hover:text-[#062b4f]"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="px-5 py-5 sm:px-6 sm:py-6">{children}</div>
+      </div>
+    </div>
+  );
+}
+
+function Feedback({
+  type,
+  message,
+}: {
+  type: "success" | "error";
+  message: string;
+}) {
+  const styles =
+    type === "success"
+      ? "border-emerald-100 bg-emerald-50 text-emerald-700"
+      : "border-red-100 bg-red-50 text-red-600";
+
+  return (
+    <div
+      className={`mt-4 rounded-xl border px-4 py-3 text-xs font-medium sm:text-sm ${styles}`}
+    >
+      {message}
+    </div>
+  );
+}
+
+const inputClass =
+  "w-full rounded-xl border border-[#dce5e9] bg-white px-4 py-3 text-sm font-semibold text-[#062b4f] outline-none transition placeholder:font-normal placeholder:text-[#a3b3bf] focus:border-[#08a89d] focus:ring-4 focus:ring-[#08a89d]/10";
+
+const labelClass =
+  "mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-[#71869a]";
+
+const primaryButtonClass =
+  "mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-[#08a89d] px-4 py-3.5 text-sm font-bold text-white shadow-[0_8px_20px_rgba(8,168,157,0.2)] transition hover:-translate-y-0.5 hover:bg-[#078f80] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0";
+
+/* ------------------------------------------------------------------ */
+/* MODAL: RECARGA DE CELULAR                                           */
+/* ------------------------------------------------------------------ */
+
+const OPERATORS = ["Vivo", "Claro", "TIM", "Oi"];
+const RECHARGE_VALUES = [15, 20, 30, 50, 100];
+
+function RecargaModal({
+  open,
+  onClose,
+}: {
+  open: boolean;
+  onClose: () => void;
+}) {
+  const [phone, setPhone] = useState("");
+  const [operator, setOperator] = useState(OPERATORS[0]);
+  const [amount, setAmount] = useState<number>(20);
+  const [loading, setLoading] = useState(false);
+  const [feedback, setFeedback] = useState<{
+    type: "success" | "error";
+    message: string;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!open) {
+      setPhone("");
+      setOperator(OPERATORS[0]);
+      setAmount(20);
+      setLoading(false);
+      setFeedback(null);
+    }
+  }, [open]);
+
+  async function handleSubmit() {
+    const digits = onlyDigits(phone);
+
+    if (digits.length < 10) {
+      setFeedback({
+        type: "error",
+        message: "Informe um número de celular válido com DDD.",
+      });
+      return;
+    }
+
+    setLoading(true);
+    setFeedback(null);
+
+    const result = await postJson("/api/recarga-celular", {
+      phone: digits,
+      operator,
+      amount,
+    });
+
+    setLoading(false);
+
+    setFeedback(
+      result.ok
+        ? {
+            type: "success",
+            message: result.message || "Recarga solicitada com sucesso!",
+          }
+        : { type: "error", message: result.message }
+    );
+  }
+
+  const done = feedback?.type === "success";
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="Recarga de Celular"
+      subtitle="Adicione créditos de forma rápida e segura"
+      icon={<Smartphone size={20} />}
+    >
+      <div className="space-y-4">
+        <div>
+          <label className={labelClass} htmlFor="recarga-phone">
+            Número do celular
+          </label>
+          <input
+            id="recarga-phone"
+            type="tel"
+            inputMode="numeric"
+            placeholder="(11) 91234-5678"
+            value={phone}
+            onChange={(event) => setPhone(maskPhone(event.target.value))}
+            disabled={loading || done}
+            className={inputClass}
+          />
+        </div>
+
+        <div>
+          <span className={labelClass}>Operadora</span>
+          <div className="grid grid-cols-4 gap-2">
+            {OPERATORS.map((item) => (
+              <button
+                key={item}
+                type="button"
+                disabled={loading || done}
+                onClick={() => setOperator(item)}
+                className={`rounded-xl cursor-pointer border px-2 py-2.5 text-xs font-bold transition ${
+                  operator === item
+                    ? "border-[#08a89d] bg-[#e5f8f4] text-[#078f80]"
+                    : "border-[#dce5e9] bg-white text-[#506a82] hover:border-[#08a89d]"
+                }`}
+              >
+                {item}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <span className={labelClass}>Valor da recarga</span>
+          <div className="grid grid-cols-3 gap-2">
+            {RECHARGE_VALUES.map((value) => (
+              <button
+                key={value}
+                type="button"
+                disabled={loading || done}
+                onClick={() => setAmount(value)}
+                className={`rounded-xl cursor-pointer border px-2 py-2.5 text-sm font-bold transition ${
+                  amount === value
+                    ? "border-[#08a89d] bg-[#e5f8f4] text-[#078f80]"
+                    : "border-[#dce5e9] bg-white text-[#506a82] hover:border-[#08a89d]"
+                }`}
+              >
+                {formatCurrency(value)}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {feedback && <Feedback type={feedback.type} message={feedback.message} />}
+
+      {done ? (
+        <button type="button" onClick={onClose} className={primaryButtonClass}>
+          Fechar
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={handleSubmit}
+          disabled={loading}
+          className={primaryButtonClass}
+        >
+          {loading ? (
+            <>
+              <Loader2 size={17} className="animate-spin" />
+              Processando...
+            </>
+          ) : (
+            <>Recarregar {formatCurrency(amount)}</>
+          )}
+        </button>
+      )}
+    </Modal>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* MODAL: PAGAMENTO DE CONTA                                           */
+/* ------------------------------------------------------------------ */
+
+function ContaModal({
+  open,
+  onClose,
+}: {
+  open: boolean;
+  onClose: () => void;
+}) {
+  const [code, setCode] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [feedback, setFeedback] = useState<{
+    type: "success" | "error";
+    message: string;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!open) {
+      setCode("");
+      setLoading(false);
+      setFeedback(null);
+    }
+  }, [open]);
+
+  async function handleSubmit() {
+    if (code.length < 44) {
+      setFeedback({
+        type: "error",
+        message:
+          "Código inválido. Digite os 44 a 48 números do boleto ou da conta.",
+      });
+      return;
+    }
+
+    setLoading(true);
+    setFeedback(null);
+
+    const result = await postJson("/api/pagamento-conta", { code });
+
+    setLoading(false);
+
+    setFeedback(
+      result.ok
+        ? {
+            type: "success",
+            message: result.message || "Pagamento enviado com sucesso!",
+          }
+        : { type: "error", message: result.message }
+    );
+  }
+
+  const done = feedback?.type === "success";
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="Pagamento de Conta"
+      subtitle="Pague boletos e contas direto pelo app"
+      icon={<Receipt size={20} />}
+    >
+      <div>
+        <label className={labelClass} htmlFor="conta-code">
+          Código de barras / linha digitável
+        </label>
+
+        <textarea
+          id="conta-code"
+          rows={3}
+          inputMode="numeric"
+          placeholder="Digite ou cole o código do boleto"
+          value={code}
+          onChange={(event) => setCode(maskBarcode(event.target.value))}
+          disabled={loading || done}
+          className={`${inputClass} resize-none tracking-wider`}
+        />
+
+        <p className="mt-1.5 text-[11px] text-[#8ca0b2]">
+          {code.length}/48 dígitos — apenas números.
+        </p>
+      </div>
+
+      {feedback && <Feedback type={feedback.type} message={feedback.message} />}
+
+      {done ? (
+        <button type="button" onClick={onClose} className={primaryButtonClass}>
+          Fechar
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={handleSubmit}
+          disabled={loading}
+          className={primaryButtonClass}
+        >
+          {loading ? (
+            <>
+              <Loader2 size={17} className="animate-spin" />
+              Processando...
+            </>
+          ) : (
+            "Pagar conta"
+          )}
+        </button>
+      )}
+    </Modal>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* PÁGINA                                                              */
+/* ------------------------------------------------------------------ */
 
 export default function PassageiroDashboard() {
   const [user, setUser] = useState<User | null>(null);
@@ -589,24 +867,14 @@ export default function PassageiroDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [banners, setBanners] = useState<Banner[]>([]);
+  const [modal, setModal] = useState<ModalType>(null);
 
   const hoje = useMemo(() => new Date(), []);
 
   const hora = new Date().getHours();
 
   const texto =
-    hora < 12
-      ? "Bom dia ☀️"
-      : hora < 18
-        ? "Boa tarde 🌤️"
-        : "Boa noite 🌙";
-
-  const emoji =
-    hora < 12
-      ? "☀️"
-      : hora < 18
-        ? "🌤️"
-        : "🌙";
+    hora < 12 ? "Bom dia ☀️" : hora < 18 ? "Boa tarde 🌤️" : "Boa noite 🌙";
 
   useEffect(() => {
     async function loadUser() {
@@ -615,21 +883,15 @@ export default function PassageiroDashboard() {
           method: "GET",
           credentials: "include",
           cache: "no-store",
-          headers: {
-            Accept: "application/json",
-          },
+          headers: { Accept: "application/json" },
         });
 
-        if (!response.ok) {
-          return;
-        }
+        if (!response.ok) return;
 
         const data = await response.json();
         const usuario = extractUser(data);
 
-        if (usuario) {
-          setUser(usuario);
-        }
+        if (usuario) setUser(usuario);
       } catch (err) {
         console.error("Erro /api/me:", err);
       }
@@ -650,13 +912,10 @@ export default function PassageiroDashboard() {
           method: "GET",
           credentials: "include",
           cache: "no-store",
-          headers: {
-            Accept: "application/json",
-          },
+          headers: { Accept: "application/json" },
         });
 
-        const contentType =
-          response.headers.get("content-type") || "";
+        const contentType = response.headers.get("content-type") || "";
 
         let data: unknown;
 
@@ -665,80 +924,52 @@ export default function PassageiroDashboard() {
         } else {
           const text = await response.text();
 
-          console.error(
-            "/api/trips não retornou JSON:",
-            text
-          );
+          console.error("/api/trips não retornou JSON:", text);
 
-          throw new Error(
-            "A API de viagens não retornou JSON."
-          );
+          throw new Error("A API de viagens não retornou JSON.");
         }
 
         if (!response.ok) {
-          let mensagem =
-            "Não foi possível carregar suas viagens.";
+          let mensagem = "Não foi possível carregar suas viagens.";
 
-          if (
-            data &&
-            typeof data === "object"
-          ) {
-            const obj =
-              data as Record<string, unknown>;
+          if (data && typeof data === "object") {
+            const obj = data as Record<string, unknown>;
 
-            if (
-              typeof obj.message === "string"
-            ) {
+            if (typeof obj.message === "string") {
               mensagem = obj.message;
-            } else if (
-              typeof obj.error === "string"
-            ) {
+            } else if (typeof obj.error === "string") {
               mensagem = obj.error;
             }
           }
 
-          throw new Error(
-            `${mensagem} (${response.status})`
-          );
+          throw new Error(`${mensagem} (${response.status})`);
         }
 
         const viagens = extractTrips(data);
 
         const normalizadas = viagens
           .map(normalizeTrip)
-          .filter(
-            (trip) =>
-              trip.created_at !== null
-          );
+          .filter((trip) => trip.created_at !== null);
 
         if (ativo) {
           setRows(normalizadas);
 
           const usuario = extractUser(data);
 
-          if (usuario) {
-            setUser(usuario);
-          }
+          if (usuario) setUser(usuario);
         }
       } catch (err) {
-        console.error(
-          "Erro ao carregar viagens:",
-          err
-        );
+        console.error("Erro ao carregar viagens:", err);
 
         if (ativo) {
           setRows([]);
 
           setError(
-            err instanceof Error
-              ? err.message
-              : "Erro ao carregar viagens."
+            err instanceof Error ? err.message : "Erro ao carregar viagens."
           );
         }
       } finally {
-        if (ativo) {
-          setLoading(false);
-        }
+        if (ativo) setLoading(false);
       }
     }
 
@@ -752,21 +983,14 @@ export default function PassageiroDashboard() {
   useEffect(() => {
     async function loadBanners() {
       try {
-        const response = await fetch(
-          "api/banners",
-          {
-            method: "GET",
-            credentials: "include",
-            cache: "no-store",
-            headers: {
-              Accept: "application/json",
-            },
-          }
-        );
+        const response = await fetch("/api/banners", {
+          method: "GET",
+          credentials: "include",
+          cache: "no-store",
+          headers: { Accept: "application/json" },
+        });
 
-        if (!response.ok) {
-          return;
-        }
+        if (!response.ok) return;
 
         const data = await response.json();
 
@@ -780,16 +1004,12 @@ export default function PassageiroDashboard() {
 
         const validos = lista.filter(
           (banner: Banner) =>
-            typeof banner?.image === "string" &&
-            banner.image.trim().length > 0
+            typeof banner?.image === "string" && banner.image.trim().length > 0
         );
 
         setBanners(validos);
       } catch (err) {
-        console.error(
-          "Erro ao carregar banners:",
-          err
-        );
+        console.error("Erro ao carregar banners:", err);
       }
     }
 
@@ -797,36 +1017,20 @@ export default function PassageiroDashboard() {
   }, []);
 
   const viagensMes = useMemo(() => {
-    return rows.filter((trip) =>
-      isSameMonth(
-        trip.created_at,
-        hoje
-      )
-    );
+    return rows.filter((trip) => isSameMonth(trip.created_at, hoje));
   }, [rows, hoje]);
 
   const totalViagens = rows.length;
 
   const totalGastoMes = useMemo(() => {
-    return viagensMes.reduce(
-      (total, trip) =>
-        total + parseMoney(trip.valor),
-      0
-    );
+    return viagensMes.reduce((total, trip) => total + parseMoney(trip.valor), 0);
   }, [viagensMes]);
 
   const ultimasViagens = useMemo(() => {
     return [...rows]
       .sort((a, b) => {
-        const dateA =
-          parseDate(
-            a.created_at
-          )?.getTime() ?? 0;
-
-        const dateB =
-          parseDate(
-            b.created_at
-          )?.getTime() ?? 0;
+        const dateA = parseDate(a.created_at)?.getTime() ?? 0;
+        const dateB = parseDate(b.created_at)?.getTime() ?? 0;
 
         return dateB - dateA;
       })
@@ -839,96 +1043,53 @@ export default function PassageiroDashboard() {
     const inicio = new Date();
 
     inicio.setHours(0, 0, 0, 0);
-    inicio.setDate(
-      inicio.getDate() - 6
-    );
+    inicio.setDate(inicio.getDate() - 6);
 
-    for (
-      let index = 0;
-      index < 7;
-      index++
-    ) {
+    for (let index = 0; index < 7; index++) {
       const date = new Date(inicio);
 
-      date.setDate(
-        inicio.getDate() + index
-      );
+      date.setDate(inicio.getDate() + index);
 
-      const label =
-        date.toLocaleDateString(
-          "pt-BR",
-          {
-            day: "2-digit",
-            month: "2-digit",
-          }
-        );
+      const label = date.toLocaleDateString("pt-BR", {
+        day: "2-digit",
+        month: "2-digit",
+      });
 
       grouped.set(label, 0);
     }
 
     rows.forEach((trip) => {
-      const date = parseDate(
-        trip.created_at
-      );
+      const date = parseDate(trip.created_at);
 
-      if (!date) {
-        return;
-      }
+      if (!date) return;
+      if (date.getTime() < inicio.getTime()) return;
 
-      if (
-        date.getTime() <
-        inicio.getTime()
-      ) {
-        return;
-      }
+      const label = date.toLocaleDateString("pt-BR", {
+        day: "2-digit",
+        month: "2-digit",
+      });
 
-      const label =
-        date.toLocaleDateString(
-          "pt-BR",
-          {
-            day: "2-digit",
-            month: "2-digit",
-          }
-        );
-
-      grouped.set(
-        label,
-        (grouped.get(label) ?? 0) + 1
-      );
+      grouped.set(label, (grouped.get(label) ?? 0) + 1);
     });
 
-    return Array.from(
-      grouped.entries()
-    ).map(
-      ([label, value]) => ({
-        label,
-        value,
-      })
-    );
+    return Array.from(grouped.entries()).map(([label, value]) => ({
+      label,
+      value,
+    }));
   }, [rows]);
 
-  const maxChartValue = Math.max(
-    ...chartData.map(
-      (item) => item.value
-    ),
-    1
-  );
+  const maxChartValue = Math.max(...chartData.map((item) => item.value), 1);
 
   return (
     <main className="min-h-screen text-white">
       <div className="mx-auto w-full max-w-8xl px-3 sm:px-4 md:px-6 lg:px-0 2xl:max-w-[1600px]">
-
         {/* HEADER */}
 
         <section className="relative mt-3 overflow-hidden rounded-2xl sm:rounded-[28px] lg:rounded-[32px] bg-white shadow-[0_20px_60px_rgba(6,43,79,0.12)]">
-
           <div className="relative min-h-[190px] sm:min-h-[210px] md:min-h-[230px] lg:min-h-[245px] overflow-hidden">
             <div
               className="absolute inset-0 bg-cover bg-center"
-              style={{
-                backgroundImage:
-                  "url('/bg-fundo.png')",
-              }}
+              style={{ backgroundImage: "url('/bg-fundo.png')" }}
             />
 
             <div className="absolute inset-0 bg-gradient-to-br from-[#0a9d86]/95 via-[#0b9b85]/80 to-[#062b4f]/85" />
@@ -945,60 +1106,123 @@ export default function PassageiroDashboard() {
               <h1 className="mt-1 max-w-3xl text-2xl sm:text-3xl md:text-3xl lg:text-4xl xl:text-5xl font-black tracking-tight text-white">
                 {loading
                   ? "Carregando..."
-                  : user?.full_name ||
-                  "Bem-vindo à Maylon"}
+                  : user?.full_name || "Bem-vindo à Maylon"}
               </h1>
 
               <p className="mt-2 sm:mt-3 max-w-2xl text-xs sm:text-sm leading-6 text-white/80 lg:text-base">
-                Acompanhe suas viagens, seus gastos
-                e tudo o que acontece na sua conta
-                Maylon.
+                Acompanhe suas viagens, seus gastos e tudo o que acontece na sua
+                conta Maylon.
               </p>
             </div>
           </div>
-
         </section>
 
         {/* ERRO */}
 
         {error && (
           <div className="mt-5 sm:mt-6 rounded-xl sm:rounded-2xl border border-red-200 bg-white px-4 py-3 sm:px-5 sm:py-4 text-xs sm:text-sm text-red-600 shadow-sm">
-            <strong>
-              Erro ao carregar viagens:
-            </strong>{" "}
-            {error}
+            <strong>Erro ao carregar viagens:</strong> {error}
           </div>
         )}
 
-        {banners.length > 0 &&
-          banners[0]?.image && (
-            <section className="mt-5 sm:mt-6 lg:mt-7 overflow-hidden rounded-2xl sm:rounded-[24px] lg:rounded-[28px] border border-white/60 bg-white shadow-[0_15px_45px_rgba(6,43,79,0.1)]">
+        {/* BANNER */}
 
-              <div className="relative min-h-[150px] sm:min-h-[180px] md:min-h-[200px] lg:min-h-[220px] xl:min-h-[240px] overflow-hidden">
+        {banners.length > 0 && banners[0]?.image && (
+          <section className="mt-5 sm:mt-6 lg:mt-7 overflow-hidden rounded-2xl sm:rounded-[24px] lg:rounded-[28px] border border-white/60 bg-white shadow-[0_15px_45px_rgba(6,43,79,0.1)]">
+            <div className="relative min-h-[150px] sm:min-h-[180px] md:min-h-[200px] lg:min-h-[220px] xl:min-h-[240px] overflow-hidden">
+              <img
+                src={banners[0].image}
+                alt={banners[0].title || "Banner Maylon"}
+                className="absolute inset-0 h-full w-full object-cover"
+                loading="lazy"
+              />
 
-                <img
-                  src={banners[0].image}
-                  alt={
-                    banners[0].title ||
-                    "Banner Maylon"
-                  }
-                  className="absolute inset-0 h-full w-full object-cover"
-                  loading="lazy"
-                />
+              <div className="absolute inset-0" />
 
-                <div className="absolute inset-0" />
-
-                <div className="relative z-10 flex min-h-[150px] sm:min-h-[180px] md:min-h-[210px] lg:min-h-[250px] xl:min-h-[260px] items-center px-4 py-6 sm:px-6 sm:py-7 md:px-8 md:py-8 lg:px-10 xl:px-12">
-
-                </div>
-              </div>
-            </section>
-          )}
+              <div className="relative z-10 flex min-h-[150px] sm:min-h-[180px] md:min-h-[210px] lg:min-h-[250px] xl:min-h-[260px] items-center px-4 py-6 sm:px-6 sm:py-7 md:px-8 md:py-8 lg:px-10 xl:px-12" />
+            </div>
+          </section>
+        )}
 
         <div className="h-2" />
 
-        <section className="mt-1">
+        {/* SERVIÇOS RÁPIDOS */}
 
+        <section className="mt-4 sm:mt-5">
+          <div className="mb-3 sm:mb-4">
+            <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white">
+              Serviços rápidos
+            </h2>
+
+            <p className="mt-0 text-xs sm:text-sm text-white">
+              Recarregue seu celular e pague contas sem sair da Maylon.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5">
+            {/* RECARGA DE CELULAR */}
+
+            <button
+              type="button"
+              onClick={() => setModal("recarga")}
+              className="group relative flex w-full items-center gap-4 overflow-hidden rounded-2xl sm:rounded-[26px] border border-[#e2ebee] bg-white p-5 sm:p-6 text-left shadow-[0_10px_35px_rgba(6,43,79,0.07)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_18px_45px_rgba(6,43,79,0.11)]"
+            >
+              <div className="absolute -right-12 -top-12 h-32 w-32 rounded-full bg-[#08a89d]/5 transition group-hover:scale-125" />
+
+              <div className="relative flex h-12 w-12 sm:h-14 sm:w-14 shrink-0 items-center justify-center rounded-2xl bg-[#e5f8f4] text-[#08a89d] transition group-hover:bg-[#08a89d] group-hover:text-white">
+                <Smartphone size={24} />
+              </div>
+
+              <div className="relative min-w-0 flex-1">
+                <p className="text-sm sm:text-base font-black text-[#062b4f]">
+                  Recarga de Celular
+                </p>
+
+                <p className="mt-0.5 text-[11px] sm:text-xs font-medium text-[#71869a]">
+                  Adicione créditos de forma rápida e segura.
+                </p>
+              </div>
+
+              <ArrowUpRight
+                size={18}
+                className="relative shrink-0 text-[#08a89d] transition group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
+              />
+            </button>
+
+            {/* PAGAMENTO DE CONTA */}
+
+            <button
+              type="button"
+              onClick={() => setModal("conta")}
+              className="group relative flex w-full items-center gap-4 overflow-hidden rounded-2xl sm:rounded-[26px] border border-[#e2ebee] bg-white p-5 sm:p-6 text-left shadow-[0_10px_35px_rgba(6,43,79,0.07)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_18px_45px_rgba(6,43,79,0.11)]"
+            >
+              <div className="absolute -right-12 -top-12 h-32 w-32 rounded-full bg-[#0c75bd]/5 transition group-hover:scale-125" />
+
+              <div className="relative flex h-12 w-12 sm:h-14 sm:w-14 shrink-0 items-center justify-center rounded-2xl bg-[#e5f8f4] text-[#08a89d] transition group-hover:bg-[#08a89d] group-hover:text-white">
+                <Receipt size={24} />
+              </div>
+
+              <div className="relative min-w-0 flex-1">
+                <p className="text-sm sm:text-base font-black text-[#062b4f]">
+                  Pagamento de Conta
+                </p>
+
+                <p className="mt-0.5 text-[11px] sm:text-xs font-medium text-[#71869a]">
+                  Pague boletos e contas direto pelo app.
+                </p>
+              </div>
+
+              <ArrowUpRight
+                size={18}
+                className="relative shrink-0 text-[#08a89d] transition group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
+              />
+            </button>
+          </div>
+        </section>
+
+        {/* SUA MOVIMENTAÇÃO */}
+
+        <section className="mt-6 sm:mt-7">
           <div className="mb-4 sm:mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <h2 className="mt-1 text-xl sm:text-2xl font-black tracking-tight text-white">
@@ -1020,11 +1244,9 @@ export default function PassageiroDashboard() {
           </div>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3">
-
             {/* CARD 1 */}
 
             <div className="group relative overflow-hidden rounded-2xl sm:rounded-[26px] border border-[#e2ebee] bg-white p-5 sm:p-6 shadow-[0_10px_35px_rgba(6,43,79,0.07)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_18px_45px_rgba(6,43,79,0.11)]">
-
               <div className="absolute -right-12 -top-12 h-32 w-32 rounded-full bg-[#08a89d]/5 transition group-hover:scale-125" />
 
               <div className="relative">
@@ -1044,9 +1266,7 @@ export default function PassageiroDashboard() {
                 </p>
 
                 <p className="mt-1 text-2xl sm:text-3xl font-black text-[#062b4f]">
-                  {loading
-                    ? "—"
-                    : viagensMes.length}
+                  {loading ? "—" : viagensMes.length}
                 </p>
 
                 <p className="mt-2 text-[11px] sm:text-xs font-medium text-[#08a89d]">
@@ -1058,7 +1278,6 @@ export default function PassageiroDashboard() {
             {/* CARD 2 */}
 
             <div className="group relative overflow-hidden rounded-2xl sm:rounded-[26px] border border-[#e2ebee] bg-white p-5 sm:p-6 shadow-[0_10px_35px_rgba(6,43,79,0.07)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_18px_45px_rgba(6,43,79,0.11)]">
-
               <div className="absolute -right-12 -top-12 h-32 w-32 rounded-full bg-[#0c75bd]/5 transition group-hover:scale-125" />
 
               <div className="relative">
@@ -1078,9 +1297,7 @@ export default function PassageiroDashboard() {
                 </p>
 
                 <p className="mt-1 text-2xl sm:text-3xl font-black text-[#062b4f]">
-                  {loading
-                    ? "—"
-                    : totalViagens}
+                  {loading ? "—" : totalViagens}
                 </p>
 
                 <p className="mt-2 text-[11px] sm:text-xs font-medium text-[#1676b7]">
@@ -1092,7 +1309,6 @@ export default function PassageiroDashboard() {
             {/* CARD 3 */}
 
             <div className="group relative overflow-hidden rounded-2xl sm:rounded-[26px] border border-[#e2ebee] bg-white p-5 sm:p-6 shadow-[0_10px_35px_rgba(6,43,79,0.07)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_18px_45px_rgba(6,43,79,0.11)] sm:col-span-2 lg:col-span-1">
-
               <div className="absolute -right-12 -top-12 h-32 w-32 rounded-full bg-[#08a89d]/5 transition group-hover:scale-125" />
 
               <div className="relative">
@@ -1112,11 +1328,7 @@ export default function PassageiroDashboard() {
                 </p>
 
                 <p className="mt-1 text-2xl sm:text-3xl font-black text-[#062b4f]">
-                  {loading
-                    ? "—"
-                    : formatCurrency(
-                      totalGastoMes
-                    )}
+                  {loading ? "—" : formatCurrency(totalGastoMes)}
                 </p>
 
                 <p className="mt-2 text-[11px] sm:text-xs font-medium text-[#08a89d]">
@@ -1130,13 +1342,10 @@ export default function PassageiroDashboard() {
         {/* CONTEÚDO PRINCIPAL */}
 
         <section className="mt-6 sm:mt-7 grid grid-cols-1 gap-5 sm:gap-6 lg:gap-7 xl:grid-cols-[1.45fr_0.95fr] 2xl:grid-cols-[1.6fr_1fr]">
-
           {/* GRÁFICO */}
 
           <div className="overflow-hidden rounded-2xl sm:rounded-[28px] border border-[#e2ebee] bg-white shadow-[0_12px_40px_rgba(6,43,79,0.07)]">
-
             <div className="flex flex-col gap-3 sm:gap-4 border-b border-[#edf1f4] px-4 py-5 sm:px-6 sm:py-6 sm:flex-row sm:items-center sm:justify-between lg:px-8">
-
               <div>
                 <div className="flex items-center gap-3">
                   <div className="flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-xl bg-[#e5f8f4] text-[#08a89d]">
@@ -1161,98 +1370,76 @@ export default function PassageiroDashboard() {
             </div>
 
             <div className="p-4 sm:p-6 lg:p-8">
-
               <div className="relative h-[240px] sm:h-[270px] md:h-[290px] lg:h-[310px] w-full">
-
                 <div className="absolute inset-0 flex flex-col justify-between pb-9 sm:pb-10 pt-3">
-                  {[4, 3, 2, 1, 0].map(
-                    (item) => (
-                      <div
-                        key={item}
-                        className="flex items-center gap-3"
-                      >
-                        <div className="h-px flex-1 bg-[#edf1f4]" />
-                      </div>
-                    )
-                  )}
+                  {[4, 3, 2, 1, 0].map((item) => (
+                    <div key={item} className="flex items-center gap-3">
+                      <div className="h-px flex-1 bg-[#edf1f4]" />
+                    </div>
+                  ))}
                 </div>
 
                 <div className="absolute inset-0 flex items-end gap-1.5 px-1 pb-9 pt-5 sm:gap-2 sm:pb-10 md:gap-3 lg:gap-4">
+                  {chartData.map((item, index) => {
+                    const height =
+                      item.value === 0
+                        ? 3
+                        : Math.max((item.value / maxChartValue) * 82, 8);
 
-                  {chartData.map(
-                    (item, index) => {
-                      const height =
-                        item.value === 0
-                          ? 3
-                          : Math.max(
-                            (item.value /
-                              maxChartValue) *
-                            82,
-                            8
-                          );
-
-                      return (
-                        <div
-                          key={`${item.label}-${index}`}
-                          className="group relative flex h-full flex-1 flex-col justify-end"
-                        >
-
-                          {item.value > 0 && (
-                            <div
-                              className="absolute left-1/2 z-20 flex -translate-x-1/2 -translate-y-2 items-center justify-center rounded-lg bg-[#062b4f] px-1.5 py-0.5 sm:px-2 sm:py-1 text-[9px] sm:text-[10px] font-bold text-white opacity-0 shadow-lg transition group-hover:opacity-100"
-                              style={{
-                                bottom: `${height}%`,
-                              }}
-                            >
-                              {item.value}
-                            </div>
-                          )}
-
+                    return (
+                      <div
+                        key={`${item.label}-${index}`}
+                        className="group relative flex h-full flex-1 flex-col justify-end"
+                      >
+                        {item.value > 0 && (
                           <div
-                            className="relative w-full overflow-hidden rounded-t-xl sm:rounded-t-2xl bg-gradient-to-t from-[#07947e] via-[#12aa91] to-[#54d1ba] shadow-[0_8px_20px_rgba(8,168,157,0.18)] transition duration-300 group-hover:from-[#067e6d] group-hover:to-[#3bc0a8]"
-                            style={{
-                              height: `${height}%`,
-                              opacity:
-                                item.value === 0
-                                  ? 0.18
-                                  : 1,
-                            }}
+                            className="absolute left-1/2 z-20 flex -translate-x-1/2 -translate-y-2 items-center justify-center rounded-lg bg-[#062b4f] px-1.5 py-0.5 sm:px-2 sm:py-1 text-[9px] sm:text-[10px] font-bold text-white opacity-0 shadow-lg transition group-hover:opacity-100"
+                            style={{ bottom: `${height}%` }}
                           >
-                            <div className="absolute inset-x-0 top-0 h-1 bg-white/30" />
+                            {item.value}
                           </div>
+                        )}
 
-                          <span className="absolute -bottom-7 sm:-bottom-8 left-1/2 -translate-x-1/2 whitespace-nowrap text-[9px] sm:text-[10px] font-semibold text-[#71869a]">
-                            {item.label}
-                          </span>
+                        <div
+                          className="relative w-full overflow-hidden rounded-t-xl sm:rounded-t-2xl bg-gradient-to-t from-[#07947e] via-[#12aa91] to-[#54d1ba] shadow-[0_8px_20px_rgba(8,168,157,0.18)] transition duration-300 group-hover:from-[#067e6d] group-hover:to-[#3bc0a8]"
+                          style={{
+                            height: `${height}%`,
+                            opacity: item.value === 0 ? 0.18 : 1,
+                          }}
+                        >
+                          <div className="absolute inset-x-0 top-0 h-1 bg-white/30" />
                         </div>
-                      );
-                    }
-                  )}
+
+                        <span className="absolute -bottom-7 sm:-bottom-8 left-1/2 -translate-x-1/2 whitespace-nowrap text-[9px] sm:text-[10px] font-semibold text-[#71869a]">
+                          {item.label}
+                        </span>
+                      </div>
+                    );
+                  })}
                 </div>
 
-                {!loading &&
-                  rows.length === 0 && (
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="rounded-2xl border border-dashed border-[#dbe5e9] bg-[#fbfcfd] px-5 py-4 sm:px-6 sm:py-5 text-center">
-                        <Car
-                          size={26}
-                          className="mx-auto text-[#9aafbd] sm:hidden"
-                        />
-                        <Car
-                          size={28}
-                          className="mx-auto hidden text-[#9aafbd] sm:block"
-                        />
+                {!loading && rows.length === 0 && (
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="rounded-2xl border border-dashed border-[#dbe5e9] bg-[#fbfcfd] px-5 py-4 sm:px-6 sm:py-5 text-center">
+                      <Car
+                        size={26}
+                        className="mx-auto text-[#9aafbd] sm:hidden"
+                      />
+                      <Car
+                        size={28}
+                        className="mx-auto hidden text-[#9aafbd] sm:block"
+                      />
 
-                        <p className="mt-2 text-xs sm:text-sm font-semibold text-[#506a82]">
-                          Nenhuma viagem encontrada
-                        </p>
+                      <p className="mt-2 text-xs sm:text-sm font-semibold text-[#506a82]">
+                        Nenhuma viagem encontrada
+                      </p>
 
-                        <p className="mt-1 text-[11px] sm:text-xs text-[#8ca0b2]">
-                          Suas próximas viagens aparecerão aqui.
-                        </p>
-                      </div>
+                      <p className="mt-1 text-[11px] sm:text-xs text-[#8ca0b2]">
+                        Suas próximas viagens aparecerão aqui.
+                      </p>
                     </div>
-                  )}
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -1260,9 +1447,7 @@ export default function PassageiroDashboard() {
           {/* ATIVIDADES */}
 
           <div className="overflow-hidden rounded-2xl sm:rounded-[28px] border border-[#e2ebee] bg-white shadow-[0_12px_40px_rgba(6,43,79,0.07)]">
-
             <div className="flex items-center justify-between border-b border-[#edf1f4] px-4 py-5 sm:px-6 sm:py-6">
-
               <div>
                 <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-[0.16em] text-[#08a89d]">
                   Histórico
@@ -1283,7 +1468,6 @@ export default function PassageiroDashboard() {
             </div>
 
             <div className="px-4 sm:px-6">
-
               {loading && (
                 <div className="py-10 sm:py-12 text-center">
                   <div className="mx-auto h-6 w-6 sm:h-7 sm:w-7 animate-spin rounded-full border-2 border-[#dceceb] border-t-[#08a89d]" />
@@ -1294,23 +1478,22 @@ export default function PassageiroDashboard() {
                 </div>
               )}
 
-              {!loading &&
-                ultimasViagens.length === 0 && (
-                  <div className="py-10 sm:py-12 text-center">
-                    <div className="mx-auto flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-2xl bg-[#f2f6f7] text-[#91a5b3]">
-                      <CalendarDays size={22} className="sm:hidden" />
-                      <CalendarDays size={23} className="hidden sm:block" />
-                    </div>
-
-                    <p className="mt-4 text-xs sm:text-sm font-bold text-[#506a82]">
-                      Nenhuma atividade recente
-                    </p>
-
-                    <p className="mt-1 text-[11px] sm:text-xs text-[#8ca0b2]">
-                      Você ainda não possui viagens.
-                    </p>
+              {!loading && ultimasViagens.length === 0 && (
+                <div className="py-10 sm:py-12 text-center">
+                  <div className="mx-auto flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-2xl bg-[#f2f6f7] text-[#91a5b3]">
+                    <CalendarDays size={22} className="sm:hidden" />
+                    <CalendarDays size={23} className="hidden sm:block" />
                   </div>
-                )}
+
+                  <p className="mt-4 text-xs sm:text-sm font-bold text-[#506a82]">
+                    Nenhuma atividade recente
+                  </p>
+
+                  <p className="mt-1 text-[11px] sm:text-xs text-[#8ca0b2]">
+                    Você ainda não possui viagens.
+                  </p>
+                </div>
+              )}
 
               {!loading &&
                 ultimasViagens.length > 0 &&
@@ -1386,6 +1569,11 @@ export default function PassageiroDashboard() {
           </div>
         </section>
       </div>
+
+      {/* MODAIS */}
+
+      <RecargaModal open={modal === "recarga"} onClose={() => setModal(null)} />
+      <ContaModal open={modal === "conta"} onClose={() => setModal(null)} />
     </main>
   );
 }
