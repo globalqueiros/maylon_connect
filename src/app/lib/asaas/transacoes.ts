@@ -99,6 +99,45 @@ export async function atualizarStatusPorAsaasId(
   return Number(result.affectedRows || 0);
 }
 
+export async function buscarPorAsaasId(asaasId: string): Promise<Transacao | null> {
+  const [rows]: any = await db.query(
+    `SELECT * FROM asaas_transacoes WHERE asaas_id = ? LIMIT 1`,
+    [asaasId]
+  );
+  return rows?.[0] ?? null;
+}
+
+/**
+ * Quando a chamada à Asaas caiu sem resposta (VERIFICAR), a operação pode ter
+ * sido criada mesmo assim, só que sem o asaas_id no histórico. Aqui ligamos a
+ * operação da Asaas à linha pendente mais recente que bate com ela.
+ */
+export async function vincularPendente(params: {
+  asaasId: string;
+  status: string;
+  tipo: TipoTransacao;
+  valor: number;
+  telefone?: string;
+  linhaDigitavel?: string;
+}): Promise<Transacao | null> {
+  const [rows]: any = await db.query(
+    params.tipo === "recarga"
+      ? `SELECT * FROM asaas_transacoes
+         WHERE tipo = 'recarga' AND asaas_id IS NULL AND status IN ('CRIANDO', 'VERIFICAR')
+           AND telefone = ? AND valor = ? AND criado_em > NOW() - INTERVAL 10 MINUTE
+         ORDER BY id DESC LIMIT 1`
+      : `SELECT * FROM asaas_transacoes
+         WHERE tipo = 'conta' AND asaas_id IS NULL AND status IN ('CRIANDO', 'VERIFICAR')
+           AND linha_digitavel = ? AND valor = ? AND criado_em > NOW() - INTERVAL 10 MINUTE
+         ORDER BY id DESC LIMIT 1`,
+    [params.tipo === "recarga" ? params.telefone : params.linhaDigitavel, params.valor]
+  );
+  const row: Transacao | undefined = rows?.[0];
+  if (!row) return null;
+  await marcarEnviada(row.id, params.asaasId, params.status);
+  return { ...row, asaas_id: params.asaasId, status: params.status };
+}
+
 export async function buscarTransacaoDoUsuario(
   id: number,
   usuarioId: string
