@@ -518,6 +518,7 @@ function Pagination({
               className="inline-flex h-9 cursor-pointer items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 sm:px-3 sm:text-sm"
             >
               <ArrowLeft size={14} />
+
               <span className="hidden sm:inline">
                 Anterior
               </span>
@@ -525,7 +526,15 @@ function Pagination({
 
             <div className="flex items-center gap-1">
               {pages.map((page, index) => {
-                if (page === "...") {
+                /*
+                 * CORREÇÃO DO TS2345
+                 *
+                 * page pode ser number ou string.
+                 * Quando for string, usamos como reticências.
+                 * Depois desse return, o TypeScript sabe
+                 * que page é obrigatoriamente number.
+                 */
+                if (typeof page === "string") {
                   return (
                     <span
                       key={`ellipsis-${index}`}
@@ -568,6 +577,7 @@ function Pagination({
               <span className="hidden sm:inline">
                 Próxima
               </span>
+
               <ArrowRight size={14} />
             </button>
           </div>
@@ -629,6 +639,7 @@ export default function DriverDashboard() {
 
         if (response.ok) {
           const userData = await safeJson(response);
+
           const currentUser =
             userData?.user ?? userData;
 
@@ -739,6 +750,7 @@ export default function DriverDashboard() {
   /*
    * PAGINAÇÃO
    */
+
   const totalItems = rows.length;
 
   const totalPages = Math.max(
@@ -783,10 +795,10 @@ export default function DriverDashboard() {
   /*
    * ESTATÍSTICAS
    *
-   * Importante:
-   * os números abaixo usam TODAS as corridas,
+   * Os números abaixo usam TODAS as corridas,
    * e não somente as 10 da página atual.
    */
+
   const totalViagens = rows.length;
 
   const viagensFinalizadas = rows.filter((item) =>
@@ -814,6 +826,7 @@ export default function DriverDashboard() {
       <div className="mx-auto w-full max-w-8xl">
 
         {/* HEADER */}
+
         <header className="mb-5 flex flex-col gap-4 border-b border-slate-200 pb-5 sm:mb-6 sm:gap-5 sm:pb-6 lg:mb-7 lg:flex-row lg:items-center lg:justify-between lg:pb-7">
           <div className="min-w-0">
             <p className="mb-1 text-xs font-medium text-white/50 sm:text-sm">
@@ -877,9 +890,11 @@ export default function DriverDashboard() {
         </header>
 
         {/* ESTATÍSTICAS */}
+
         <section className="mb-5 grid grid-cols-1 gap-3 sm:mb-6 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-4 sm:gap-4 lg:mb-7">
 
           {/* GANHOS */}
+
           <div className="min-w-0 rounded-xl border border-slate-200 bg-white p-4 sm:p-5">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
@@ -893,6 +908,7 @@ export default function DriverDashboard() {
 
                 <div className="mt-3 flex items-center gap-1.5 text-xs font-medium text-emerald-600">
                   <TrendingUp size={14} />
+
                   Ganhos das corridas finalizadas
                 </div>
               </div>
@@ -904,6 +920,7 @@ export default function DriverDashboard() {
           </div>
 
           {/* CORRIDAS */}
+
           <div className="min-w-0 rounded-xl border border-slate-200 bg-white p-4 sm:p-5">
             <div className="flex items-start justify-between gap-3">
               <div>
@@ -927,6 +944,7 @@ export default function DriverDashboard() {
           </div>
 
           {/* EM ANDAMENTO */}
+
           <div className="min-w-0 rounded-xl border border-slate-200 bg-white p-4 sm:p-5">
             <div className="flex items-start justify-between gap-3">
               <div>
@@ -950,6 +968,7 @@ export default function DriverDashboard() {
           </div>
 
           {/* FINALIZADAS */}
+
           <div className="min-w-0 rounded-xl border border-slate-200 bg-white p-4 sm:p-5">
             <div className="flex items-start justify-between gap-3">
               <div>
@@ -974,6 +993,7 @@ export default function DriverDashboard() {
         </section>
 
         {/* BANNER */}
+
         {bannerPrincipal?.image && (
           <section className="relative mb-5 h-40 overflow-hidden rounded-xl sm:mb-6 sm:h-52 md:h-60 lg:mb-7 lg:h-64 xl:h-72">
             <Image
@@ -984,6 +1004,7 @@ export default function DriverDashboard() {
               sizes="(max-width: 640px) 100vw, 1600px"
               className="object-cover"
             />
+
             <div className="absolute inset-0 flex items-center px-4 sm:px-6 md:px-8 lg:px-10">
               <div className="max-w-xs text-white sm:max-w-md lg:max-w-lg">
                 {bannerPrincipal.title && (
@@ -997,6 +1018,7 @@ export default function DriverDashboard() {
         )}
 
         {/* MINHAS CORRIDAS */}
+
         <section
           id="minhas-corridas"
           className="w-full overflow-hidden rounded-xl border border-slate-200 bg-white"
@@ -1017,11 +1039,13 @@ export default function DriverDashboard() {
               className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-teal-500 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-teal-600 sm:w-auto"
             >
               Ver todas
+
               <ArrowUpRight size={16} />
             </Link>
           </div>
 
           {/* DESKTOP / TABLET */}
+
           <div className="hidden md:block">
             <div className="overflow-x-auto">
               <table className="table-fixed border-collapse">
@@ -1082,6 +1106,7 @@ export default function DriverDashboard() {
                         className="group transition-colors hover:bg-slate-50"
                       >
                         {/* CORRIDA */}
+
                         <td className="px-4 py-4 align-middle">
                           <span className="text-sm font-semibold text-slate-900">
                             #{trip.trip_request_id}
@@ -1089,6 +1114,7 @@ export default function DriverDashboard() {
                         </td>
 
                         {/* ORIGEM */}
+
                         <td className="px-4 py-4 align-middle">
                           <AddressCell
                             address={trip.pickup_address}
@@ -1097,6 +1123,7 @@ export default function DriverDashboard() {
                         </td>
 
                         {/* DESTINO */}
+
                         <td className="px-4 py-4 align-middle">
                           <AddressCell
                             address={trip.destination_address}
@@ -1105,11 +1132,13 @@ export default function DriverDashboard() {
                         </td>
 
                         {/* GANHO */}
+
                         <td className="px-4 py-4 align-middle">
                           <TripGain trip={trip} />
                         </td>
 
                         {/* STATUS */}
+
                         <td className="px-4 py-4 align-middle">
                           <StatusBadge
                             status={trip.current_status}
@@ -1117,6 +1146,7 @@ export default function DriverDashboard() {
                         </td>
 
                         {/* AÇÃO */}
+
                         <td className="px-4 py-4 text-right align-middle">
                           <TripDetailsLink
                             tripId={trip.trip_request_id}
@@ -1130,6 +1160,7 @@ export default function DriverDashboard() {
             </div>
 
             {/* PAGINAÇÃO DESKTOP */}
+
             {!loading && rows.length > 0 && (
               <Pagination
                 currentPage={safeCurrentPage}
@@ -1143,6 +1174,7 @@ export default function DriverDashboard() {
           </div>
 
           {/* MOBILE */}
+
           <div className="grid grid-cols-1 gap-3 p-3 md:hidden">
             {loading ? (
               <LoadingState />
@@ -1159,6 +1191,7 @@ export default function DriverDashboard() {
           </div>
 
           {/* PAGINAÇÃO MOBILE */}
+
           {!loading && rows.length > 0 && (
             <div className="md:hidden">
               <Pagination
