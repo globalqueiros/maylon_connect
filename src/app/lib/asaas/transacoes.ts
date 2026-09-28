@@ -1,5 +1,7 @@
+import jwt from "jsonwebtoken";
+import { cookies } from "next/headers";
 import { db } from "../db";
-import { getSessionUser } from "../session";
+import { JwtPayload, tokenFromCookieHeader } from "../session";
 
 /**
  * Histórico das operações Asaas de cada usuário (tabela asaas_transacoes,
@@ -29,10 +31,37 @@ export type Transacao = {
   atualizado_em: string;
 };
 
-/** Id do usuário logado como texto (a tabela aceita id numérico ou UUID). */
+/**
+ * Id do usuário logado como texto, do jeito que está no token.
+ * Não usa getSessionUser: ele converte o id para número, e os ids aqui são
+ * UUID ("6b04746a-...") — viraria 6, misturando o histórico de usuários.
+ */
 export async function usuarioLogadoId(req: Request): Promise<string | null> {
-  const user = await getSessionUser(req);
-  return user?.id ? String(user.id) : null;
+  const secret = process.env.JWT_SECRET?.trim();
+  if (!secret) return null;
+
+  let token = tokenFromCookieHeader(req.headers.get("cookie"));
+  if (!token) {
+    try {
+      token = (await cookies()).get("access_token")?.value ?? null;
+    } catch {
+      token = null;
+    }
+  }
+  if (!token) {
+    const auth = req.headers.get("authorization") || "";
+    if (auth.toLowerCase().startsWith("bearer ")) token = auth.slice(7).trim();
+  }
+  if (!token) return null;
+
+  try {
+    const decoded = jwt.verify(token, secret) as JwtPayload & { usuario_id?: unknown };
+    const id = decoded.id ?? decoded.usuario_id ?? decoded.userId ?? decoded.user_id ?? decoded.sub;
+    const texto = id == null ? "" : String(id).trim();
+    return texto && texto.length <= 36 ? texto : null;
+  } catch {
+    return null;
+  }
 }
 
 export async function criarTransacao(dados: {
