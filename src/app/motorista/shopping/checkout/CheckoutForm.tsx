@@ -1,315 +1,313 @@
 "use client";
-import { useEffect, useState } from "react";
+
+import { FormEvent, useState } from "react";
 import {
-    CreditCard,
-    QrCode,
-    FileText,
-    ShieldCheck,
-    Lock,
-    X,
-} from "lucide-react";
-import { loadStripe } from "@stripe/stripe-js";
-import { Elements } from "@stripe/react-stripe-js";
-import CheckoutForm from "./CheckoutForm";
-
-// Mesma chave usada na Home (antes estava "carrinho", causando o bug)
-const CART_STORAGE_KEY = "maylon-cart";
-
-const stripePromise = loadStripe(
-    process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY as string
-);
+    PaymentElement,
+    useElements,
+    useStripe,
+} from "@stripe/react-stripe-js";
 
 type Produto = {
     id: number;
     nome: string;
     preco: number | string;
     imagem: string;
-    // pode vir com nome de campo diferente dependendo de onde foi salvo
     imagem_principal?: string;
     quantidade?: number;
 };
 
-type Alerta = {
-    tipo: "sucesso" | "erro" | "recusado" | "autenticacao";
-    titulo: string;
-    mensagem: string;
+type TipoAlerta =
+    | "sucesso"
+    | "erro"
+    | "recusado"
+    | "autenticacao";
+
+type CheckoutFormProps = {
+    carrinho: Produto[];
+    mostrarAlerta: (
+        tipo: TipoAlerta,
+        titulo: string,
+        mensagem: string
+    ) => void;
 };
 
-type CheckoutResponse = {
+type PaymentIntentResponse = {
     success?: boolean;
-    url?: string;
+    clientSecret?: string;
     message?: string;
+    error?: string;
 };
 
-export default function CheckoutPage() {
-    const [carrinho, setCarrinho] = useState<Produto[]>([]);
+export default function CheckoutForm({
+    carrinho,
+    mostrarAlerta,
+}: CheckoutFormProps) {
+    const stripe = useStripe();
+    const elements = useElements();
+
     const [loading, setLoading] = useState(false);
-    const [pagamento, setPagamento] = useState("cartao");
-    const [alerta, setAlerta] = useState<Alerta | null>(null);
 
-    useEffect(() => {
-        try {
-            const dados = JSON.parse(
-                localStorage.getItem(CART_STORAGE_KEY) || "[]"
-            );
-            setCarrinho(Array.isArray(dados) ? dados : []);
-        } catch (error) {
-            console.error("Erro ao carregar carrinho:", error);
-            setCarrinho([]);
-        }
-    }, []);
-
-    // Considera a quantidade de cada item no total (antes somava só o preço unitário)
     const total = carrinho.reduce((acc, item) => {
         const preco = Number(item.preco) || 0;
         const quantidade = Number(item.quantidade) || 1;
+
         return acc + preco * quantidade;
     }, 0);
 
-    function mostrarAlerta(
-        tipo: Alerta["tipo"],
-        titulo: string,
-        mensagem: string
-    ) {
-        setAlerta({ tipo, titulo, mensagem });
+    async function criarPagamento() {
+        const res = await fetch("/api/checkout", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+                carrinho,
+                metodo: "cartao",
+            }),
+        });
 
-        setTimeout(() => {
-            setAlerta(null);
-        }, 5000);
+        const data: PaymentIntentResponse = await res.json();
+
+        if (!res.ok || data.success === false) {
+            throw new Error(
+                data.message ||
+                    data.error ||
+                    "Não foi possível iniciar o pagamento."
+            );
+        }
+
+        return data;
     }
 
-    // Usado só para PIX e Boleto. Cartão vai pelo CheckoutForm (Stripe).
-    async function finalizarPagamento() {
-        setLoading(true);
+    async function handleSubmit(
+        event: FormEvent<HTMLFormElement>
+    ) {
+        event.preventDefault();
+
+        if (loading) {
+            return;
+        }
+
+        if (!stripe || !elements) {
+            mostrarAlerta(
+                "erro",
+                "Pagamento indisponível",
+                "O sistema de pagamento ainda está carregando. Tente novamente em alguns segundos."
+            );
+
+            return;
+        }
+
+        if (!carrinho.length) {
+            mostrarAlerta(
+                "erro",
+                "Carrinho vazio",
+                "Adicione pelo menos um produto antes de finalizar a compra."
+            );
+
+            return;
+        }
+
+        if (total <= 0) {
+            mostrarAlerta(
+                "erro",
+                "Valor inválido",
+                "O valor total da compra precisa ser maior que zero."
+            );
+
+            return;
+        }
 
         try {
-            const res = await fetch("/api/checkout", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                    carrinho,
-                    metodo: pagamento,
-                }),
-            });
+            setLoading(true);
 
-            const data: CheckoutResponse = await res.json();
+            /*
+             * Primeiro cria o pagamento no backend.
+             *
+             * A API deve retornar:
+             *
+             * {
+             *   success: true,
+             *   clientSecret: "..."
+             * }
+             *
+             * Caso sua API já crie o PaymentIntent
+             * antes de renderizar o formulário, essa etapa
+             * pode ser adaptada.
+             */
+            const pagamento = await criarPagamento();
 
-            if (!res.ok || data.success === false) {
+            if (!pagamento.clientSecret) {
+                mostrarAlerta(
+                    "erro",
+                    "Erro no pagamento",
+                    "O servidor não retornou o código necessário para confirmar o pagamento."
+                );
+
+                return;
+            }
+
+            const resultado =
+                await stripe.confirmPayment({
+                    elements,
+                    clientSecret:
+                        pagamento.clientSecret,
+                    confirmParams: {
+                        return_url:
+                            `${window.location.origin}/motorista/shopping/checkout/sucesso`,
+                    },
+                    redirect: "if_required",
+                });
+
+            if (resultado.error) {
+                const codigoErro =
+                    resultado.error.code;
+
+                if (
+                    codigoErro ===
+                        "authentication_required" ||
+                    codigoErro ===
+                        "payment_intent_authentication_failure"
+                ) {
+                    mostrarAlerta(
+                        "autenticacao",
+                        "Autenticação necessária",
+                        resultado.error.message ||
+                            "Seu banco solicitou uma autenticação adicional."
+                    );
+
+                    return;
+                }
+
                 mostrarAlerta(
                     "recusado",
-                    "Pagamento não concluído",
-                    data.message || "Não foi possível concluir o pagamento."
+                    "Pagamento recusado",
+                    resultado.error.message ||
+                        "Não foi possível concluir o pagamento."
                 );
-                setLoading(false);
+
+                return;
+            }
+
+            /*
+             * Quando redirect === "if_required",
+             * pagamentos que não precisam de redirecionamento
+             * retornam aqui.
+             */
+            if (
+                resultado.paymentIntent &&
+                resultado.paymentIntent.status ===
+                    "succeeded"
+            ) {
+                mostrarAlerta(
+                    "sucesso",
+                    "Compra aprovada",
+                    "Seu pagamento foi realizado com sucesso."
+                );
+
+                /*
+                 * Limpa o carrinho depois da confirmação.
+                 */
+                try {
+                    localStorage.removeItem(
+                        "maylon-cart"
+                    );
+                } catch (error) {
+                    console.error(
+                        "Erro ao limpar carrinho:",
+                        error
+                    );
+                }
+
+                return;
+            }
+
+            /*
+             * Outros estados possíveis do PaymentIntent.
+             */
+            if (
+                resultado.paymentIntent?.status ===
+                "processing"
+            ) {
+                mostrarAlerta(
+                    "sucesso",
+                    "Pagamento em processamento",
+                    "Seu pagamento foi recebido e está sendo processado."
+                );
+
                 return;
             }
 
             mostrarAlerta(
-                "sucesso",
-                "Compra aprovada",
-                "Pagamento realizado com sucesso."
+                "erro",
+                "Pagamento não confirmado",
+                "O pagamento ainda não foi confirmado. Verifique o status da sua compra."
+            );
+        } catch (error) {
+            console.error(
+                "Erro ao processar pagamento:",
+                error
             );
 
-            if (data.url) {
-                setTimeout(() => {
-                    window.location.href = data.url as string;
-                }, 1500);
-            }
-        } catch {
             mostrarAlerta(
                 "erro",
-                "Erro",
-                "Não foi possível processar pagamento."
+                "Erro no pagamento",
+                error instanceof Error
+                    ? error.message
+                    : "Não foi possível processar o pagamento."
             );
+        } finally {
+            setLoading(false);
         }
-
-        setLoading(false);
     }
 
     return (
-        <div className="min-h-screen p-4 flex flex-col justify-center">
-            {alerta && (
-                <div className="max-w-7xl mx-auto mb-6">
-                    <div
-                        className={`rounded-2xl p-4 shadow-lg border flex justify-between gap-4 ${alerta.tipo === "sucesso"
-                            ? "bg-green-50 border-green-300"
-                            : alerta.tipo === "erro"
-                                ? "bg-orange-50 border-orange-300"
-                                : alerta.tipo === "recusado"
-                                    ? "bg-red-50 border-red-300"
-                                    : "bg-blue-50 border-blue-300"
-                            }`}
-                    >
-                        <div>
-                            <h3 className="font-bold">
-                                {alerta.titulo}
-                            </h3>
-                            <p className="text-sm text-gray-600">
-                                {alerta.mensagem}
-                            </p>
-                        </div>
-                        <button
-                            onClick={() => setAlerta(null)}
-                        >
-                            <X size={18} />
-                        </button>
-                    </div>
-                </div>
-            )}
+        <form
+            onSubmit={handleSubmit}
+            className="mt-8 space-y-6"
+        >
+            <div className="rounded-2xl border border-gray-200 bg-white p-4">
+                <PaymentElement
+                    options={{
+                        layout: "tabs",
+                    }}
+                />
+            </div>
 
-            <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-8">
-                <div className="bg-white rounded-3xl shadow-xl p-8 border">
-                    <h1 className="text-2xl font-bold">
-                        Resumo da Compra
-                    </h1>
-                    <div className="space-y-5 mt-6">
-                        {carrinho.map((item, index) => {
-                            const precoUnitario = Number(item.preco) || 0;
-                            const quantidade = Number(item.quantidade) || 1;
-                            const imagem = item.imagem || item.imagem_principal;
+            <div className="rounded-2xl bg-gray-50 p-4">
+                <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-500">
+                        Total da compra
+                    </span>
 
-                            return (
-                                <div
-                                    key={index}
-                                    className="flex justify-between items-start gap-3 border-b pb-4"
-                                >
-                                    <div className="flex gap-4 min-w-0 flex-1">
-                                        {imagem && (
-                                            <img
-                                                src={imagem}
-                                                alt={item.nome}
-                                                className="
-                                                    w-14
-                                                    h-14
-                                                    rounded-xl
-                                                    object-contain
-                                                    bg-white
-                                                    p-1
-                                                    flex-shrink-0
-                                                "
-                                            />
-                                        )}
-                                        <div className="min-w-0">
-                                            <h2 className="font-semibold line-clamp-2">
-                                                {item.nome}
-                                            </h2>
-                                            {quantidade > 1 && (
-                                                <p className="text-xs text-gray-500">
-                                                    {quantidade} x R$ {precoUnitario.toFixed(2)}
-                                                </p>
-                                            )}
-                                        </div>
-                                    </div>
-                                    <span className="font-bold whitespace-nowrap flex-shrink-0">
-                                        R$ {(precoUnitario * quantidade).toFixed(2)}
-                                    </span>
-                                </div>
-                            );
-                        })}
-                    </div>
-                    <div className="mt-0 text-sm pt-6 space-y-2">
-                        <div className="flex justify-between">
-                            <span>Subtotal</span>
-                            <span>R$ {total.toFixed(2)}</span>
-                        </div>
-                        <div className="flex justify-between">
-                            <span>Taxa de Envio</span>
-                            <span>R$ 0,00</span>
-                        </div>
-                        <div className="flex justify-between text-xl font-bold text-teal-600">
-                            <span>Total</span>
-                            <span>R$ {total.toFixed(2)}</span>
-                        </div>
-                    </div>
-                    <div className="mt-8 bg-teal-50 rounded-2xl p-5 flex gap-4">
-                        <ShieldCheck className="text-teal-600" />
-                        <div>
-                            <h3 className="font-semibold">
-                                Compra 100% Segura
-                            </h3>
-                            <p className="text-sm text-gray-500">
-                                Ambiente protegido por SSL.
-                            </p>
-                        </div>
-                    </div>
-                </div>
-                <div className="bg-white rounded-3xl shadow-xl p-8 border">
-                    <h2 className="text-2xl font-bold">
-                        Meios de Pagamento
-                    </h2>
-                    <div className="space-y-4 mt-6">
-                        {[
-                            {
-                                id: "pix",
-                                nome: "PIX",
-                                icon: QrCode,
-                            },
-                            {
-                                id: "boleto",
-                                nome: "Boleto Bancário",
-                                icon: FileText,
-                            },
-                            {
-                                id: "cartao",
-                                nome: "Cartão Crédito / Débito",
-                                icon: CreditCard,
-                            },
-                        ].map((item) => {
-                            const Icon = item.icon;
-
-                            return (
-                                <label
-                                    key={item.id}
-                                    className={`border rounded-2xl p-5 flex gap-4 cursor-pointer ${pagamento === item.id
-                                        ? "border-teal-600 bg-teal-50"
-                                        : ""
-                                        }`}
-                                >
-                                    <input
-                                        type="radio"
-                                        checked={
-                                            pagamento === item.id
-                                        }
-                                        onChange={() =>
-                                            setPagamento(item.id)
-                                        }
-                                    />
-                                    <Icon className="text-teal-600" />
-                                    <span className="font-semibold">
-                                        {item.nome}
-                                    </span>
-                                </label>
-                            );
-                        })}
-                    </div>
-
-                    {pagamento === "cartao" ? (
-                        <Elements stripe={stripePromise}>
-                            <CheckoutForm
-                                carrinho={carrinho}
-                                mostrarAlerta={mostrarAlerta}
-                            />
-                        </Elements>
-                    ) : (
-                        <button
-                            onClick={finalizarPagamento}
-                            disabled={loading}
-                            className="w-full cursor-pointer mt-8 bg-teal-600 hover:bg-teal-500 text-white py-4 rounded-2xl font-bold"
-                        >
-                            {loading
-                                ? "Processando..."
-                                : "Finalizar Pagamento"}
-                        </button>
-                    )}
-
-                    <div className="mt-6 flex justify-center gap-2 text-xs">
-                        <Lock size={16} />
-                        Dados protegidos com segurança máxima
-                    </div>
+                    <strong className="text-xl font-bold text-teal-600">
+                        R${" "}
+                        {total.toFixed(2)}
+                    </strong>
                 </div>
             </div>
-        </div>
+
+            <button
+                type="submit"
+                disabled={
+                    loading ||
+                    !stripe ||
+                    !elements ||
+                    carrinho.length === 0
+                }
+                className={`w-full rounded-2xl py-4 font-bold text-white transition ${
+                    loading ||
+                    !stripe ||
+                    !elements ||
+                    carrinho.length === 0
+                        ? "cursor-not-allowed bg-gray-400"
+                        : "cursor-pointer bg-teal-600 hover:bg-teal-500"
+                }`}
+            >
+                {loading
+                    ? "Processando pagamento..."
+                    : "Pagar agora"}
+            </button>
+        </form>
     );
 }
