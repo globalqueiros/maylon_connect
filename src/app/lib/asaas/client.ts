@@ -27,6 +27,14 @@ export class AsaasError extends Error {
   }
 }
 
+/**
+ * A Asaas pode ter executado mesmo com erro: sem resposta (rede) ou 5xx.
+ * No teste, um 504 criou e debitou uma conta. Nesses casos o status é VERIFICAR.
+ */
+export function resultadoIncerto(error: unknown): boolean {
+  return !(error instanceof AsaasError) || error.status >= 500;
+}
+
 async function asaasFetch<T>(
   method: "GET" | "POST",
   path: string,

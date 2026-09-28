@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
-import { AsaasError, buscarOperadora, criarRecarga } from "../../../lib/asaas/client";
+import {
+  AsaasError,
+  buscarOperadora,
+  criarRecarga,
+  resultadoIncerto,
+} from "../../../lib/asaas/client";
 import {
   criarTransacao,
   existeDuplicada,
@@ -89,7 +94,7 @@ export async function POST(req: Request) {
       await marcarErro(
         transacaoId,
         error?.message || "Erro desconhecido",
-        error instanceof AsaasError ? "ERRO" : "VERIFICAR"
+        resultadoIncerto(error) ? "VERIFICAR" : "ERRO"
       ).catch(() => {});
     }
     const status = error instanceof AsaasError && error.status < 500 ? 400 : 500;

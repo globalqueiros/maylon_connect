@@ -14,6 +14,10 @@ ASAAS_VALIDACAO_TOKEN=outro_token_forte     # se vazio, usa o ASAAS_WEBHOOK_TOKE
 # ASAAS_VALIDACAO_OUTROS=aprovar            # só se quiser aprovar transferências/Pix feitos por fora do app
 ```
 
+⚠️ **A chave da Asaas começa com `$`, e o Next.js lê `$aact...` como variável e deixa a chave vazia.**
+Escreva com barra antes: `ASAAS_API_KEY=\$aact_...`. Se aparecer "ASAAS_API_KEY não configurada", é isso.
+(Na Vercel, no painel de variáveis, cole a chave normal, sem a barra.)
+
 Rodar uma vez no banco: `sql/asaas_transacoes.sql`.
 
 ## 2. Webhook (quando o site estiver no ar)

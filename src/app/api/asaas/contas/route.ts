@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import {
   AsaasError,
   criarPagamentoConta,
+  resultadoIncerto,
   simularConta,
 } from "../../../lib/asaas/client";
 import {
@@ -104,7 +105,7 @@ export async function POST(req: Request) {
       await marcarErro(
         transacaoId,
         error?.message || "Erro desconhecido",
-        error instanceof AsaasError ? "ERRO" : "VERIFICAR"
+        resultadoIncerto(error) ? "VERIFICAR" : "ERRO"
       ).catch(() => {});
     }
     const status = error instanceof AsaasError && error.status < 500 ? 400 : 500;

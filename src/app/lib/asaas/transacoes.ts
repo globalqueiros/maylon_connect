@@ -142,6 +142,7 @@ export async function buscarTransacaoDoUsuario(
   id: number,
   usuarioId: string
 ): Promise<Transacao | null> {
+  if (!Number.isSafeInteger(id) || id <= 0) return null;
   const [rows]: any = await db.query(
     `SELECT * FROM asaas_transacoes WHERE id = ? AND usuario_id = ? LIMIT 1`,
     [id, usuarioId]
