@@ -22,11 +22,13 @@ import {
 
 type Method = "pdf" | "codigo";
 
-// A Asaas só aceita a linha digitável; o envio por PDF fica "em breve".
+// A Asaas aceita a linha digitável/código informado.
+// O envio por PDF fica desabilitado por enquanto.
 const PDF_DISPONIVEL = false;
 
 export default function PagamentoContaPage() {
   const inputRef = useRef<HTMLInputElement>(null);
+
   const [method, setMethod] = useState<Method>("codigo");
   const [file, setFile] = useState<File | null>(null);
   const [codigo, setCodigo] = useState("");
@@ -42,7 +44,10 @@ export default function PagamentoContaPage() {
 
     setError("");
 
-    if (selectedFile.type !== "application/pdf") {
+    if (
+      selectedFile.type !== "application/pdf" &&
+      !selectedFile.name.toLowerCase().endsWith(".pdf")
+    ) {
       setFile(null);
       setError("Envie somente arquivos em formato PDF.");
       return;
@@ -66,22 +71,119 @@ export default function PagamentoContaPage() {
     }
   }
 
-  function handleCodigo(value: string) {
+  /**
+   * Aplica máscara visual ao código.
+   *
+   * Exemplos:
+   *
+   * 44 dígitos:
+   * 12345678901234567890123456789012345678901234
+   *
+   * 47 dígitos:
+   * 12345.12345 12345.123456 12345.123456 1 12345678901234
+   *
+   * 48 dígitos:
+   * 123456.123456 123456.123456 123456.123456 123456.123456
+   */
+  function mascararCodigo(value: string) {
     const numbers = value.replace(/\D/g, "").slice(0, 48);
-    setCodigo(numbers);
-    setError("");
-    setConsulta(null);
+
+    // Linha digitável bancária - 47 dígitos
+    if (numbers.length <= 47) {
+      const parte1 = numbers.slice(0, 5);
+      const parte2 = numbers.slice(5, 10);
+      const parte3 = numbers.slice(10, 15);
+      const parte4 = numbers.slice(15, 16);
+      const parte5 = numbers.slice(16, 20);
+      const parte6 = numbers.slice(20, 21);
+      const parte7 = numbers.slice(21, 31);
+      const parte8 = numbers.slice(31, 32);
+      const parte9 = numbers.slice(32, 47);
+
+      let resultado = parte1;
+
+      if (parte2) {
+        resultado += `.${parte2}`;
+      }
+
+      if (parte3) {
+        resultado += ` ${parte3}`;
+      }
+
+      if (parte4) {
+        resultado += `.${parte4}`;
+      }
+
+      if (parte5) {
+        resultado += ` ${parte5}`;
+      }
+
+      if (parte6) {
+        resultado += `.${parte6}`;
+      }
+
+      if (parte7) {
+        resultado += ` ${parte7}`;
+      }
+
+      if (parte8) {
+        resultado += `.${parte8}`;
+      }
+
+      if (parte9) {
+        resultado += ` ${parte9}`;
+      }
+
+      return resultado;
+    }
+
+    // Linha digitável de arrecadação - 48 dígitos
+    const grupos = numbers.match(/.{1,12}/g) ?? [];
+
+    return grupos.join(" ");
   }
 
-  // 1º clique consulta a conta; 2º clique (depois de conferir) paga.
+  function handleCodigo(value: string) {
+    const numbers = value.replace(/\D/g, "").slice(0, 48);
+
+    setCodigo(mascararCodigo(numbers));
+    setError("");
+    setConsulta(null);
+    setPago(false);
+  }
+
+  /**
+   * Retorna somente os números.
+   *
+   * A máscara é apenas visual.
+   * A API recebe:
+   *
+   * 00190...
+   *
+   * e não:
+   *
+   * 00190.12345 ...
+   */
+  function codigoNumerico() {
+    return codigo.replace(/\D/g, "");
+  }
+
+  // 1º clique consulta a conta.
+  // 2º clique confirma o pagamento.
   async function continuePayment() {
     if (method === "pdf") {
-      setError("O envio por PDF estará disponível em breve. Use o código da conta.");
+      setError(
+        "O envio por PDF estará disponível em breve. Use o código da conta.",
+      );
       return;
     }
 
-    if (codigo.length < 44) {
-      setError("Digite os 44 a 48 números da linha digitável.");
+    const codigoLimpo = codigoNumerico();
+
+    if (![44, 47, 48].includes(codigoLimpo.length)) {
+      setError(
+        "Digite um código válido com 44, 47 ou 48 números.",
+      );
       return;
     }
 
@@ -90,13 +192,18 @@ export default function PagamentoContaPage() {
 
     try {
       if (!consulta) {
-        setConsulta(await consultarConta(codigo));
+        const resultado = await consultarConta(codigoLimpo);
+        setConsulta(resultado);
       } else {
         await pagarConta(consulta.linhaDigitavel);
         setPago(true);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro ao pagar a conta.");
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Erro ao processar o pagamento da conta.",
+      );
     } finally {
       setLoading(false);
     }
@@ -122,6 +229,7 @@ export default function PagamentoContaPage() {
               <ArrowLeft size={17} />
               <span>Voltar</span>
             </Link>
+
             <div>
               <h1 className="text-2xl font-black tracking-tight text-white sm:text-3xl">
                 Pagamento de conta
@@ -167,7 +275,10 @@ export default function PagamentoContaPage() {
                   }`}
               >
                 <Upload size={17} />
-                {PDF_DISPONIVEL ? "Enviar PDF" : "Enviar PDF (em breve)"}
+
+                {PDF_DISPONIVEL
+                  ? "Enviar PDF"
+                  : "Enviar PDF (em breve)"}
               </button>
 
               <button
@@ -305,12 +416,14 @@ export default function PagamentoContaPage() {
                         handleCodigo(event.target.value)
                       }
                       placeholder="Digite o código da conta"
+                      maxLength={59}
                       className="h-14 w-full rounded-2xl border border-[#dce5e9] bg-[#fbfcfd] pl-12 pr-4 text-sm font-semibold tracking-wide text-[#062b4f] outline-none transition placeholder:text-[#a4b3bd] focus:border-[#08a89d] focus:bg-white focus:ring-4 focus:ring-[#08a89d]/10"
                     />
                   </div>
 
                   <p className="mt-2 text-[10px] text-[#8ca0b2]">
-                    Você pode copiar e colar o código diretamente neste campo.
+                    Você pode copiar e colar o código diretamente neste
+                    campo.
                   </p>
                 </div>
               </div>
@@ -320,19 +433,24 @@ export default function PagamentoContaPage() {
               <div className="mt-6 space-y-3 rounded-2xl border border-[#dce9e7] bg-[#f7fbfa] p-4 text-xs text-[#506a82] sm:p-5">
                 <div className="flex justify-between gap-3">
                   <span>Quem recebe</span>
+
                   <span className="text-right font-bold text-[#062b4f]">
                     {consulta.beneficiario || "—"}
                   </span>
                 </div>
+
                 <div className="flex justify-between gap-3">
                   <span>Vencimento</span>
+
                   <span className="font-bold text-[#062b4f]">
                     {formatarDataConta(consulta.vencimento)}
                     {consulta.vencida ? " (vencida)" : ""}
                   </span>
                 </div>
+
                 <div className="flex justify-between gap-3">
                   <span>Valor</span>
+
                   <span className="text-base font-black text-[#08a89d]">
                     {formatarValorConta(consulta.valor)}
                   </span>
@@ -343,8 +461,9 @@ export default function PagamentoContaPage() {
             {pago && (
               <div className="mt-5 flex items-center gap-2 rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-xs font-semibold text-emerald-700">
                 <CheckCircle2 size={16} className="shrink-0" />
-                Pagamento enviado! Ele aparece no seu histórico assim que for
-                confirmado.
+
+                Pagamento enviado! Ele aparece no seu histórico assim que
+                for confirmado.
               </div>
             )}
 
@@ -383,8 +502,11 @@ export default function PagamentoContaPage() {
                 : pago
                   ? "Pagar outra conta"
                   : consulta
-                    ? `Confirmar pagamento de ${formatarValorConta(consulta.valor)}`
+                    ? `Confirmar pagamento de ${formatarValorConta(
+                      consulta.valor,
+                    )}`
                     : "Consultar conta"}
+
               {!loading && !pago && <ArrowRight size={17} />}
             </button>
           </div>
