@@ -15,6 +15,13 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
+import {
+  consultarConta,
+  formatarDataConta,
+  formatarValorConta,
+  pagarConta,
+  type ContaConsultada,
+} from "../lib/asaas/contaCliente";
 
 /* ------------------------------------------------------------------ */
 /* TIPOS                                                               */
@@ -631,10 +638,10 @@ function RecargaModal({
     setLoading(true);
     setFeedback(null);
 
-    const result = await postJson("/api/recarga-celular", {
-      phone: digits,
-      operator,
-      amount,
+    // A operadora é detectada pela Asaas pelo número.
+    const result = await postJson("/api/asaas/recarga", {
+      telefone: digits,
+      valor: amount,
     });
 
     setLoading(false);
@@ -759,6 +766,7 @@ function ContaModal({
 }) {
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
+  const [consulta, setConsulta] = useState<ContaConsultada | null>(null);
   const [feedback, setFeedback] = useState<{
     type: "success" | "error";
     message: string;
@@ -768,10 +776,12 @@ function ContaModal({
     if (!open) {
       setCode("");
       setLoading(false);
+      setConsulta(null);
       setFeedback(null);
     }
   }, [open]);
 
+  // 1º clique consulta a conta; 2º clique (depois de conferir) paga.
   async function handleSubmit() {
     if (code.length < 44) {
       setFeedback({
@@ -785,18 +795,25 @@ function ContaModal({
     setLoading(true);
     setFeedback(null);
 
-    const result = await postJson("/api/pagamento-conta", { code });
-
-    setLoading(false);
-
-    setFeedback(
-      result.ok
-        ? {
-            type: "success",
-            message: result.message || "Pagamento enviado com sucesso!",
-          }
-        : { type: "error", message: result.message }
-    );
+    try {
+      if (!consulta) {
+        setConsulta(await consultarConta(code));
+      } else {
+        await pagarConta(consulta.linhaDigitavel);
+        setFeedback({
+          type: "success",
+          message:
+            "Pagamento enviado! Ele aparece no seu histórico assim que for confirmado.",
+        });
+      }
+    } catch (error) {
+      setFeedback({
+        type: "error",
+        message: error instanceof Error ? error.message : "Erro ao pagar a conta.",
+      });
+    } finally {
+      setLoading(false);
+    }
   }
 
   const done = feedback?.type === "success";
@@ -820,7 +837,11 @@ function ContaModal({
           inputMode="numeric"
           placeholder="Digite ou cole o código do boleto"
           value={code}
-          onChange={(event) => setCode(maskBarcode(event.target.value))}
+          onChange={(event) => {
+            setCode(maskBarcode(event.target.value));
+            setConsulta(null);
+            setFeedback(null);
+          }}
           disabled={loading || done}
           className={`${inputClass} resize-none tracking-wider`}
         />
@@ -829,6 +850,30 @@ function ContaModal({
           {code.length}/48 dígitos — apenas números.
         </p>
       </div>
+
+      {consulta && (
+        <div className="mt-4 space-y-2 rounded-xl border border-[#dce9e7] bg-[#f7fbfa] p-4 text-xs text-[#506a82]">
+          <div className="flex justify-between gap-3">
+            <span>Quem recebe</span>
+            <span className="text-right font-bold text-[#062b4f]">
+              {consulta.beneficiario || "—"}
+            </span>
+          </div>
+          <div className="flex justify-between gap-3">
+            <span>Vencimento</span>
+            <span className="font-bold text-[#062b4f]">
+              {formatarDataConta(consulta.vencimento)}
+              {consulta.vencida ? " (vencida)" : ""}
+            </span>
+          </div>
+          <div className="flex justify-between gap-3">
+            <span>Valor</span>
+            <span className="text-sm font-black text-[#08a89d]">
+              {formatarValorConta(consulta.valor)}
+            </span>
+          </div>
+        </div>
+      )}
 
       {feedback && <Feedback type={feedback.type} message={feedback.message} />}
 
@@ -848,8 +893,10 @@ function ContaModal({
               <Loader2 size={17} className="animate-spin" />
               Processando...
             </>
+          ) : consulta ? (
+            <>Confirmar pagamento de {formatarValorConta(consulta.valor)}</>
           ) : (
-            "Pagar conta"
+            "Consultar conta"
           )}
         </button>
       )}

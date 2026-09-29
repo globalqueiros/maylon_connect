@@ -108,6 +108,15 @@ export async function POST(req: Request) {
         resultadoIncerto(error) ? "VERIFICAR" : "ERRO"
       ).catch(() => {});
     }
+    if (transacaoId && resultadoIncerto(error)) {
+      return NextResponse.json(
+        {
+          error:
+            "A Asaas demorou pra responder e o pagamento pode ter sido feito. Confira o histórico antes de tentar de novo.",
+        },
+        { status: 502 }
+      );
+    }
     const status = error instanceof AsaasError && error.status < 500 ? 400 : 500;
     return NextResponse.json(
       { error: error?.message || "Erro ao pagar a conta" },

@@ -133,34 +133,24 @@ export default function RecargaCelularPage() {
       setLoading(true);
       setErro(null);
 
-      /*
-       * Integração com sua API.
-       *
-       * Exemplo:
-       *
-       * const response = await fetch("/api/recarga-celular", {
-       *   method: "POST",
-       *   headers: {
-       *     "Content-Type": "application/json",
-       *   },
-       *   credentials: "include",
-       *   body: JSON.stringify({
-       *     telefone: somenteNumeros(telefone),
-       *     operadora,
-       *     valor: valorFinal,
-       *   }),
-       * });
-       *
-       * const data = await response.json();
-       *
-       * if (!response.ok) {
-       *   throw new Error(data?.error || "Erro ao realizar recarga.");
-       * }
-       */
+      // A operadora é detectada pela Asaas pelo número.
+      const response = await fetch("/api/asaas/recarga", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          telefone: somenteNumeros(telefone),
+          valor: valorFinal,
+        }),
+      });
 
-      await new Promise((resolve) =>
-        setTimeout(resolve, 800)
-      );
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(data?.error || "Erro ao realizar recarga.");
+      }
 
       setSucesso(true);
     } catch (error) {
