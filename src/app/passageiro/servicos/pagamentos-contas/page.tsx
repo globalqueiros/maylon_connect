@@ -12,15 +12,28 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { ChangeEvent, useRef, useState } from "react";
+import {
+  consultarConta,
+  formatarDataConta,
+  formatarValorConta,
+  pagarConta,
+  type ContaConsultada,
+} from "../../../lib/asaas/contaCliente";
 
 type Method = "pdf" | "codigo";
 
+// A Asaas só aceita a linha digitável; o envio por PDF fica "em breve".
+const PDF_DISPONIVEL = false;
+
 export default function PagamentoContaPage() {
   const inputRef = useRef<HTMLInputElement>(null);
-  const [method, setMethod] = useState<Method>("pdf");
+  const [method, setMethod] = useState<Method>("codigo");
   const [file, setFile] = useState<File | null>(null);
   const [codigo, setCodigo] = useState("");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [consulta, setConsulta] = useState<ContaConsultada | null>(null);
+  const [pago, setPago] = useState(false);
 
   function handleFile(event: ChangeEvent<HTMLInputElement>) {
     const selectedFile = event.target.files?.[0];
@@ -54,27 +67,46 @@ export default function PagamentoContaPage() {
   }
 
   function handleCodigo(value: string) {
-    const numbers = value.replace(/\D/g, "");
+    const numbers = value.replace(/\D/g, "").slice(0, 48);
     setCodigo(numbers);
     setError("");
+    setConsulta(null);
   }
 
-  function continuePayment() {
-    if (method === "pdf" && !file) {
-      setError("Selecione uma conta em PDF para continuar.");
+  // 1º clique consulta a conta; 2º clique (depois de conferir) paga.
+  async function continuePayment() {
+    if (method === "pdf") {
+      setError("O envio por PDF estará disponível em breve. Use o código da conta.");
       return;
     }
 
-    if (method === "codigo" && codigo.length < 8) {
-      setError("Digite um código de pagamento válido para continuar.");
+    if (codigo.length < 44) {
+      setError("Digite os 44 a 48 números da linha digitável.");
       return;
     }
 
-    console.log({
-      method,
-      file,
-      codigo,
-    });
+    setLoading(true);
+    setError("");
+
+    try {
+      if (!consulta) {
+        setConsulta(await consultarConta(codigo));
+      } else {
+        await pagarConta(consulta.linhaDigitavel);
+        setPago(true);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro ao pagar a conta.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function novaConta() {
+    setCodigo("");
+    setConsulta(null);
+    setPago(false);
+    setError("");
   }
 
   return (
@@ -124,17 +156,18 @@ export default function PagamentoContaPage() {
             <div className="grid grid-cols-2 gap-2 rounded-2xl bg-[#f3f6f7] p-1.5">
               <button
                 type="button"
+                disabled={!PDF_DISPONIVEL}
                 onClick={() => {
                   setMethod("pdf");
                   setError("");
                 }}
-                className={`flex cursor-pointer items-center justify-center gap-2 rounded-xl px-3 py-3 text-xs font-bold transition sm:text-sm ${method === "pdf"
+                className={`flex cursor-pointer items-center justify-center gap-2 rounded-xl px-3 py-3 text-xs font-bold transition disabled:cursor-not-allowed disabled:opacity-50 sm:text-sm ${method === "pdf"
                     ? "bg-white text-[#08a89d] shadow-sm"
                     : "text-[#71869a] hover:text-[#062b4f]"
                   }`}
               >
                 <Upload size={17} />
-                Enviar PDF
+                {PDF_DISPONIVEL ? "Enviar PDF" : "Enviar PDF (em breve)"}
               </button>
 
               <button
@@ -267,6 +300,7 @@ export default function PagamentoContaPage() {
                       inputMode="numeric"
                       autoComplete="off"
                       value={codigo}
+                      disabled={loading || pago}
                       onChange={(event) =>
                         handleCodigo(event.target.value)
                       }
@@ -279,6 +313,38 @@ export default function PagamentoContaPage() {
                     Você pode copiar e colar o código diretamente neste campo.
                   </p>
                 </div>
+              </div>
+            )}
+
+            {consulta && (
+              <div className="mt-6 space-y-3 rounded-2xl border border-[#dce9e7] bg-[#f7fbfa] p-4 text-xs text-[#506a82] sm:p-5">
+                <div className="flex justify-between gap-3">
+                  <span>Quem recebe</span>
+                  <span className="text-right font-bold text-[#062b4f]">
+                    {consulta.beneficiario || "—"}
+                  </span>
+                </div>
+                <div className="flex justify-between gap-3">
+                  <span>Vencimento</span>
+                  <span className="font-bold text-[#062b4f]">
+                    {formatarDataConta(consulta.vencimento)}
+                    {consulta.vencida ? " (vencida)" : ""}
+                  </span>
+                </div>
+                <div className="flex justify-between gap-3">
+                  <span>Valor</span>
+                  <span className="text-base font-black text-[#08a89d]">
+                    {formatarValorConta(consulta.valor)}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {pago && (
+              <div className="mt-5 flex items-center gap-2 rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-xs font-semibold text-emerald-700">
+                <CheckCircle2 size={16} className="shrink-0" />
+                Pagamento enviado! Ele aparece no seu histórico assim que for
+                confirmado.
               </div>
             )}
 
@@ -308,11 +374,18 @@ export default function PagamentoContaPage() {
 
             <button
               type="button"
-              onClick={continuePayment}
-              className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-[#08a89d] px-5 py-3.5 text-sm font-bold text-white shadow-[0_8px_20px_rgba(8,168,157,0.2)] transition hover:bg-[#078f80]"
+              onClick={pago ? novaConta : continuePayment}
+              disabled={loading}
+              className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-[#08a89d] px-5 py-3.5 text-sm font-bold text-white shadow-[0_8px_20px_rgba(8,168,157,0.2)] transition hover:bg-[#078f80] disabled:cursor-not-allowed disabled:opacity-60"
             >
-              Continuar para pagamento
-              <ArrowRight size={17} />
+              {loading
+                ? "Processando..."
+                : pago
+                  ? "Pagar outra conta"
+                  : consulta
+                    ? `Confirmar pagamento de ${formatarValorConta(consulta.valor)}`
+                    : "Consultar conta"}
+              {!loading && !pago && <ArrowRight size={17} />}
             </button>
           </div>
         </section>
