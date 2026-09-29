@@ -69,9 +69,22 @@ const STATUS_COMPLETED = [
   "realizada",
   "finished",
 ];
-const STATUS_CANCELLED = ["cancelled", "canceled", "cancelada", "cancelado"];
+
+const STATUS_CANCELLED = [
+  "cancelled",
+  "canceled",
+  "cancelada",
+  "cancelado",
+];
+
 const STATUS_PENDING = ["pending", "pendente"];
-const STATUS_ACCEPTED = ["accepted", "aceita", "aceitado"];
+
+const STATUS_ACCEPTED = [
+  "accepted",
+  "aceita",
+  "aceitado",
+];
+
 const STATUS_IN_PROGRESS = [
   "started",
   "in_progress",
@@ -87,10 +100,12 @@ function parseDate(value: unknown): Date | null {
   }
 
   const text = String(value).trim();
+
   if (!text) return null;
 
   if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}/.test(text)) {
     const [datePart, timePart] = text.split(" ");
+
     const [year, month, day] = datePart.split("-").map(Number);
     const [hour, minute, second] = timePart.split(":").map(Number);
 
@@ -107,11 +122,13 @@ function parseDate(value: unknown): Date | null {
   }
 
   const date = new Date(text);
+
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
 function isSameMonth(value: unknown, reference: Date): boolean {
   const date = parseDate(value);
+
   if (!date) return false;
 
   return (
@@ -127,7 +144,11 @@ function parseMoney(value: unknown): number {
 
   if (typeof value !== "string") return 0;
 
-  let text = value.replace(/R\$/gi, "").replace(/\s/g, "").trim();
+  let text = value
+    .replace(/R\$/gi, "")
+    .replace(/\s/g, "")
+    .trim();
+
   if (!text) return 0;
 
   if (text.includes(",") && text.includes(".")) {
@@ -137,6 +158,7 @@ function parseMoney(value: unknown): number {
   }
 
   const numberValue = Number(text);
+
   return Number.isFinite(numberValue) ? numberValue : 0;
 }
 
@@ -149,6 +171,7 @@ function formatCurrency(value: number): string {
 
 function formatDate(value: unknown): string {
   const date = parseDate(value);
+
   if (!date) return "—";
 
   return date.toLocaleDateString("pt-BR", {
@@ -159,6 +182,7 @@ function formatDate(value: unknown): string {
 
 function formatTime(value: unknown): string {
   const date = parseDate(value);
+
   if (!date) return "—";
 
   return date.toLocaleTimeString("pt-BR", {
@@ -167,10 +191,15 @@ function formatTime(value: unknown): string {
   });
 }
 
+/* ------------------------------------------------------------------ */
+/* NORMALIZAÇÃO DO USUÁRIO                                             */
+/* ------------------------------------------------------------------ */
+
 function normalizeUser(response: unknown): User | null {
   if (!response || typeof response !== "object") return null;
 
   const root = response as Record<string, unknown>;
+
   let userData: Record<string, unknown> | null = null;
 
   if (root.user && typeof root.user === "object") {
@@ -195,6 +224,8 @@ function normalizeUser(response: unknown): User | null {
     userData = root;
   }
 
+  if (!userData) return null;
+
   const fullName =
     userData.full_name ??
     userData.fullName ??
@@ -203,9 +234,16 @@ function normalizeUser(response: unknown): User | null {
     userData.nome_completo ??
     userData.nomeCompleto;
 
-  if (typeof fullName !== "string" || !fullName.trim()) return null;
+  if (typeof fullName !== "string" || !fullName.trim()) {
+    return null;
+  }
 
-  const id = userData.id ?? userData.usuario_id ?? userData.user_id ?? 0;
+  const id =
+    userData.id ??
+    userData.usuario_id ??
+    userData.user_id ??
+    0;
+
   const email = userData.email;
 
   return {
@@ -214,6 +252,14 @@ function normalizeUser(response: unknown): User | null {
     email: typeof email === "string" ? email : "",
   };
 }
+
+function extractUser(response: unknown): User | null {
+  return normalizeUser(response);
+}
+
+/* ------------------------------------------------------------------ */
+/* NORMALIZAÇÃO DAS VIAGENS                                            */
+/* ------------------------------------------------------------------ */
 
 function normalizeTrip(raw: unknown): Trip {
   if (!raw || typeof raw !== "object") {
@@ -230,7 +276,11 @@ function normalizeTrip(raw: unknown): Trip {
 
   const trip = raw as Record<string, unknown>;
 
-  const id = trip.id ?? trip.trip_request_id ?? trip.tripRequestId ?? null;
+  const id =
+    trip.id ??
+    trip.trip_request_id ??
+    trip.tripRequestId ??
+    null;
 
   const tripRequestId =
     trip.trip_request_id ??
@@ -294,27 +344,54 @@ function normalizeTrip(raw: unknown): Trip {
   return {
     ...trip,
 
-    id: typeof id === "number" || typeof id === "string" ? id : null,
+    id:
+      typeof id === "number" || typeof id === "string"
+        ? id
+        : null,
 
     trip_request_id:
-      typeof tripRequestId === "number" || typeof tripRequestId === "string"
+      typeof tripRequestId === "number" ||
+      typeof tripRequestId === "string"
         ? tripRequestId
         : null,
 
     created_at:
-      createdAt !== null && createdAt !== undefined ? String(createdAt) : null,
+      createdAt !== null && createdAt !== undefined
+        ? String(createdAt)
+        : null,
 
     valor: parseMoney(valor),
 
-    origin: typeof origin === "string" ? origin.trim() : null,
-    destination: typeof destination === "string" ? destination.trim() : null,
-    status: typeof status === "string" ? status.trim() : null,
+    origin:
+      typeof origin === "string"
+        ? origin.trim()
+        : null,
 
-    pickup_city: typeof trip.pickup_city === "string" ? trip.pickup_city : null,
+    destination:
+      typeof destination === "string"
+        ? destination.trim()
+        : null,
+
+    status:
+      typeof status === "string"
+        ? status.trim()
+        : null,
+
+    pickup_city:
+      typeof trip.pickup_city === "string"
+        ? trip.pickup_city
+        : null,
+
     pickup_state:
-      typeof trip.pickup_state === "string" ? trip.pickup_state : null,
+      typeof trip.pickup_state === "string"
+        ? trip.pickup_state
+        : null,
+
     destination_city:
-      typeof trip.destination_city === "string" ? trip.destination_city : null,
+      typeof trip.destination_city === "string"
+        ? trip.destination_city
+        : null,
+
     destination_state:
       typeof trip.destination_state === "string"
         ? trip.destination_state
@@ -322,35 +399,55 @@ function normalizeTrip(raw: unknown): Trip {
   };
 }
 
-function extractUser(response: unknown): User | null {
-  return normalizeUser(response);
-}
-
 function extractTrips(response: unknown): unknown[] {
   if (Array.isArray(response)) return response;
-  if (!response || typeof response !== "object") return [];
+
+  if (!response || typeof response !== "object") {
+    return [];
+  }
 
   const root = response as Record<string, unknown>;
 
-  const possibleArrays = [root.trips, root.viagens, root.rows, root.results];
+  const possibleArrays = [
+    root.trips,
+    root.viagens,
+    root.rows,
+    root.results,
+  ];
 
   for (const item of possibleArrays) {
-    if (Array.isArray(item)) return item;
+    if (Array.isArray(item)) {
+      return item;
+    }
   }
 
   if (root.data && typeof root.data === "object") {
-    if (Array.isArray(root.data)) return root.data;
+    if (Array.isArray(root.data)) {
+      return root.data;
+    }
 
     const data = root.data as Record<string, unknown>;
-    const nestedArrays = [data.trips, data.viagens, data.rows, data.results];
+
+    const nestedArrays = [
+      data.trips,
+      data.viagens,
+      data.rows,
+      data.results,
+    ];
 
     for (const item of nestedArrays) {
-      if (Array.isArray(item)) return item;
+      if (Array.isArray(item)) {
+        return item;
+      }
     }
   }
 
   return [];
 }
+
+/* ------------------------------------------------------------------ */
+/* STATUS                                                              */
+/* ------------------------------------------------------------------ */
 
 function normalizeStatus(status: string | null): string {
   return String(status ?? "")
@@ -361,11 +458,25 @@ function normalizeStatus(status: string | null): string {
 function getTripTitle(trip: Trip): string {
   const status = normalizeStatus(trip.status);
 
-  if (STATUS_COMPLETED.includes(status)) return "Viagem realizada";
-  if (STATUS_CANCELLED.includes(status)) return "Viagem cancelada";
-  if (STATUS_PENDING.includes(status)) return "Viagem pendente";
-  if (STATUS_ACCEPTED.includes(status)) return "Viagem aceita";
-  if (STATUS_IN_PROGRESS.includes(status)) return "Viagem em andamento";
+  if (STATUS_COMPLETED.includes(status)) {
+    return "Viagem realizada";
+  }
+
+  if (STATUS_CANCELLED.includes(status)) {
+    return "Viagem cancelada";
+  }
+
+  if (STATUS_PENDING.includes(status)) {
+    return "Viagem pendente";
+  }
+
+  if (STATUS_ACCEPTED.includes(status)) {
+    return "Viagem aceita";
+  }
+
+  if (STATUS_IN_PROGRESS.includes(status)) {
+    return "Viagem em andamento";
+  }
 
   return "Viagem registrada";
 }
@@ -374,14 +485,20 @@ function getTripLocation(trip: Trip): string {
   const origin = trip.origin?.trim();
   const destination = trip.destination?.trim();
 
-  if (origin && destination) return `${origin} → ${destination}`;
+  if (origin && destination) {
+    return `${origin} → ${destination}`;
+  }
+
   if (destination) return destination;
+
   if (origin) return origin;
 
   return "Local não informado";
 }
 
-function getTripStatusClass(status: string | null): string {
+function getTripStatusClass(
+  status: string | null
+): string {
   const value = normalizeStatus(status);
 
   if (STATUS_COMPLETED.includes(value)) {
@@ -392,26 +509,47 @@ function getTripStatusClass(status: string | null): string {
     return "bg-red-50 text-red-600 border-red-100";
   }
 
-  if (STATUS_PENDING.includes(value) || STATUS_IN_PROGRESS.includes(value)) {
+  if (
+    STATUS_PENDING.includes(value) ||
+    STATUS_IN_PROGRESS.includes(value)
+  ) {
     return "bg-amber-50 text-amber-700 border-amber-100";
   }
 
   return "bg-[#e9f8f5] text-[#078f80] border-[#cceee8]";
 }
 
-function getTripStatusLabel(status: string | null): string {
+function getTripStatusLabel(
+  status: string | null
+): string {
   const value = normalizeStatus(status);
 
-  if (STATUS_COMPLETED.includes(value)) return "Concluída";
-  if (STATUS_CANCELLED.includes(value)) return "Cancelada";
-  if (STATUS_PENDING.includes(value)) return "Pendente";
-  if (STATUS_IN_PROGRESS.includes(value)) return "Em andamento";
-  if (STATUS_ACCEPTED.includes(value)) return "Aceita";
+  if (STATUS_COMPLETED.includes(value)) {
+    return "Concluída";
+  }
+
+  if (STATUS_CANCELLED.includes(value)) {
+    return "Cancelada";
+  }
+
+  if (STATUS_PENDING.includes(value)) {
+    return "Pendente";
+  }
+
+  if (STATUS_IN_PROGRESS.includes(value)) {
+    return "Em andamento";
+  }
+
+  if (STATUS_ACCEPTED.includes(value)) {
+    return "Aceita";
+  }
 
   return "Registrada";
 }
 
-/* ---------- máscaras / validações dos modais ---------- */
+/* ------------------------------------------------------------------ */
+/* MÁSCARAS                                                            */
+/* ------------------------------------------------------------------ */
 
 function onlyDigits(value: string): string {
   return value.replace(/\D/g, "");
@@ -420,8 +558,14 @@ function onlyDigits(value: string): string {
 function maskPhone(value: string): string {
   const d = onlyDigits(value).slice(0, 11);
 
-  if (d.length <= 2) return d ? `(${d}` : "";
-  if (d.length <= 6) return `(${d.slice(0, 2)}) ${d.slice(2)}`;
+  if (d.length <= 2) {
+    return d ? `(${d}` : "";
+  }
+
+  if (d.length <= 6) {
+    return `(${d.slice(0, 2)}) ${d.slice(2)}`;
+  }
+
   if (d.length <= 10) {
     return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`;
   }
@@ -433,10 +577,17 @@ function maskBarcode(value: string): string {
   return onlyDigits(value).slice(0, 48);
 }
 
+/* ------------------------------------------------------------------ */
+/* POST JSON                                                           */
+/* ------------------------------------------------------------------ */
+
 async function postJson(
   url: string,
   body: Record<string, unknown>
-): Promise<{ ok: boolean; message: string }> {
+): Promise<{
+  ok: boolean;
+  message: string;
+}> {
   try {
     const response = await fetch(url, {
       method: "POST",
@@ -452,22 +603,31 @@ async function postJson(
     let message = "";
 
     try {
-      const data = (await response.json()) as Record<string, unknown>;
+      const data =
+        (await response.json()) as Record<string, unknown>;
 
-      if (typeof data?.message === "string") message = data.message;
-      else if (typeof data?.error === "string") message = data.error;
+      if (typeof data?.message === "string") {
+        message = data.message;
+      } else if (typeof data?.error === "string") {
+        message = data.error;
+      }
     } catch {
-      /* resposta sem JSON */
+      // resposta sem JSON
     }
 
     if (!response.ok) {
       return {
         ok: false,
-        message: message || `Não foi possível concluir (${response.status}).`,
+        message:
+          message ||
+          `Não foi possível concluir (${response.status}).`,
       };
     }
 
-    return { ok: true, message };
+    return {
+      ok: true,
+      message,
+    };
   } catch (err) {
     console.error(`Erro em ${url}:`, err);
 
@@ -501,16 +661,21 @@ function Modal({
     if (!open) return;
 
     function onKey(event: KeyboardEvent) {
-      if (event.key === "Escape") onClose();
+      if (event.key === "Escape") {
+        onClose();
+      }
     }
 
-    const previousOverflow = document.body.style.overflow;
+    const previousOverflow =
+      document.body.style.overflow;
 
     document.body.style.overflow = "hidden";
+
     window.addEventListener("keydown", onKey);
 
     return () => {
       document.body.style.overflow = previousOverflow;
+
       window.removeEventListener("keydown", onKey);
     };
   }, [open, onClose]);
@@ -539,6 +704,7 @@ function Modal({
               <h3 className="text-base font-black text-[#062b4f] sm:text-lg">
                 {title}
               </h3>
+
               <p className="text-[11px] text-[#71869a] sm:text-xs">
                 {subtitle}
               </p>
@@ -555,11 +721,17 @@ function Modal({
           </button>
         </div>
 
-        <div className="px-5 py-5 sm:px-6 sm:py-6">{children}</div>
+        <div className="px-5 py-5 sm:px-6 sm:py-6">
+          {children}
+        </div>
       </div>
     </div>
   );
 }
+
+/* ------------------------------------------------------------------ */
+/* FEEDBACK                                                            */
+/* ------------------------------------------------------------------ */
 
 function Feedback({
   type,
@@ -592,11 +764,23 @@ const primaryButtonClass =
   "mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-[#08a89d] px-4 py-3.5 text-sm font-bold text-white shadow-[0_8px_20px_rgba(8,168,157,0.2)] transition hover:-translate-y-0.5 hover:bg-[#078f80] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0";
 
 /* ------------------------------------------------------------------ */
-/* MODAL: RECARGA DE CELULAR                                           */
+/* MODAL: RECARGA                                                      */
 /* ------------------------------------------------------------------ */
 
-const OPERATORS = ["Vivo", "Claro", "TIM", "Oi"];
-const RECHARGE_VALUES = [15, 20, 30, 50, 100];
+const OPERATORS = [
+  "Vivo",
+  "Claro",
+  "TIM",
+  "Oi",
+];
+
+const RECHARGE_VALUES = [
+  15,
+  20,
+  30,
+  50,
+  100,
+];
 
 function RecargaModal({
   open,
@@ -606,9 +790,12 @@ function RecargaModal({
   onClose: () => void;
 }) {
   const [phone, setPhone] = useState("");
-  const [operator, setOperator] = useState(OPERATORS[0]);
+  const [operator, setOperator] = useState(
+    OPERATORS[0]
+  );
   const [amount, setAmount] = useState<number>(20);
   const [loading, setLoading] = useState(false);
+
   const [feedback, setFeedback] = useState<{
     type: "success" | "error";
     message: string;
@@ -630,19 +817,23 @@ function RecargaModal({
     if (digits.length < 10) {
       setFeedback({
         type: "error",
-        message: "Informe um número de celular válido com DDD.",
+        message:
+          "Informe um número de celular válido com DDD.",
       });
+
       return;
     }
 
     setLoading(true);
     setFeedback(null);
 
-    // A operadora é detectada pela Asaas pelo número.
-    const result = await postJson("/api/asaas/recarga", {
-      telefone: digits,
-      valor: amount,
-    });
+    const result = await postJson(
+      "/api/asaas/recarga",
+      {
+        telefone: digits,
+        valor: amount,
+      }
+    );
 
     setLoading(false);
 
@@ -650,9 +841,14 @@ function RecargaModal({
       result.ok
         ? {
             type: "success",
-            message: result.message || "Recarga solicitada com sucesso!",
+            message:
+              result.message ||
+              "Recarga solicitada com sucesso!",
           }
-        : { type: "error", message: result.message }
+        : {
+            type: "error",
+            message: result.message,
+          }
     );
   }
 
@@ -668,23 +864,32 @@ function RecargaModal({
     >
       <div className="space-y-4">
         <div>
-          <label className={labelClass} htmlFor="recarga-phone">
+          <label
+            className={labelClass}
+            htmlFor="recarga-phone"
+          >
             Número do celular
           </label>
+
           <input
             id="recarga-phone"
             type="tel"
             inputMode="numeric"
             placeholder="(11) 91234-5678"
             value={phone}
-            onChange={(event) => setPhone(maskPhone(event.target.value))}
+            onChange={(event) =>
+              setPhone(maskPhone(event.target.value))
+            }
             disabled={loading || done}
             className={inputClass}
           />
         </div>
 
         <div>
-          <span className={labelClass}>Operadora</span>
+          <span className={labelClass}>
+            Operadora
+          </span>
+
           <div className="grid grid-cols-4 gap-2">
             {OPERATORS.map((item) => (
               <button
@@ -692,7 +897,7 @@ function RecargaModal({
                 type="button"
                 disabled={loading || done}
                 onClick={() => setOperator(item)}
-                className={`rounded-xl cursor-pointer border px-2 py-2.5 text-xs font-bold transition ${
+                className={`cursor-pointer rounded-xl border px-2 py-2.5 text-xs font-bold transition ${
                   operator === item
                     ? "border-[#08a89d] bg-[#e5f8f4] text-[#078f80]"
                     : "border-[#dce5e9] bg-white text-[#506a82] hover:border-[#08a89d]"
@@ -705,7 +910,10 @@ function RecargaModal({
         </div>
 
         <div>
-          <span className={labelClass}>Valor da recarga</span>
+          <span className={labelClass}>
+            Valor da recarga
+          </span>
+
           <div className="grid grid-cols-3 gap-2">
             {RECHARGE_VALUES.map((value) => (
               <button
@@ -713,7 +921,7 @@ function RecargaModal({
                 type="button"
                 disabled={loading || done}
                 onClick={() => setAmount(value)}
-                className={`rounded-xl cursor-pointer border px-2 py-2.5 text-sm font-bold transition ${
+                className={`cursor-pointer rounded-xl border px-2 py-2.5 text-sm font-bold transition ${
                   amount === value
                     ? "border-[#08a89d] bg-[#e5f8f4] text-[#078f80]"
                     : "border-[#dce5e9] bg-white text-[#506a82] hover:border-[#08a89d]"
@@ -726,10 +934,19 @@ function RecargaModal({
         </div>
       </div>
 
-      {feedback && <Feedback type={feedback.type} message={feedback.message} />}
+      {feedback && (
+        <Feedback
+          type={feedback.type}
+          message={feedback.message}
+        />
+      )}
 
       {done ? (
-        <button type="button" onClick={onClose} className={primaryButtonClass}>
+        <button
+          type="button"
+          onClick={onClose}
+          className={primaryButtonClass}
+        >
           Fechar
         </button>
       ) : (
@@ -741,11 +958,16 @@ function RecargaModal({
         >
           {loading ? (
             <>
-              <Loader2 size={17} className="animate-spin" />
+              <Loader2
+                size={17}
+                className="animate-spin"
+              />
               Processando...
             </>
           ) : (
-            <>Recarregar {formatCurrency(amount)}</>
+            <>
+              Recarregar {formatCurrency(amount)}
+            </>
           )}
         </button>
       )}
@@ -766,7 +988,10 @@ function ContaModal({
 }) {
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
-  const [consulta, setConsulta] = useState<ContaConsultada | null>(null);
+
+  const [consulta, setConsulta] =
+    useState<ContaConsultada | null>(null);
+
   const [feedback, setFeedback] = useState<{
     type: "success" | "error";
     message: string;
@@ -781,7 +1006,6 @@ function ContaModal({
     }
   }, [open]);
 
-  // 1º clique consulta a conta; 2º clique (depois de conferir) paga.
   async function handleSubmit() {
     if (code.length < 44) {
       setFeedback({
@@ -789,6 +1013,7 @@ function ContaModal({
         message:
           "Código inválido. Digite os 44 a 48 números do boleto ou da conta.",
       });
+
       return;
     }
 
@@ -797,9 +1022,15 @@ function ContaModal({
 
     try {
       if (!consulta) {
-        setConsulta(await consultarConta(code));
+        const resultado =
+          await consultarConta(code);
+
+        setConsulta(resultado);
       } else {
-        await pagarConta(consulta.linhaDigitavel);
+        await pagarConta(
+          consulta.linhaDigitavel
+        );
+
         setFeedback({
           type: "success",
           message:
@@ -809,7 +1040,10 @@ function ContaModal({
     } catch (error) {
       setFeedback({
         type: "error",
-        message: error instanceof Error ? error.message : "Erro ao pagar a conta.",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Erro ao pagar a conta.",
       });
     } finally {
       setLoading(false);
@@ -827,7 +1061,10 @@ function ContaModal({
       icon={<Receipt size={20} />}
     >
       <div>
-        <label className={labelClass} htmlFor="conta-code">
+        <label
+          className={labelClass}
+          htmlFor="conta-code"
+        >
           Código de barras / linha digitável
         </label>
 
@@ -838,7 +1075,10 @@ function ContaModal({
           placeholder="Digite ou cole o código do boleto"
           value={code}
           onChange={(event) => {
-            setCode(maskBarcode(event.target.value));
+            setCode(
+              maskBarcode(event.target.value)
+            );
+
             setConsulta(null);
             setFeedback(null);
           }}
@@ -855,30 +1095,51 @@ function ContaModal({
         <div className="mt-4 space-y-2 rounded-xl border border-[#dce9e7] bg-[#f7fbfa] p-4 text-xs text-[#506a82]">
           <div className="flex justify-between gap-3">
             <span>Quem recebe</span>
+
             <span className="text-right font-bold text-[#062b4f]">
               {consulta.beneficiario || "—"}
             </span>
           </div>
+
           <div className="flex justify-between gap-3">
             <span>Vencimento</span>
+
             <span className="font-bold text-[#062b4f]">
-              {formatarDataConta(consulta.vencimento)}
-              {consulta.vencida ? " (vencida)" : ""}
+              {formatarDataConta(
+                consulta.vencimento
+              )}
+
+              {consulta.vencida
+                ? " (vencida)"
+                : ""}
             </span>
           </div>
+
           <div className="flex justify-between gap-3">
             <span>Valor</span>
+
             <span className="text-sm font-black text-[#08a89d]">
-              {formatarValorConta(consulta.valor)}
+              {formatarValorConta(
+                consulta.valor
+              )}
             </span>
           </div>
         </div>
       )}
 
-      {feedback && <Feedback type={feedback.type} message={feedback.message} />}
+      {feedback && (
+        <Feedback
+          type={feedback.type}
+          message={feedback.message}
+        />
+      )}
 
       {done ? (
-        <button type="button" onClick={onClose} className={primaryButtonClass}>
+        <button
+          type="button"
+          onClick={onClose}
+          className={primaryButtonClass}
+        >
           Fechar
         </button>
       ) : (
@@ -890,11 +1151,19 @@ function ContaModal({
         >
           {loading ? (
             <>
-              <Loader2 size={17} className="animate-spin" />
+              <Loader2
+                size={17}
+                className="animate-spin"
+              />
               Processando...
             </>
           ) : consulta ? (
-            <>Confirmar pagamento de {formatarValorConta(consulta.valor)}</>
+            <>
+              Confirmar pagamento de{" "}
+              {formatarValorConta(
+                consulta.valor
+              )}
+            </>
           ) : (
             "Consultar conta"
           )}
@@ -909,43 +1178,83 @@ function ContaModal({
 /* ------------------------------------------------------------------ */
 
 export default function PassageiroDashboard() {
-  const [user, setUser] = useState<User | null>(null);
-  const [rows, setRows] = useState<Trip[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [banners, setBanners] = useState<Banner[]>([]);
-  const [modal, setModal] = useState<ModalType>(null);
+  const [user, setUser] =
+    useState<User | null>(null);
 
-  const hoje = useMemo(() => new Date(), []);
+  const [rows, setRows] =
+    useState<Trip[]>([]);
+
+  const [loading, setLoading] =
+    useState(true);
+
+  const [error, setError] =
+    useState<string | null>(null);
+
+  const [banners, setBanners] =
+    useState<Banner[]>([]);
+
+  const [modal, setModal] =
+    useState<ModalType>(null);
+
+  const hoje = useMemo(
+    () => new Date(),
+    []
+  );
 
   const hora = new Date().getHours();
 
   const texto =
-    hora < 12 ? "Bom dia ☀️" : hora < 18 ? "Boa tarde 🌤️" : "Boa noite 🌙";
+    hora < 12
+      ? "Bom dia ☀️"
+      : hora < 18
+        ? "Boa tarde 🌤️"
+        : "Boa noite 🌙";
+
+  /* -------------------------------------------------------------- */
+  /* USUÁRIO                                                        */
+  /* -------------------------------------------------------------- */
 
   useEffect(() => {
     async function loadUser() {
       try {
-        const response = await fetch("/api/me", {
-          method: "GET",
-          credentials: "include",
-          cache: "no-store",
-          headers: { Accept: "application/json" },
-        });
+        const response = await fetch(
+          "/api/me",
+          {
+            method: "GET",
+            credentials: "include",
+            cache: "no-store",
+            headers: {
+              Accept:
+                "application/json",
+            },
+          }
+        );
 
         if (!response.ok) return;
 
-        const data = await response.json();
-        const usuario = extractUser(data);
+        const data =
+          await response.json();
 
-        if (usuario) setUser(usuario);
+        const usuario =
+          extractUser(data);
+
+        if (usuario) {
+          setUser(usuario);
+        }
       } catch (err) {
-        console.error("Erro /api/me:", err);
+        console.error(
+          "Erro /api/me:",
+          err
+        );
       }
     }
 
     void loadUser();
   }, []);
+
+  /* -------------------------------------------------------------- */
+  /* VIAGENS                                                        */
+  /* -------------------------------------------------------------- */
 
   useEffect(() => {
     let ativo = true;
@@ -955,68 +1264,122 @@ export default function PassageiroDashboard() {
         setLoading(true);
         setError(null);
 
-        const response = await fetch("/api/trips", {
-          method: "GET",
-          credentials: "include",
-          cache: "no-store",
-          headers: { Accept: "application/json" },
-        });
+        const response =
+          await fetch("/api/trips", {
+            method: "GET",
+            credentials: "include",
+            cache: "no-store",
+            headers: {
+              Accept:
+                "application/json",
+            },
+          });
 
-        const contentType = response.headers.get("content-type") || "";
+        const contentType =
+          response.headers.get(
+            "content-type"
+          ) || "";
 
         let data: unknown;
 
-        if (contentType.includes("application/json")) {
-          data = await response.json();
+        if (
+          contentType.includes(
+            "application/json"
+          )
+        ) {
+          data =
+            await response.json();
         } else {
-          const text = await response.text();
+          const text =
+            await response.text();
 
-          console.error("/api/trips não retornou JSON:", text);
+          console.error(
+            "/api/trips não retornou JSON:",
+            text
+          );
 
-          throw new Error("A API de viagens não retornou JSON.");
+          throw new Error(
+            "A API de viagens não retornou JSON."
+          );
         }
 
         if (!response.ok) {
-          let mensagem = "Não foi possível carregar suas viagens.";
+          let mensagem =
+            "Não foi possível carregar suas viagens.";
 
-          if (data && typeof data === "object") {
-            const obj = data as Record<string, unknown>;
+          if (
+            data &&
+            typeof data === "object"
+          ) {
+            const obj =
+              data as Record<
+                string,
+                unknown
+              >;
 
-            if (typeof obj.message === "string") {
-              mensagem = obj.message;
-            } else if (typeof obj.error === "string") {
-              mensagem = obj.error;
+            if (
+              typeof obj.message ===
+              "string"
+            ) {
+              mensagem =
+                obj.message;
+            } else if (
+              typeof obj.error ===
+              "string"
+            ) {
+              mensagem =
+                obj.error;
             }
           }
 
-          throw new Error(`${mensagem} (${response.status})`);
+          throw new Error(
+            `${mensagem} (${response.status})`
+          );
         }
 
-        const viagens = extractTrips(data);
+        const viagens =
+          extractTrips(data);
 
-        const normalizadas = viagens
-          .map(normalizeTrip)
-          .filter((trip) => trip.created_at !== null);
+        const normalizadas =
+          viagens
+            .map(normalizeTrip)
+            .filter(
+              (trip) =>
+                trip.created_at !==
+                null
+            );
 
         if (ativo) {
-          setRows(normalizadas);
+          setRows(
+            normalizadas
+          );
 
-          const usuario = extractUser(data);
+          const usuario =
+            extractUser(data);
 
-          if (usuario) setUser(usuario);
+          if (usuario) {
+            setUser(usuario);
+          }
         }
       } catch (err) {
-        console.error("Erro ao carregar viagens:", err);
+        console.error(
+          "Erro ao carregar viagens:",
+          err
+        );
 
         if (ativo) {
           setRows([]);
 
           setError(
-            err instanceof Error ? err.message : "Erro ao carregar viagens."
+            err instanceof Error
+              ? err.message
+              : "Erro ao carregar viagens."
           );
         }
       } finally {
-        if (ativo) setLoading(false);
+        if (ativo) {
+          setLoading(false);
+        }
       }
     }
 
@@ -1027,138 +1390,255 @@ export default function PassageiroDashboard() {
     };
   }, []);
 
+  /* -------------------------------------------------------------- */
+  /* BANNERS                                                        */
+  /* -------------------------------------------------------------- */
+
   useEffect(() => {
     async function loadBanners() {
       try {
-        const response = await fetch("/api/banners", {
-          method: "GET",
-          credentials: "include",
-          cache: "no-store",
-          headers: { Accept: "application/json" },
-        });
+        const response =
+          await fetch("/api/banners", {
+            method: "GET",
+            credentials: "include",
+            cache: "no-store",
+            headers: {
+              Accept:
+                "application/json",
+            },
+          });
 
         if (!response.ok) return;
 
-        const data = await response.json();
+        const data =
+          await response.json();
 
-        const lista = Array.isArray(data)
-          ? data
-          : Array.isArray(data?.banners)
-            ? data.banners
-            : Array.isArray(data?.data)
-              ? data.data
-              : [];
+        const lista =
+          Array.isArray(data)
+            ? data
+            : Array.isArray(
+                data?.banners
+              )
+              ? data.banners
+              : Array.isArray(
+                    data?.data
+                  )
+                ? data.data
+                : [];
 
-        const validos = lista.filter(
-          (banner: Banner) =>
-            typeof banner?.image === "string" && banner.image.trim().length > 0
-        );
+        const validos =
+          lista.filter(
+            (banner: Banner) =>
+              typeof banner?.image ===
+                "string" &&
+              banner.image
+                .trim()
+                .length > 0
+          );
 
         setBanners(validos);
       } catch (err) {
-        console.error("Erro ao carregar banners:", err);
+        console.error(
+          "Erro ao carregar banners:",
+          err
+        );
       }
     }
 
     void loadBanners();
   }, []);
 
+  /* -------------------------------------------------------------- */
+  /* ESTATÍSTICAS                                                   */
+  /* -------------------------------------------------------------- */
+
   const viagensMes = useMemo(() => {
-    return rows.filter((trip) => isSameMonth(trip.created_at, hoje));
+    return rows.filter(
+      (trip) =>
+        isSameMonth(
+          trip.created_at,
+          hoje
+        )
+    );
   }, [rows, hoje]);
 
-  const totalViagens = rows.length;
+  const totalViagens =
+    rows.length;
 
-  const totalGastoMes = useMemo(() => {
-    return viagensMes.reduce((total, trip) => total + parseMoney(trip.valor), 0);
-  }, [viagensMes]);
+  const totalGastoMes =
+    useMemo(() => {
+      return viagensMes.reduce(
+        (total, trip) =>
+          total +
+          parseMoney(
+            trip.valor
+          ),
+        0
+      );
+    }, [viagensMes]);
 
-  const ultimasViagens = useMemo(() => {
-    return [...rows]
-      .sort((a, b) => {
-        const dateA = parseDate(a.created_at)?.getTime() ?? 0;
-        const dateB = parseDate(b.created_at)?.getTime() ?? 0;
+  const ultimasViagens =
+    useMemo(() => {
+      return [...rows]
+        .sort((a, b) => {
+          const dateA =
+            parseDate(
+              a.created_at
+            )?.getTime() ?? 0;
 
-        return dateB - dateA;
-      })
-      .slice(0, 5);
-  }, [rows]);
+          const dateB =
+            parseDate(
+              b.created_at
+            )?.getTime() ?? 0;
+
+          return dateB - dateA;
+        })
+        .slice(0, 5);
+    }, [rows]);
+
+  /* -------------------------------------------------------------- */
+  /* GRÁFICO                                                        */
+  /* -------------------------------------------------------------- */
 
   const chartData = useMemo(() => {
-    const grouped = new Map<string, number>();
+    const grouped =
+      new Map<string, number>();
 
     const inicio = new Date();
 
-    inicio.setHours(0, 0, 0, 0);
-    inicio.setDate(inicio.getDate() - 6);
+    inicio.setHours(
+      0,
+      0,
+      0,
+      0
+    );
 
-    for (let index = 0; index < 7; index++) {
-      const date = new Date(inicio);
+    inicio.setDate(
+      inicio.getDate() - 6
+    );
 
-      date.setDate(inicio.getDate() + index);
+    for (
+      let index = 0;
+      index < 7;
+      index++
+    ) {
+      const date =
+        new Date(inicio);
 
-      const label = date.toLocaleDateString("pt-BR", {
-        day: "2-digit",
-        month: "2-digit",
-      });
+      date.setDate(
+        inicio.getDate() +
+          index
+      );
 
-      grouped.set(label, 0);
+      const label =
+        date.toLocaleDateString(
+          "pt-BR",
+          {
+            day: "2-digit",
+            month: "2-digit",
+          }
+        );
+
+      grouped.set(
+        label,
+        0
+      );
     }
 
     rows.forEach((trip) => {
-      const date = parseDate(trip.created_at);
+      const date =
+        parseDate(
+          trip.created_at
+        );
 
       if (!date) return;
-      if (date.getTime() < inicio.getTime()) return;
 
-      const label = date.toLocaleDateString("pt-BR", {
-        day: "2-digit",
-        month: "2-digit",
-      });
+      if (
+        date.getTime() <
+        inicio.getTime()
+      ) {
+        return;
+      }
 
-      grouped.set(label, (grouped.get(label) ?? 0) + 1);
+      const label =
+        date.toLocaleDateString(
+          "pt-BR",
+          {
+            day: "2-digit",
+            month: "2-digit",
+          }
+        );
+
+      grouped.set(
+        label,
+        (grouped.get(
+          label
+        ) ?? 0) + 1
+      );
     });
 
-    return Array.from(grouped.entries()).map(([label, value]) => ({
-      label,
-      value,
-    }));
+    return Array.from(
+      grouped.entries()
+    ).map(
+      ([label, value]) => ({
+        label,
+        value,
+      })
+    );
   }, [rows]);
 
-  const maxChartValue = Math.max(...chartData.map((item) => item.value), 1);
+  const maxChartValue =
+    Math.max(
+      ...chartData.map(
+        (item) =>
+          item.value
+      ),
+      1
+    );
+
+  /* -------------------------------------------------------------- */
+  /* RENDER                                                          */
+  /* -------------------------------------------------------------- */
 
   return (
     <main className="min-h-screen text-white">
       <div className="mx-auto w-full max-w-8xl px-3 sm:px-4 md:px-6 lg:px-0 2xl:max-w-[1600px]">
+
         {/* HEADER */}
 
-        <section className="relative mt-3 overflow-hidden rounded-2xl sm:rounded-[28px] lg:rounded-[32px] bg-white shadow-[0_20px_60px_rgba(6,43,79,0.12)]">
-          <div className="relative min-h-[190px] sm:min-h-[210px] md:min-h-[230px] lg:min-h-[245px] overflow-hidden">
+        <section className="relative mt-3 overflow-hidden rounded-2xl bg-white shadow-[0_20px_60px_rgba(6,43,79,0.12)] sm:rounded-[28px] lg:rounded-[32px]">
+          <div className="relative min-h-[190px] overflow-hidden sm:min-h-[210px] md:min-h-[230px] lg:min-h-[245px]">
             <div
               className="absolute inset-0 bg-cover bg-center"
-              style={{ backgroundImage: "url('/bg-fundo.png')" }}
+              style={{
+                backgroundImage:
+                  "url('/bg-fundo.png')",
+              }}
             />
 
             <div className="absolute inset-0 bg-gradient-to-br from-[#0a9d86]/95 via-[#0b9b85]/80 to-[#062b4f]/85" />
 
-            <div className="absolute -right-16 -top-20 h-56 w-56 sm:-right-24 sm:-top-32 sm:h-80 sm:w-80 rounded-full bg-white/10 blur-3xl" />
+            <div className="absolute -right-16 -top-20 h-56 w-56 rounded-full bg-white/10 blur-3xl sm:-right-24 sm:-top-32 sm:h-80 sm:w-80" />
 
-            <div className="absolute -bottom-28 right-1/4 h-56 w-56 sm:-bottom-40 sm:h-80 sm:w-80 rounded-full bg-[#5be0c8]/10 blur-3xl" />
+            <div className="absolute -bottom-28 right-1/4 h-56 w-56 rounded-full bg-[#5be0c8]/10 blur-3xl sm:-bottom-40 sm:h-80 sm:w-80" />
 
             <div className="relative z-10 px-4 py-6 sm:px-6 sm:py-7 md:px-8 md:py-8 lg:px-10 lg:py-9 xl:px-12 xl:py-10">
-              <p className="mt-4 sm:mt-6 lg:mt-7 text-sm sm:text-base font-medium text-white/85">
+              <p className="mt-4 text-sm font-medium text-white/85 sm:mt-6 sm:text-base lg:mt-7">
                 {texto},
               </p>
 
-              <h1 className="mt-1 max-w-3xl text-2xl sm:text-3xl md:text-3xl lg:text-4xl xl:text-5xl font-black tracking-tight text-white">
+              <h1 className="mt-1 max-w-3xl text-2xl font-black tracking-tight text-white sm:text-3xl md:text-3xl lg:text-4xl xl:text-5xl">
                 {loading
                   ? "Carregando..."
-                  : user?.full_name || "Bem-vindo à Maylon"}
+                  : user?.full_name ||
+                    "Bem-vindo à Maylon"}
               </h1>
 
-              <p className="mt-2 sm:mt-3 max-w-2xl text-xs sm:text-sm leading-6 text-white/80 lg:text-base">
-                Acompanhe suas viagens, seus gastos e tudo o que acontece na sua
-                conta Maylon.
+              <p className="mt-2 max-w-2xl text-xs leading-6 text-white/80 sm:mt-3 sm:text-sm lg:text-base">
+                Acompanhe suas viagens,
+                seus gastos e tudo o que
+                acontece na sua conta
+                Maylon.
               </p>
             </div>
           </div>
@@ -1167,29 +1647,39 @@ export default function PassageiroDashboard() {
         {/* ERRO */}
 
         {error && (
-          <div className="mt-5 sm:mt-6 rounded-xl sm:rounded-2xl border border-red-200 bg-white px-4 py-3 sm:px-5 sm:py-4 text-xs sm:text-sm text-red-600 shadow-sm">
-            <strong>Erro ao carregar viagens:</strong> {error}
+          <div className="mt-5 rounded-xl border border-red-200 bg-white px-4 py-3 text-xs text-red-600 shadow-sm sm:mt-6 sm:rounded-2xl sm:px-5 sm:py-4 sm:text-sm">
+            <strong>
+              Erro ao carregar
+              viagens:
+            </strong>{" "}
+            {error}
           </div>
         )}
 
         {/* BANNER */}
 
-        {banners.length > 0 && banners[0]?.image && (
-          <section className="mt-5 sm:mt-6 lg:mt-7 overflow-hidden rounded-2xl sm:rounded-[24px] lg:rounded-[28px] border border-white/60 bg-white shadow-[0_15px_45px_rgba(6,43,79,0.1)]">
-            <div className="relative min-h-[150px] sm:min-h-[180px] md:min-h-[200px] lg:min-h-[220px] xl:min-h-[240px] overflow-hidden">
-              <img
-                src={banners[0].image}
-                alt={banners[0].title || "Banner Maylon"}
-                className="absolute inset-0 h-full w-full object-cover"
-                loading="lazy"
-              />
+        {banners.length > 0 &&
+          banners[0]?.image && (
+            <section className="mt-5 overflow-hidden rounded-2xl border border-white/60 bg-white shadow-[0_15px_45px_rgba(6,43,79,0.1)] sm:mt-6 sm:rounded-[24px] lg:mt-7 lg:rounded-[28px]">
+              <div className="relative min-h-[150px] overflow-hidden sm:min-h-[180px] md:min-h-[200px] lg:min-h-[220px] xl:min-h-[240px]">
+                <img
+                  src={
+                    banners[0].image
+                  }
+                  alt={
+                    banners[0].title ||
+                    "Banner Maylon"
+                  }
+                  className="absolute inset-0 h-full w-full object-cover"
+                  loading="lazy"
+                />
 
-              <div className="absolute inset-0" />
+                <div className="absolute inset-0" />
 
-              <div className="relative z-10 flex min-h-[150px] sm:min-h-[180px] md:min-h-[210px] lg:min-h-[250px] xl:min-h-[260px] items-center px-4 py-6 sm:px-6 sm:py-7 md:px-8 md:py-8 lg:px-10 xl:px-12" />
-            </div>
-          </section>
-        )}
+                <div className="relative z-10 flex min-h-[150px] items-center px-4 py-6 sm:min-h-[180px] sm:px-6 sm:py-7 md:min-h-[210px] md:px-8 md:py-8 lg:min-h-[250px] lg:px-10 xl:min-h-[260px] xl:px-12" />
+              </div>
+            </section>
+          )}
 
         <div className="h-2" />
 
@@ -1197,36 +1687,44 @@ export default function PassageiroDashboard() {
 
         <section className="mt-4 sm:mt-5">
           <div className="mb-3 sm:mb-4">
-            <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white">
+            <h2 className="text-xl font-black tracking-tight text-white sm:text-2xl">
               Serviços rápidos
             </h2>
 
-            <p className="mt-0 text-xs sm:text-sm text-white">
-              Recarregue seu celular e pague contas sem sair da Maylon.
+            <p className="mt-0 text-xs text-white sm:text-sm">
+              Recarregue seu celular e
+              pague contas sem sair da
+              Maylon.
             </p>
           </div>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5">
-            {/* RECARGA DE CELULAR */}
+
+            {/* RECARGA */}
 
             <button
               type="button"
-              onClick={() => setModal("recarga")}
-              className="group relative flex w-full items-center gap-4 overflow-hidden rounded-2xl sm:rounded-[26px] border border-[#e2ebee] bg-white p-5 sm:p-6 text-left shadow-[0_10px_35px_rgba(6,43,79,0.07)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_18px_45px_rgba(6,43,79,0.11)]"
+              onClick={() =>
+                setModal(
+                  "recarga"
+                )
+              }
+              className="group relative flex w-full items-center gap-4 overflow-hidden rounded-2xl border border-[#e2ebee] bg-white p-5 text-left shadow-[0_10px_35px_rgba(6,43,79,0.07)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_18px_45px_rgba(6,43,79,0.11)] sm:rounded-[26px] sm:p-6"
             >
               <div className="absolute -right-12 -top-12 h-32 w-32 rounded-full bg-[#08a89d]/5 transition group-hover:scale-125" />
 
-              <div className="relative flex h-12 w-12 sm:h-14 sm:w-14 shrink-0 items-center justify-center rounded-2xl bg-[#e5f8f4] text-[#08a89d] transition group-hover:bg-[#08a89d] group-hover:text-white">
+              <div className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#e5f8f4] text-[#08a89d] transition group-hover:bg-[#08a89d] group-hover:text-white sm:h-14 sm:w-14">
                 <Smartphone size={24} />
               </div>
 
               <div className="relative min-w-0 flex-1">
-                <p className="text-sm sm:text-base font-black text-[#062b4f]">
+                <p className="text-sm font-black text-[#062b4f] sm:text-base">
                   Recarga de Celular
                 </p>
 
-                <p className="mt-0.5 text-[11px] sm:text-xs font-medium text-[#71869a]">
-                  Adicione créditos de forma rápida e segura.
+                <p className="mt-0.5 text-[11px] font-medium text-[#71869a] sm:text-xs">
+                  Adicione créditos de
+                  forma rápida e segura.
                 </p>
               </div>
 
@@ -1236,26 +1734,29 @@ export default function PassageiroDashboard() {
               />
             </button>
 
-            {/* PAGAMENTO DE CONTA */}
+            {/* PAGAMENTO */}
 
             <button
               type="button"
-              onClick={() => setModal("conta")}
-              className="group relative flex w-full items-center gap-4 overflow-hidden rounded-2xl sm:rounded-[26px] border border-[#e2ebee] bg-white p-5 sm:p-6 text-left shadow-[0_10px_35px_rgba(6,43,79,0.07)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_18px_45px_rgba(6,43,79,0.11)]"
+              onClick={() =>
+                setModal("conta")
+              }
+              className="group relative flex w-full items-center gap-4 overflow-hidden rounded-2xl border border-[#e2ebee] bg-white p-5 text-left shadow-[0_10px_35px_rgba(6,43,79,0.07)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_18px_45px_rgba(6,43,79,0.11)] sm:rounded-[26px] sm:p-6"
             >
               <div className="absolute -right-12 -top-12 h-32 w-32 rounded-full bg-[#0c75bd]/5 transition group-hover:scale-125" />
 
-              <div className="relative flex h-12 w-12 sm:h-14 sm:w-14 shrink-0 items-center justify-center rounded-2xl bg-[#e5f8f4] text-[#08a89d] transition group-hover:bg-[#08a89d] group-hover:text-white">
+              <div className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#e5f8f4] text-[#08a89d] transition group-hover:bg-[#08a89d] group-hover:text-white sm:h-14 sm:w-14">
                 <Receipt size={24} />
               </div>
 
               <div className="relative min-w-0 flex-1">
-                <p className="text-sm sm:text-base font-black text-[#062b4f]">
+                <p className="text-sm font-black text-[#062b4f] sm:text-base">
                   Pagamento de Conta
                 </p>
 
-                <p className="mt-0.5 text-[11px] sm:text-xs font-medium text-[#71869a]">
-                  Pague boletos e contas direto pelo app.
+                <p className="mt-0.5 text-[11px] font-medium text-[#71869a] sm:text-xs">
+                  Pague boletos e contas
+                  direto pelo app.
                 </p>
               </div>
 
@@ -1267,23 +1768,24 @@ export default function PassageiroDashboard() {
           </div>
         </section>
 
-        {/* SUA MOVIMENTAÇÃO */}
+        {/* MOVIMENTAÇÃO */}
 
         <section className="mt-6 sm:mt-7">
-          <div className="mb-4 sm:mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div className="mb-4 flex flex-col gap-3 sm:mb-5 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <h2 className="mt-1 text-xl sm:text-2xl font-black tracking-tight text-white">
+              <h2 className="mt-1 text-xl font-black tracking-tight text-white sm:text-2xl">
                 Sua movimentação
               </h2>
 
-              <p className="mt-0 text-xs sm:text-sm text-white">
-                Uma visão rápida da sua atividade na Maylon.
+              <p className="mt-0 text-xs text-white sm:text-sm">
+                Uma visão rápida da sua
+                atividade na Maylon.
               </p>
             </div>
 
             <Link
               href="/passageiro/viagens"
-              className="inline-flex items-center gap-2 self-start rounded-xl border border-[#dce5e9] bg-white px-3.5 py-2 sm:px-4 sm:py-2.5 text-xs sm:text-sm font-bold text-[#163a59] shadow-sm transition hover:border-[#08a89d] hover:text-[#08a89d] sm:self-auto"
+              className="inline-flex items-center gap-2 self-start rounded-xl border border-[#dce5e9] bg-white px-3.5 py-2 text-xs font-bold text-[#163a59] shadow-sm transition hover:border-[#08a89d] hover:text-[#08a89d] sm:self-auto sm:px-4 sm:py-2.5 sm:text-sm"
             >
               Ver histórico
               <ArrowUpRight size={16} />
@@ -1291,32 +1793,41 @@ export default function PassageiroDashboard() {
           </div>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3">
+
             {/* CARD 1 */}
 
-            <div className="group relative overflow-hidden rounded-2xl sm:rounded-[26px] border border-[#e2ebee] bg-white p-5 sm:p-6 shadow-[0_10px_35px_rgba(6,43,79,0.07)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_18px_45px_rgba(6,43,79,0.11)]">
+            <div className="group relative overflow-hidden rounded-2xl border border-[#e2ebee] bg-white p-5 shadow-[0_10px_35px_rgba(6,43,79,0.07)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_18px_45px_rgba(6,43,79,0.11)] sm:rounded-[26px] sm:p-6">
               <div className="absolute -right-12 -top-12 h-32 w-32 rounded-full bg-[#08a89d]/5 transition group-hover:scale-125" />
 
               <div className="relative">
                 <div className="flex items-start justify-between">
-                  <div className="flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-2xl bg-[#e5f8f4] text-[#08a89d]">
-                    <Car size={22} className="sm:hidden" />
-                    <Car size={25} className="hidden sm:block" />
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#e5f8f4] text-[#08a89d] sm:h-14 sm:w-14">
+                    <Car
+                      size={22}
+                      className="sm:hidden"
+                    />
+                    <Car
+                      size={25}
+                      className="hidden sm:block"
+                    />
                   </div>
 
-                  <span className="rounded-full bg-[#effaf8] px-2.5 py-1 sm:px-3 text-[9px] sm:text-[10px] font-bold uppercase tracking-wide text-[#078f80]">
+                  <span className="rounded-full bg-[#effaf8] px-2.5 py-1 text-[9px] font-bold uppercase tracking-wide text-[#078f80] sm:px-3 sm:text-[10px]">
                     Mês atual
                   </span>
                 </div>
 
-                <p className="mt-5 sm:mt-6 text-xs sm:text-sm font-semibold text-[#71869a]">
+                <p className="mt-5 text-xs font-semibold text-[#71869a] sm:mt-6 sm:text-sm">
                   Viagens no mês
                 </p>
 
-                <p className="mt-1 text-2xl sm:text-3xl font-black text-[#062b4f]">
-                  {loading ? "—" : viagensMes.length}
+                <p className="mt-1 text-2xl font-black text-[#062b4f] sm:text-3xl">
+                  {loading
+                    ? "—"
+                    : viagensMes.length}
                 </p>
 
-                <p className="mt-2 text-[11px] sm:text-xs font-medium text-[#08a89d]">
+                <p className="mt-2 text-[11px] font-medium text-[#08a89d] sm:text-xs">
                   Atividade deste mês
                 </p>
               </div>
@@ -1324,62 +1835,82 @@ export default function PassageiroDashboard() {
 
             {/* CARD 2 */}
 
-            <div className="group relative overflow-hidden rounded-2xl sm:rounded-[26px] border border-[#e2ebee] bg-white p-5 sm:p-6 shadow-[0_10px_35px_rgba(6,43,79,0.07)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_18px_45px_rgba(6,43,79,0.11)]">
+            <div className="group relative overflow-hidden rounded-2xl border border-[#e2ebee] bg-white p-5 shadow-[0_10px_35px_rgba(6,43,79,0.07)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_18px_45px_rgba(6,43,79,0.11)] sm:rounded-[26px] sm:p-6">
               <div className="absolute -right-12 -top-12 h-32 w-32 rounded-full bg-[#0c75bd]/5 transition group-hover:scale-125" />
 
               <div className="relative">
                 <div className="flex items-start justify-between">
-                  <div className="flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-2xl bg-[#e5f8f4] text-[#08a89d]">
-                    <Car size={22} className="sm:hidden" />
-                    <Car size={25} className="hidden sm:block" />
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#e5f8f4] text-[#08a89d] sm:h-14 sm:w-14">
+                    <Car
+                      size={22}
+                      className="sm:hidden"
+                    />
+                    <Car
+                      size={25}
+                      className="hidden sm:block"
+                    />
                   </div>
 
-                  <span className="rounded-full bg-[#effaf8] px-2.5 py-1 sm:px-3 text-[9px] sm:text-[10px] font-bold uppercase tracking-wide text-[#078f80]">
+                  <span className="rounded-full bg-[#effaf8] px-2.5 py-1 text-[9px] font-bold uppercase tracking-wide text-[#078f80] sm:px-3 sm:text-[10px]">
                     Histórico
                   </span>
                 </div>
 
-                <p className="mt-5 sm:mt-6 text-xs sm:text-sm font-semibold text-[#71869a]">
+                <p className="mt-5 text-xs font-semibold text-[#71869a] sm:mt-6 sm:text-sm">
                   Total de viagens
                 </p>
 
-                <p className="mt-1 text-2xl sm:text-3xl font-black text-[#062b4f]">
-                  {loading ? "—" : totalViagens}
+                <p className="mt-1 text-2xl font-black text-[#062b4f] sm:text-3xl">
+                  {loading
+                    ? "—"
+                    : totalViagens}
                 </p>
 
-                <p className="mt-2 text-[11px] sm:text-xs font-medium text-[#1676b7]">
-                  Todas as viagens registradas
+                <p className="mt-2 text-[11px] font-medium text-[#1676b7] sm:text-xs">
+                  Todas as viagens
+                  registradas
                 </p>
               </div>
             </div>
 
             {/* CARD 3 */}
 
-            <div className="group relative overflow-hidden rounded-2xl sm:rounded-[26px] border border-[#e2ebee] bg-white p-5 sm:p-6 shadow-[0_10px_35px_rgba(6,43,79,0.07)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_18px_45px_rgba(6,43,79,0.11)] sm:col-span-2 lg:col-span-1">
+            <div className="group relative overflow-hidden rounded-2xl border border-[#e2ebee] bg-white p-5 shadow-[0_10px_35px_rgba(6,43,79,0.07)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_18px_45px_rgba(6,43,79,0.11)] sm:col-span-2 sm:rounded-[26px] sm:p-6 lg:col-span-1">
               <div className="absolute -right-12 -top-12 h-32 w-32 rounded-full bg-[#08a89d]/5 transition group-hover:scale-125" />
 
               <div className="relative">
                 <div className="flex items-start justify-between">
-                  <div className="flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-2xl bg-[#e5f8f4] text-[#08a89d]">
-                    <Wallet size={22} className="sm:hidden" />
-                    <Wallet size={25} className="hidden sm:block" />
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#e5f8f4] text-[#08a89d] sm:h-14 sm:w-14">
+                    <Wallet
+                      size={22}
+                      className="sm:hidden"
+                    />
+                    <Wallet
+                      size={25}
+                      className="hidden sm:block"
+                    />
                   </div>
 
-                  <span className="rounded-full bg-[#effaf8] px-2.5 py-1 sm:px-3 text-[9px] sm:text-[10px] font-bold uppercase tracking-wide text-[#078f80]">
+                  <span className="rounded-full bg-[#effaf8] px-2.5 py-1 text-[9px] font-bold uppercase tracking-wide text-[#078f80] sm:px-3 sm:text-[10px]">
                     Gastos
                   </span>
                 </div>
 
-                <p className="mt-5 sm:mt-6 text-xs sm:text-sm font-semibold text-[#71869a]">
+                <p className="mt-5 text-xs font-semibold text-[#71869a] sm:mt-6 sm:text-sm">
                   Gasto do mês
                 </p>
 
-                <p className="mt-1 text-2xl sm:text-3xl font-black text-[#062b4f]">
-                  {loading ? "—" : formatCurrency(totalGastoMes)}
+                <p className="mt-1 text-2xl font-black text-[#062b4f] sm:text-3xl">
+                  {loading
+                    ? "—"
+                    : formatCurrency(
+                        totalGastoMes
+                      )}
                 </p>
 
-                <p className="mt-2 text-[11px] sm:text-xs font-medium text-[#08a89d]">
-                  Total acumulado no mês
+                <p className="mt-2 text-[11px] font-medium text-[#08a89d] sm:text-xs">
+                  Total acumulado no
+                  mês
                 </p>
               </div>
             </div>
@@ -1388,229 +1919,318 @@ export default function PassageiroDashboard() {
 
         {/* CONTEÚDO PRINCIPAL */}
 
-        <section className="mt-6 sm:mt-7 grid grid-cols-1 gap-5 sm:gap-6 lg:gap-7 xl:grid-cols-[1.45fr_0.95fr] 2xl:grid-cols-[1.6fr_1fr]">
+        <section className="mt-6 grid grid-cols-1 gap-5 sm:mt-7 sm:gap-6 lg:gap-7 xl:grid-cols-[1.45fr_0.95fr] 2xl:grid-cols-[1.6fr_1fr]">
+
           {/* GRÁFICO */}
 
-          <div className="overflow-hidden rounded-2xl sm:rounded-[28px] border border-[#e2ebee] bg-white shadow-[0_12px_40px_rgba(6,43,79,0.07)]">
-            <div className="flex flex-col gap-3 sm:gap-4 border-b border-[#edf1f4] px-4 py-5 sm:px-6 sm:py-6 sm:flex-row sm:items-center sm:justify-between lg:px-8">
+          <div className="overflow-hidden rounded-2xl border border-[#e2ebee] bg-white shadow-[0_12px_40px_rgba(6,43,79,0.07)] sm:rounded-[28px]">
+            <div className="flex flex-col gap-3 border-b border-[#edf1f4] px-4 py-5 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-6 sm:py-6 lg:px-8">
               <div>
                 <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-xl bg-[#e5f8f4] text-[#08a89d]">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#e5f8f4] text-[#08a89d] sm:h-11 sm:w-11">
                     <Car size={20} />
                   </div>
 
                   <div>
-                    <h2 className="text-base sm:text-lg font-black text-[#062b4f]">
+                    <h2 className="text-base font-black text-[#062b4f] sm:text-lg">
                       Atividade recente
                     </h2>
 
-                    <p className="mt-0 text-[11px] sm:text-xs text-[#71869a]">
-                      Viagens dos últimos 7 dias
+                    <p className="mt-0 text-[11px] text-[#71869a] sm:text-xs">
+                      Viagens dos últimos
+                      7 dias
                     </p>
                   </div>
                 </div>
               </div>
 
-              <div className="self-start rounded-xl bg-[#eaf8f5] px-3.5 py-1.5 sm:px-4 sm:py-2 text-[11px] sm:text-xs font-bold text-[#078f80] sm:self-auto">
+              <div className="self-start rounded-xl bg-[#eaf8f5] px-3.5 py-1.5 text-[11px] font-bold text-[#078f80] sm:self-auto sm:px-4 sm:py-2 sm:text-xs">
                 Últimos 7 dias
               </div>
             </div>
 
             <div className="p-4 sm:p-6 lg:p-8">
-              <div className="relative h-[240px] sm:h-[270px] md:h-[290px] lg:h-[310px] w-full">
-                <div className="absolute inset-0 flex flex-col justify-between pb-9 sm:pb-10 pt-3">
-                  {[4, 3, 2, 1, 0].map((item) => (
-                    <div key={item} className="flex items-center gap-3">
-                      <div className="h-px flex-1 bg-[#edf1f4]" />
-                    </div>
-                  ))}
+              <div className="relative h-[240px] w-full sm:h-[270px] md:h-[290px] lg:h-[310px]">
+
+                <div className="absolute inset-0 flex flex-col justify-between pb-9 pt-3 sm:pb-10">
+                  {[4, 3, 2, 1, 0].map(
+                    (item) => (
+                      <div
+                        key={item}
+                        className="flex items-center gap-3"
+                      >
+                        <div className="h-px flex-1 bg-[#edf1f4]" />
+                      </div>
+                    )
+                  )}
                 </div>
 
                 <div className="absolute inset-0 flex items-end gap-1.5 px-1 pb-9 pt-5 sm:gap-2 sm:pb-10 md:gap-3 lg:gap-4">
-                  {chartData.map((item, index) => {
-                    const height =
-                      item.value === 0
-                        ? 3
-                        : Math.max((item.value / maxChartValue) * 82, 8);
+                  {chartData.map(
+                    (item, index) => {
+                      const height =
+                        item.value ===
+                        0
+                          ? 3
+                          : Math.max(
+                              (item.value /
+                                maxChartValue) *
+                                82,
+                              8
+                            );
 
-                    return (
-                      <div
-                        key={`${item.label}-${index}`}
-                        className="group relative flex h-full flex-1 flex-col justify-end"
-                      >
-                        {item.value > 0 && (
-                          <div
-                            className="absolute left-1/2 z-20 flex -translate-x-1/2 -translate-y-2 items-center justify-center rounded-lg bg-[#062b4f] px-1.5 py-0.5 sm:px-2 sm:py-1 text-[9px] sm:text-[10px] font-bold text-white opacity-0 shadow-lg transition group-hover:opacity-100"
-                            style={{ bottom: `${height}%` }}
-                          >
-                            {item.value}
-                          </div>
-                        )}
-
+                      return (
                         <div
-                          className="relative w-full overflow-hidden rounded-t-xl sm:rounded-t-2xl bg-gradient-to-t from-[#07947e] via-[#12aa91] to-[#54d1ba] shadow-[0_8px_20px_rgba(8,168,157,0.18)] transition duration-300 group-hover:from-[#067e6d] group-hover:to-[#3bc0a8]"
-                          style={{
-                            height: `${height}%`,
-                            opacity: item.value === 0 ? 0.18 : 1,
-                          }}
+                          key={`${item.label}-${index}`}
+                          className="group relative flex h-full flex-1 flex-col justify-end"
                         >
-                          <div className="absolute inset-x-0 top-0 h-1 bg-white/30" />
-                        </div>
+                          {item.value >
+                            0 && (
+                            <div
+                              className="absolute left-1/2 z-20 flex -translate-x-1/2 -translate-y-2 items-center justify-center rounded-lg bg-[#062b4f] px-1.5 py-0.5 text-[9px] font-bold text-white opacity-0 shadow-lg transition group-hover:opacity-100 sm:px-2 sm:py-1 sm:text-[10px]"
+                              style={{
+                                bottom: `${height}%`,
+                              }}
+                            >
+                              {
+                                item.value
+                              }
+                            </div>
+                          )}
 
-                        <span className="absolute -bottom-7 sm:-bottom-8 left-1/2 -translate-x-1/2 whitespace-nowrap text-[9px] sm:text-[10px] font-semibold text-[#71869a]">
-                          {item.label}
-                        </span>
-                      </div>
-                    );
-                  })}
+                          <div
+                            className="relative w-full overflow-hidden rounded-t-xl bg-gradient-to-t from-[#07947e] via-[#12aa91] to-[#54d1ba] shadow-[0_8px_20px_rgba(8,168,157,0.18)] transition duration-300 group-hover:from-[#067e6d] group-hover:to-[#3bc0a8] sm:rounded-t-2xl"
+                            style={{
+                              height: `${height}%`,
+                              opacity:
+                                item.value ===
+                                0
+                                  ? 0.18
+                                  : 1,
+                            }}
+                          >
+                            <div className="absolute inset-x-0 top-0 h-1 bg-white/30" />
+                          </div>
+
+                          <span className="absolute -bottom-7 left-1/2 -translate-x-1/2 whitespace-nowrap text-[9px] font-semibold text-[#71869a] sm:-bottom-8 sm:text-[10px]">
+                            {
+                              item.label
+                            }
+                          </span>
+                        </div>
+                      );
+                    }
+                  )}
                 </div>
 
-                {!loading && rows.length === 0 && (
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="rounded-2xl border border-dashed border-[#dbe5e9] bg-[#fbfcfd] px-5 py-4 sm:px-6 sm:py-5 text-center">
-                      <Car
-                        size={26}
-                        className="mx-auto text-[#9aafbd] sm:hidden"
-                      />
-                      <Car
-                        size={28}
-                        className="mx-auto hidden text-[#9aafbd] sm:block"
-                      />
+                {!loading &&
+                  rows.length === 0 && (
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="rounded-2xl border border-dashed border-[#dbe5e9] bg-[#fbfcfd] px-5 py-4 text-center sm:px-6 sm:py-5">
+                        <Car
+                          size={26}
+                          className="mx-auto text-[#9aafbd] sm:hidden"
+                        />
 
-                      <p className="mt-2 text-xs sm:text-sm font-semibold text-[#506a82]">
-                        Nenhuma viagem encontrada
-                      </p>
+                        <Car
+                          size={28}
+                          className="mx-auto hidden text-[#9aafbd] sm:block"
+                        />
 
-                      <p className="mt-1 text-[11px] sm:text-xs text-[#8ca0b2]">
-                        Suas próximas viagens aparecerão aqui.
-                      </p>
+                        <p className="mt-2 text-xs font-semibold text-[#506a82] sm:text-sm">
+                          Nenhuma viagem
+                          encontrada
+                        </p>
+
+                        <p className="mt-1 text-[11px] text-[#8ca0b2] sm:text-xs">
+                          Suas próximas
+                          viagens
+                          aparecerão
+                          aqui.
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
               </div>
             </div>
           </div>
 
           {/* ATIVIDADES */}
 
-          <div className="overflow-hidden rounded-2xl sm:rounded-[28px] border border-[#e2ebee] bg-white shadow-[0_12px_40px_rgba(6,43,79,0.07)]">
+          <div className="overflow-hidden rounded-2xl border border-[#e2ebee] bg-white shadow-[0_12px_40px_rgba(6,43,79,0.07)] sm:rounded-[28px]">
             <div className="flex items-center justify-between border-b border-[#edf1f4] px-4 py-5 sm:px-6 sm:py-6">
               <div>
-                <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-[0.16em] text-[#08a89d]">
+                <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-[#08a89d] sm:text-[10px]">
                   Histórico
                 </p>
 
-                <h2 className="my-0 text-base sm:text-lg font-black text-[#062b4f]">
+                <h2 className="my-0 text-base font-black text-[#062b4f] sm:text-lg">
                   Últimas atividades
                 </h2>
 
-                <p className="mt-0 text-[11px] sm:text-xs text-[#71869a]">
-                  Suas viagens mais recentes
+                <p className="mt-0 text-[11px] text-[#71869a] sm:text-xs">
+                  Suas viagens mais
+                  recentes
                 </p>
               </div>
 
-              <div className="flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-xl bg-[#e6f7f4] text-[#08a89d]">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#e6f7f4] text-[#08a89d] sm:h-11 sm:w-11">
                 <Clock3 size={20} />
               </div>
             </div>
 
             <div className="px-4 sm:px-6">
               {loading && (
-                <div className="py-10 sm:py-12 text-center">
-                  <div className="mx-auto h-6 w-6 sm:h-7 sm:w-7 animate-spin rounded-full border-2 border-[#dceceb] border-t-[#08a89d]" />
+                <div className="py-10 text-center sm:py-12">
+                  <div className="mx-auto h-6 w-6 animate-spin rounded-full border-2 border-[#dceceb] border-t-[#08a89d] sm:h-7 sm:w-7" />
 
-                  <p className="mt-3 text-[11px] sm:text-xs font-medium text-[#71869a]">
-                    Carregando atividades...
-                  </p>
-                </div>
-              )}
-
-              {!loading && ultimasViagens.length === 0 && (
-                <div className="py-10 sm:py-12 text-center">
-                  <div className="mx-auto flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-2xl bg-[#f2f6f7] text-[#91a5b3]">
-                    <CalendarDays size={22} className="sm:hidden" />
-                    <CalendarDays size={23} className="hidden sm:block" />
-                  </div>
-
-                  <p className="mt-4 text-xs sm:text-sm font-bold text-[#506a82]">
-                    Nenhuma atividade recente
-                  </p>
-
-                  <p className="mt-1 text-[11px] sm:text-xs text-[#8ca0b2]">
-                    Você ainda não possui viagens.
+                  <p className="mt-3 text-[11px] font-medium text-[#71869a] sm:text-xs">
+                    Carregando
+                    atividades...
                   </p>
                 </div>
               )}
 
               {!loading &&
-                ultimasViagens.length > 0 &&
-                ultimasViagens.map((trip, index) => (
-                  <div
-                    key={`${trip.trip_request_id ?? trip.id ?? "trip"}-${index}`}
-                    onClick={() => {
-                      const tripId = trip.trip_request_id ?? trip.id;
+                ultimasViagens.length ===
+                  0 && (
+                  <div className="py-10 text-center sm:py-12">
+                    <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-[#f2f6f7] text-[#91a5b3] sm:h-14 sm:w-14">
+                      <CalendarDays
+                        size={22}
+                        className="sm:hidden"
+                      />
 
-                      if (!tripId) return;
-
-                      window.location.href = `/passageiro/viagens/${tripId}`;
-                    }}
-                    className="group flex cursor-pointer gap-2.5 sm:gap-3 border-b border-[#edf1f4] py-4 sm:py-5 transition hover:bg-[#f8fbfc] last:border-0"
-                  >
-                    <div className="flex h-10 w-10 sm:h-11 sm:w-11 shrink-0 items-center justify-center rounded-xl bg-[#e6f7f4] text-[#08a89d] transition group-hover:bg-[#08a89d] group-hover:text-white">
-                      {index === 0 ? (
-                        <CheckCircle2 size={18} className="sm:hidden" />
-                      ) : (
-                        <CalendarDays size={18} className="sm:hidden" />
-                      )}
-                      {index === 0 ? (
-                        <CheckCircle2 size={19} className="hidden sm:block" />
-                      ) : (
-                        <CalendarDays size={19} className="hidden sm:block" />
-                      )}
+                      <CalendarDays
+                        size={23}
+                        className="hidden sm:block"
+                      />
                     </div>
 
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-start justify-between gap-2">
-                        <p className="truncate text-xs sm:text-sm font-bold text-[#163a59]">
-                          {getTripTitle(trip)}
-                        </p>
+                    <p className="mt-4 text-xs font-bold text-[#506a82] sm:text-sm">
+                      Nenhuma atividade
+                      recente
+                    </p>
 
-                        <span
-                          className={`shrink-0 rounded-full border px-1.5 py-0.5 sm:px-2 sm:py-1 text-[8px] sm:text-[9px] font-bold ${getTripStatusClass(
-                            trip.status
-                          )}`}
-                        >
-                          {getTripStatusLabel(trip.status)}
-                        </span>
-                      </div>
-
-                      <div className="mt-1.5 sm:mt-2 flex items-center gap-1.5 text-[11px] sm:text-xs text-[#71869a]">
-                        <MapPin size={12} className="shrink-0" />
-
-                        <span className="truncate">
-                          {getTripLocation(trip)}
-                        </span>
-                      </div>
-
-                      <div className="mt-1.5 sm:mt-2 flex items-center gap-2.5 sm:gap-3 text-[9px] sm:text-[10px] text-[#8ca0b2]">
-                        <span>{formatDate(trip.created_at)}</span>
-
-                        <span className="h-1 w-1 rounded-full bg-[#c5d1d8]" />
-
-                        <span>{formatTime(trip.created_at)}</span>
-                      </div>
-                    </div>
+                    <p className="mt-1 text-[11px] text-[#8ca0b2] sm:text-xs">
+                      Você ainda não
+                      possui viagens.
+                    </p>
                   </div>
-                ))}
+                )}
+
+              {!loading &&
+                ultimasViagens.length >
+                  0 &&
+                ultimasViagens.map(
+                  (trip, index) => (
+                    <div
+                      key={`${trip.trip_request_id ?? trip.id ?? "trip"}-${index}`}
+                      onClick={() => {
+                        const tripId =
+                          trip.trip_request_id ??
+                          trip.id;
+
+                        if (!tripId)
+                          return;
+
+                        window.location.href =
+                          `/passageiro/viagens/${tripId}`;
+                      }}
+                      className="group flex cursor-pointer gap-2.5 border-b border-[#edf1f4] py-4 transition hover:bg-[#f8fbfc] last:border-0 sm:gap-3 sm:py-5"
+                    >
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#e6f7f4] text-[#08a89d] transition group-hover:bg-[#08a89d] group-hover:text-white sm:h-11 sm:w-11">
+                        {index ===
+                        0 ? (
+                          <CheckCircle2
+                            size={18}
+                            className="sm:hidden"
+                          />
+                        ) : (
+                          <CalendarDays
+                            size={18}
+                            className="sm:hidden"
+                          />
+                        )}
+
+                        {index ===
+                        0 ? (
+                          <CheckCircle2
+                            size={19}
+                            className="hidden sm:block"
+                          />
+                        ) : (
+                          <CalendarDays
+                            size={19}
+                            className="hidden sm:block"
+                          />
+                        )}
+                      </div>
+
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="truncate text-xs font-bold text-[#163a59] sm:text-sm">
+                            {getTripTitle(
+                              trip
+                            )}
+                          </p>
+
+                          <span
+                            className={`shrink-0 rounded-full border px-1.5 py-0.5 text-[8px] font-bold sm:px-2 sm:py-1 sm:text-[9px] ${getTripStatusClass(
+                              trip.status
+                            )}`}
+                          >
+                            {getTripStatusLabel(
+                              trip.status
+                            )}
+                          </span>
+                        </div>
+
+                        <div className="mt-1.5 flex items-center gap-1.5 text-[11px] text-[#71869a] sm:mt-2 sm:text-xs">
+                          <MapPin
+                            size={12}
+                            className="shrink-0"
+                          />
+
+                          <span className="truncate">
+                            {getTripLocation(
+                              trip
+                            )}
+                          </span>
+                        </div>
+
+                        <div className="mt-1.5 flex items-center gap-2.5 text-[9px] text-[#8ca0b2] sm:mt-2 sm:gap-3 sm:text-[10px]">
+                          <span>
+                            {formatDate(
+                              trip.created_at
+                            )}
+                          </span>
+
+                          <span className="h-1 w-1 rounded-full bg-[#c5d1d8]" />
+
+                          <span>
+                            {formatTime(
+                              trip.created_at
+                            )}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                )}
             </div>
 
             <div className="p-4 pt-2 sm:p-6 sm:pt-3">
               <Link
                 href="/passageiro/viagens"
-                className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#08a89d] px-4 py-3 sm:py-3.5 text-xs sm:text-sm font-bold text-white shadow-[0_8px_20px_rgba(8,168,157,0.2)] transition hover:-translate-y-0.5 hover:bg-[#078f80]"
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#08a89d] px-4 py-3 text-xs font-bold text-white shadow-[0_8px_20px_rgba(8,168,157,0.2)] transition hover:-translate-y-0.5 hover:bg-[#078f80] sm:py-3.5 sm:text-sm"
               >
-                Ver todas as viagens
-                <ArrowUpRight size={17} />
+                Ver todas as
+                viagens
+
+                <ArrowUpRight
+                  size={17}
+                />
               </Link>
             </div>
           </div>
@@ -1619,8 +2239,19 @@ export default function PassageiroDashboard() {
 
       {/* MODAIS */}
 
-      <RecargaModal open={modal === "recarga"} onClose={() => setModal(null)} />
-      <ContaModal open={modal === "conta"} onClose={() => setModal(null)} />
+      <RecargaModal
+        open={modal === "recarga"}
+        onClose={() =>
+          setModal(null)
+        }
+      />
+
+      <ContaModal
+        open={modal === "conta"}
+        onClose={() =>
+          setModal(null)
+        }
+      />
     </main>
   );
 }
