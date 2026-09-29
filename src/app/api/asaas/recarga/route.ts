@@ -103,7 +103,9 @@ export async function POST(req: Request) {
           error:
             "A Asaas demorou pra responder e a recarga pode ter sido feita. Confira o histórico antes de tentar de novo.",
         },
-        { status: 502 }
+        // 409 e não 5xx: a Cloudflare troca respostas 502/504 pela página dela
+        // e a mensagem não chega na tela.
+        { status: 409 }
       );
     }
     const status = error instanceof AsaasError && error.status < 500 ? 400 : 500;
