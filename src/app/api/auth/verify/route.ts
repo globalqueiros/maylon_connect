@@ -2,14 +2,23 @@ import { db } from "../../../lib/db";
 import jwt from "jsonwebtoken";
 import { NextResponse } from "next/server";
 
+// Atrás do proxy o req.url chega como http://localhost:3000, então os
+// redirects usam o domínio do NEXT_PUBLIC_APP_URL.
+function baseUrl(req: Request) {
+  const env = process.env.NEXT_PUBLIC_APP_URL?.trim().replace(/\/+$/, "");
+  return env || new URL(req.url).origin;
+}
+
 export async function GET(req: Request) {
+  const base = baseUrl(req);
+
   try {
     const url = new URL(req.url);
     const token = url.searchParams.get("token");
 
     if (!token) {
       return NextResponse.redirect(
-        new URL("/?error=invalid", url.origin)
+        new URL("/?error=invalid", base)
       );
     }
 
@@ -24,13 +33,13 @@ export async function GET(req: Request) {
 
     if (!record) {
       return NextResponse.redirect(
-        new URL("/?error=invalid", url.origin)
+        new URL("/?error=invalid", base)
       );
     }
 
     if (new Date(record.expires_at) < new Date()) {
       return NextResponse.redirect(
-        new URL("/?error=expired", url.origin)
+        new URL("/?error=expired", base)
       );
     }
 
@@ -43,7 +52,7 @@ export async function GET(req: Request) {
 
     if (!user) {
       return NextResponse.redirect(
-        new URL("/?error=notfound", url.origin)
+        new URL("/?error=notfound", base)
       );
     }
 
@@ -63,7 +72,7 @@ export async function GET(req: Request) {
     );
 
     const response = NextResponse.redirect(
-      new URL("/auth/success", req.url)
+      new URL("/auth/success", base)
     );
 
     response.cookies.set("access_token", "", {
@@ -87,10 +96,8 @@ export async function GET(req: Request) {
   } catch (error) {
     console.error("VERIFY ERROR:", error);
 
-    const url = new URL(req.url);
-
     return NextResponse.redirect(
-      new URL("/?error=server", url.origin)
+      new URL("/?error=server", base)
     );
   }
 }
