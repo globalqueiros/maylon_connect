@@ -29,6 +29,7 @@ import {
   UserRoundCheck,
   X,
 } from "lucide-react";
+import { verifDocPendente } from "../../lib/didit";
 
 type Gerente = {
   id?: number;
@@ -56,6 +57,9 @@ type Usuario = {
   gerente?: Gerente | null;
   pcd?: boolean | null;
   autista?: boolean | null;
+  verification?: {
+    documento?: VerificacaoDocumento | null;
+  };
 };
 
 type VerificacaoStatus =
@@ -68,6 +72,12 @@ type VerificacaoStatus =
 type Verificacao = {
   status: VerificacaoStatus;
   mensagem?: string;
+};
+
+type VerificacaoDocumento = {
+  status: VerificacaoStatus;
+  didit_status?: string | null;
+  is_verified?: boolean;
 };
 
 type AccessibilityStatus = {
@@ -495,6 +505,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [refreshJustificativa, setRefreshJustificativa] = useState(false);
   const [refreshLiveness, setRefreshLiveness] = useState(false);
   const [refreshProcessosJudiciais, setRefreshProcessosJudiciais] = useState(false);
+  const [verificacaoUrl, setVerificacaoUrl] = useState<string | null>(null);
+  const [iniciandoVerificacao, setIniciandoVerificacao] = useState(false);
 
   useEffect(() => {
     async function carregarUsuario() {
@@ -701,6 +713,49 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     }
   };
 
+  const iniciarVerificacao = async () => {
+    try {
+      setIniciandoVerificacao(true);
+      const res = await fetch("/api/motorista/verificacao", {
+        method: "POST",
+        credentials: "include",
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setAlert({
+          type: "error",
+          message: data.message || "Erro ao iniciar a verificação.",
+        });
+        return;
+      }
+      if (data.url) setVerificacaoUrl(data.url);
+    } catch (error) {
+      console.error("Erro ao iniciar verificação:", error);
+      setAlert({
+        type: "error",
+        message: "Erro ao iniciar a verificação.",
+      });
+    } finally {
+      setIniciandoVerificacao(false);
+    }
+  };
+
+  const fecharVerificacao = async () => {
+    setVerificacaoUrl(null);
+    try {
+      const res = await fetch("/api/me", {
+        credentials: "include",
+        cache: "no-store",
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.id) setUsuario(data);
+      }
+    } catch (error) {
+      console.error("Erro ao atualizar status da verificação:", error);
+    }
+  };
+
   if (loading || !usuario) {
     return (
       <div className="flex min-h-screen items-center justify-center px-4">
@@ -730,6 +785,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const verificados = verificacoes.filter((item) => item.ok).length;
   const progresso = Math.round((verificados / verificacoes.length) * 100);
   const possuiMaylonPassAtivo = Boolean(usuario.nome_plano || usuario.plano_nome || usuario.plano);
+  const statusDocumento = usuario.verification?.documento?.status ?? "nao_iniciado";
+  const documentacaoPendente = verifDocPendente(statusDocumento);
+  const documentoEmAnalise = statusDocumento === "em_analise" || statusDocumento === "pendente";
 
   return (
     <div className="min-h-screen min-w-0">
@@ -771,6 +829,67 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               </div>
             </div>
           </section>
+
+          {documentacaoPendente && (
+            <section
+              role="alert"
+              className={`mt-5 overflow-hidden rounded-2xl border p-4 sm:p-5 ${
+                documentoEmAnalise
+                  ? "border-[#149C8B]/20 bg-[#F1F9F8]"
+                  : "border-amber-200 bg-amber-50"
+              }`}
+            >
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-start gap-3.5">
+                  <span
+                    className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${
+                      documentoEmAnalise
+                        ? "bg-[#EAF6F4] text-[#149C8B]"
+                        : "bg-amber-100 text-amber-600"
+                    }`}
+                  >
+                    <CircleAlert size={22} />
+                  </span>
+                  <div className="min-w-0">
+                    <h2 className="text-sm font-semibold text-gray-900 sm:text-base">
+                      {documentoEmAnalise
+                        ? "Sua documentação está em análise"
+                        : "Documentação pendente de verificação"}
+                    </h2>
+                    <p className="mt-0.5 text-xs leading-5 text-gray-600 sm:text-sm">
+                      {documentoEmAnalise
+                        ? "Assim que a análise for concluída, o status da sua conta será atualizado automaticamente."
+                        : "Para usar todos os recursos da conta, é preciso verificar seus documentos de forma segura pela Didit."}
+                    </p>
+                  </div>
+                </div>
+                {!documentoEmAnalise && (
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      iniciarVerificacao();
+                    }}
+                    disabled={iniciandoVerificacao}
+                    className={`${botaoPrimario} w-full sm:w-auto`}
+                  >
+                    {iniciandoVerificacao ? (
+                      <>
+                        <RefreshCw size={18} className="animate-spin" />
+                        Iniciando...
+                      </>
+                    ) : (
+                      <>
+                        <ShieldCheck size={18} />
+                        Iniciar verificação
+                      </>
+                    )}
+                  </button>
+                )}
+              </div>
+            </section>
+          )}
 
           <div className="grid items-start gap-5 sm:gap-6 lg:grid-cols-[300px_minmax(0,1fr)] xl:grid-cols-[320px_minmax(0,1fr)] 2xl:grid-cols-[340px_minmax(0,1fr)]">
             <aside className="relative z-10 -mt-10 sm:-mt-14 lg:sticky lg:top-6 lg:-mt-32">
@@ -1281,6 +1400,39 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   {saving ? "Salvando..." : "Salvar senha"}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {verificacaoUrl && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-gray-950/60 backdrop-blur-sm sm:items-center sm:p-4" onClick={fecharVerificacao}>
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="titulo-modal-verificacao"
+            onClick={(e) => e.stopPropagation()}
+            className="flex h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-t-3xl bg-white shadow-2xl sm:h-[85vh] sm:rounded-3xl"
+          >
+            <div className="flex items-start gap-3.5 p-5 sm:p-6">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#EAF6F4] text-[#149C8B]">
+                <ShieldCheck size={22} />
+              </span>
+              <div className="min-w-0 flex-1">
+                <h2 id="titulo-modal-verificacao" className="text-lg font-semibold text-gray-900">Verificação de documentos</h2>
+                <p className="mt-0.5 text-sm text-gray-500">Conclua a verificação para ativar sua conta.</p>
+              </div>
+              <button type="button" onClick={fecharVerificacao} aria-label="Fechar" className={botaoFechar}>
+                <X size={19} />
+              </button>
+            </div>
+            <div className="flex-1 overflow-hidden px-5 pb-5 sm:px-6 sm:pb-6">
+              <iframe
+                src={verificacaoUrl}
+                title="Verificação de documentos"
+                className="h-full w-full rounded-2xl border border-gray-200 bg-white"
+                allow="camera; microphone; fullscreen; autoplay; encrypted-media; payment"
+              />
             </div>
           </div>
         </div>

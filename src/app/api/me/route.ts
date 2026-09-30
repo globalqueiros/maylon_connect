@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import jwt from "jsonwebtoken";
 import { db } from "../../lib/db";
 import { authCookieOptions } from "../../lib/authCookies";
+import { mapearStatusDidit } from "../../lib/didit";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -249,6 +250,54 @@ export async function GET() {
 
     const userType = normalizeUserType(user.user_type);
 
+    let verificacaoDocumento = null;
+
+    if (userType === "driver") {
+      try {
+        const [driverDetails] = (await db.query(
+          `
+          SELECT is_verified
+          FROM driver_details
+          WHERE user_id = ?
+          LIMIT 1
+          `,
+          [resolvedId]
+        )) as unknown as [Array<{ is_verified?: number }>];
+
+        const [verificacoes] = (await db.query(
+          `
+          SELECT current_status
+          FROM driver_identity_verifications
+          WHERE driver_id = ?
+          ORDER BY updated_at DESC
+          LIMIT 1
+          `,
+          [resolvedId]
+        )) as unknown as [Array<{ current_status?: string | null }>];
+
+        const detailsRow = driverDetails[0];
+        const verifRow = verificacoes[0];
+
+        const isVerified = detailsRow?.is_verified ?? 0;
+
+        const diditStatus =
+          typeof verifRow?.current_status === "string"
+            ? verifRow.current_status
+            : null;
+
+        verificacaoDocumento = {
+          status: mapearStatusDidit(diditStatus, isVerified),
+          didit_status: diditStatus,
+          is_verified: Boolean(isVerified),
+        };
+      } catch (dbError) {
+        console.error(
+          "GET /api/me: erro ao consultar verificação do motorista:",
+          dbError
+        );
+      }
+    }
+
     const newToken = jwt.sign(
       {
         id: resolvedId,
@@ -284,6 +333,9 @@ export async function GET() {
         email_verified_at:
           user.email_verified_at ?? null,
         user_type: userType,
+        verification: {
+          documento: verificacaoDocumento,
+        },
       },
       {
         status: 200,
