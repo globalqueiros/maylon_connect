@@ -1,7 +1,12 @@
 import { NextRequest } from "next/server";
 import crypto from "node:crypto";
 import { db } from "../../../lib/db";
-import { LAST_LIVENESS_KEY } from "../../../lib/didit";
+import {
+  documentoConfere,
+  IDENTITY_MATCH_KEY,
+  LAST_LIVENESS_KEY,
+} from "../../../lib/didit";
+import type { IdentityMatch } from "../../../lib/didit";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -52,6 +57,7 @@ type DiditWebhookPayload = {
   status?: unknown;
   vendor_data?: unknown;
   decision?: unknown;
+  webhook_type?: unknown;
 };
 
 type AttemptDetails = {
@@ -101,6 +107,15 @@ export async function POST(request: NextRequest) {
       return new Response("bad sig", { status: 401 });
     }
 
+    const webhookType =
+      typeof parsed?.webhook_type === "string"
+        ? parsed.webhook_type
+        : null;
+
+    if (webhookType !== "status.updated") {
+      return new Response("ok");
+    }
+
     const driverId =
       parsed?.vendor_data != null ? String(parsed.vendor_data).trim() : null;
     const status =
@@ -145,12 +160,31 @@ export async function POST(request: NextRequest) {
 
     if (eventId) eventIds.push(eventId);
 
+    let identityMatch: IdentityMatch | null = null;
+
+    if (status === "Approved") {
+      const [userRows] = (await db.query(
+        "SELECT identification_number, identification_type FROM users WHERE id = ? LIMIT 1",
+        [driverId]
+      )) as unknown as [
+        Array<{
+          identification_number?: string | null;
+          identification_type?: string | null;
+        }>
+      ];
+      const usuario = userRows[0];
+      identityMatch = documentoConfere(parsed?.decision, usuario ?? {});
+    }
+
     const novoDetails = JSON.stringify({
       ...attemptDetails,
       event_ids: eventIds,
       last_status: status,
       last_event_id: eventId,
       decision: parsed?.decision ?? attemptDetails?.decision ?? null,
+      ...(identityMatch
+        ? { [IDENTITY_MATCH_KEY]: identityMatch }
+        : {}),
       ...(status === "Approved"
         ? { [LAST_LIVENESS_KEY]: new Date().toISOString() }
         : {}),
@@ -172,7 +206,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (status === "Approved") {
+    if (status === "Approved" && identityMatch?.ok) {
       await db.query(
         "UPDATE driver_details SET is_verified = 1, updated_at = NOW() WHERE user_id = ?",
         [driverId]

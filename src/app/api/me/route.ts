@@ -3,7 +3,12 @@ import { cookies } from "next/headers";
 import jwt from "jsonwebtoken";
 import { db } from "../../lib/db";
 import { authCookieOptions } from "../../lib/authCookies";
-import { mapearStatusDidit, provaVidaDevida, LAST_LIVENESS_KEY } from "../../lib/didit";
+import {
+  IDENTITY_MATCH_KEY,
+  LAST_LIVENESS_KEY,
+  mapearStatusDidit,
+  provaVidaDevida,
+} from "../../lib/didit";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -291,6 +296,7 @@ export async function GET() {
             : null;
 
         let lastLivenessAt: string | null = null;
+        let identityMatch: unknown = null;
         if (verifRow?.attempt_details) {
           try {
             const detalhes =
@@ -303,15 +309,26 @@ export async function GET() {
             ) {
               lastLivenessAt = detalhes[LAST_LIVENESS_KEY];
             }
+            if (detalhes?.[IDENTITY_MATCH_KEY]) {
+              identityMatch = detalhes[IDENTITY_MATCH_KEY];
+            }
           } catch {
             lastLivenessAt = null;
           }
         }
 
+        const statusBase = mapearStatusDidit(diditStatus, isVerified);
+
+        const divergente =
+          diditStatus === "Approved" &&
+          identityMatch != null &&
+          (identityMatch as { ok?: boolean })?.ok === false;
+
         verificacaoDocumento = {
-          status: mapearStatusDidit(diditStatus, isVerified),
+          status: divergente ? "divergencia" : statusBase,
           didit_status: diditStatus,
           is_verified: Boolean(isVerified),
+          identity_match: identityMatch,
         };
 
         provaVida = {

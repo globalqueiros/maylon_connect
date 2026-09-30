@@ -29,7 +29,7 @@ import {
   UserRoundCheck,
   X,
 } from "lucide-react";
-import { mapearStatusDidit, verifDocPendente } from "../../lib/didit";
+import { verifDocPendente } from "../../lib/didit";
 
 type Gerente = {
   id?: number;
@@ -67,7 +67,8 @@ type VerificacaoStatus =
   | "pendente"
   | "em_analise"
   | "aprovado"
-  | "reprovado";
+  | "reprovado"
+  | "divergencia";
 
 type Verificacao = {
   status: VerificacaoStatus;
@@ -78,6 +79,7 @@ type VerificacaoDocumento = {
   status: VerificacaoStatus;
   didit_status?: string | null;
   is_verified?: boolean;
+  identity_match?: unknown;
 };
 
 type AccessibilityStatus = {
@@ -116,6 +118,8 @@ function formatarStatus(status: VerificacaoStatus) {
       return "Pendente";
     case "em_analise":
       return "Em análise";
+    case "divergencia":
+      return "Revisão manual";
     default:
       return "Não iniciado";
   }
@@ -131,6 +135,8 @@ function mensagemVerificacaoDocumento(status: VerificacaoStatus) {
       return "Sua documentação está em análise.";
     case "pendente":
       return "Sua documentação está pendente de verificação.";
+    case "divergencia":
+      return "Os dados do documento não conferem com o cadastro. Aguardando revisão manual.";
     default:
       return "Essa verificação ainda não foi realizada.";
   }
@@ -152,6 +158,7 @@ function statusClasses(status: VerificacaoStatus) {
       };
     case "pendente":
     case "em_analise":
+    case "divergencia":
       return {
         badge: "border-amber-200 bg-amber-50 text-amber-700",
         box: "border-amber-100 bg-amber-50/60",
@@ -540,10 +547,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         if (data.profile_image) setImgSrc(data.profile_image);
         setPcdSelected(Boolean(data.pcd));
         setAutistaSelected(Boolean(data.autista));
-        const statusDoc = mapearStatusDidit(
-          data.verification?.documento?.didit_status,
-          data.verification?.documento?.is_verified
-        );
+        const statusDoc: VerificacaoStatus =
+          data.verification?.documento?.status ?? "nao_iniciado";
         setJustificativa({
           status: statusDoc,
           mensagem: mensagemVerificacaoDocumento(statusDoc),
@@ -676,10 +681,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       const data = await res.json();
       if (!data?.id) return;
       setUsuario(data);
-      const statusDoc = mapearStatusDidit(
-        data.verification?.documento?.didit_status,
-        data.verification?.documento?.is_verified
-      );
+      const statusDoc: VerificacaoStatus =
+        data.verification?.documento?.status ?? "nao_iniciado";
       setJustificativa({
         status: statusDoc,
         mensagem: mensagemVerificacaoDocumento(statusDoc),
