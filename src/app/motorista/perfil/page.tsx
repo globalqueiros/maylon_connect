@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import type { LucideIcon } from "lucide-react";
 import {
@@ -802,14 +802,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       console.error("Erro ao atualizar status da verificação:", error);
     }
   };
-
-  const abriuModalVerificacao = useRef(false);
-
-  useEffect(() => {
-    if (loading || !usuario || abriuModalVerificacao.current) return;
-    abriuModalVerificacao.current = true;
-    iniciarVerificacao();
-  }, [loading, usuario]);
 
   if (loading || !usuario) {
     return (
