@@ -875,20 +875,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 <div className="mt-5 grid grid-cols-1 gap-4 xl:grid-cols-2">
                   <VerificacaoCard
                     icon={FileCheck2}
-                    titulo="Justificativa"
+                    titulo="RG, CNH ou Passaport"
                     descricao="Validação das informações e documentos necessários para sua conta."
                     verification={justificativa}
                     onRefresh={atualizarJustificativa}
                     refreshing={refreshJustificativa}
                   />
-                  <VerificacaoCard
-                    icon={Eye}
-                    titulo="LiveSheet / Liveness"
-                    descricao="Verificação de identidade e prova de vida."
-                    verification={liveness}
-                    onRefresh={atualizarLiveness}
-                    refreshing={refreshLiveness}
-                  />
+
                   <VerificacaoCard
                     icon={Scale}
                     titulo="Processos Judiciais"
@@ -897,6 +890,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     onRefresh={atualizarProcessosJudiciais}
                     refreshing={refreshProcessosJudiciais}
                   />
+
+                  {justificativa.status === "aprovado" && processosJudiciais.status === "aprovado" && (
+                    <div className="xl:col-span-2">
+                      <VerificacaoCard
+                        icon={Eye}
+                        titulo="Prova de vida"
+                        descricao="Verificação de identidade e confirmação de presença por meio da prova de vida."
+                        verification={liveness}
+                        onRefresh={atualizarLiveness}
+                        refreshing={refreshLiveness}
+                      />
+                    </div>
+                  )}
                 </div>
               </section>
 

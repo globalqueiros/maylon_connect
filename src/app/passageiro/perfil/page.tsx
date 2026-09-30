@@ -2458,7 +2458,7 @@ export default function PerfilPage() {
               {/* Verificações */}
               <div className="mt-4 grid gap-3 lg:grid-cols-2">
                 <VerificationCard
-                  title="Justificativa"
+                  title="RG, CNH ou Passaport"
                   description="Validação das informações e documentos necessários para sua conta."
                   verification={verificationJustification}
                   icon={<FileCheck2 className="h-5 w-5" />}
