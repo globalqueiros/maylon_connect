@@ -42,6 +42,10 @@ export function verifDocPendente(status: VerificacaoStatus): boolean {
   return status === "nao_iniciado" || status === "pendente" || status === "em_analise" || status === "reprovado";
 }
 
+export function documentacaoBloqueia(status: VerificacaoStatus): boolean {
+  return status === "nao_iniciado" || status === "pendente" || status === "reprovado";
+}
+
 export function provaVidaDevida(
   created_at: string | Date | null | undefined,
   lastLivenessAt: string | Date | null | undefined,

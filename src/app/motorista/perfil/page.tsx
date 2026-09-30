@@ -877,67 +877,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </div>
           </section>
 
-          {documentacaoPendente && (
-            <section
-              role="alert"
-              className={`mt-5 overflow-hidden rounded-2xl border p-4 sm:p-5 ${
-                documentoEmAnalise
-                  ? "border-[#149C8B]/20 bg-[#F1F9F8]"
-                  : "border-amber-200 bg-amber-50"
-              }`}
-            >
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex items-start gap-3.5">
-                  <span
-                    className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${
-                      documentoEmAnalise
-                        ? "bg-[#EAF6F4] text-[#149C8B]"
-                        : "bg-amber-100 text-amber-600"
-                    }`}
-                  >
-                    <CircleAlert size={22} />
-                  </span>
-                  <div className="min-w-0">
-                    <h2 className="text-sm font-semibold text-gray-900 sm:text-base">
-                      {documentoEmAnalise
-                        ? "Sua documentação está em análise"
-                        : "Documentação pendente de verificação"}
-                    </h2>
-                    <p className="mt-0.5 text-xs leading-5 text-gray-600 sm:text-sm">
-                      {documentoEmAnalise
-                        ? "Assim que a análise for concluída, o status da sua conta será atualizado automaticamente."
-                        : "Para usar todos os recursos da conta, é preciso verificar seus documentos de forma segura pela Didit."}
-                    </p>
-                  </div>
-                </div>
-                {!documentoEmAnalise && (
-                  <button
-                    type="button"
-                    onClick={(event) => {
-                      event.preventDefault();
-                      event.stopPropagation();
-                      iniciarVerificacao();
-                    }}
-                    disabled={iniciandoVerificacao}
-                    className={`${botaoPrimario} w-full sm:w-auto`}
-                  >
-                    {iniciandoVerificacao ? (
-                      <>
-                        <RefreshCw size={18} className="animate-spin" />
-                        Iniciando...
-                      </>
-                    ) : (
-                      <>
-                        <ShieldCheck size={18} />
-                        Iniciar verificação
-                      </>
-                    )}
-                  </button>
-                )}
-              </div>
-            </section>
-          )}
-
           <div className="grid items-start gap-5 sm:gap-6 lg:grid-cols-[300px_minmax(0,1fr)] xl:grid-cols-[320px_minmax(0,1fr)] 2xl:grid-cols-[340px_minmax(0,1fr)]">
             <aside className="relative z-10 -mt-10 sm:-mt-14 lg:sticky lg:top-6 lg:-mt-32">
               <div className={`${cartao} p-5 shadow-xl shadow-teal-950/10 sm:p-6`}>
@@ -1028,6 +967,67 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </aside>
 
             <div className="min-w-0 space-y-5 sm:space-y-6 lg:mt-6">
+              {documentacaoPendente && (
+                <section
+                  role="alert"
+                  className={`overflow-hidden rounded-2xl border p-4 sm:p-5 ${
+                    documentoEmAnalise
+                      ? "border-[#149C8B]/20 bg-[#F1F9F8]"
+                      : "border-amber-200 bg-amber-50"
+                  }`}
+                >
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex items-start gap-3.5">
+                      <span
+                        className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${
+                          documentoEmAnalise
+                            ? "bg-[#EAF6F4] text-[#149C8B]"
+                            : "bg-amber-100 text-amber-600"
+                        }`}
+                      >
+                        <CircleAlert size={22} />
+                      </span>
+                      <div className="min-w-0">
+                        <h2 className="text-sm font-semibold text-gray-900 sm:text-base">
+                          {documentoEmAnalise
+                            ? "Sua documentação está em análise"
+                            : "Documentação pendente de verificação"}
+                        </h2>
+                        <p className="mt-0.5 text-xs leading-5 text-gray-600 sm:text-sm">
+                          {documentoEmAnalise
+                            ? "Assim que a análise for concluída, o status da sua conta será atualizado automaticamente."
+                            : "Para usar todos os recursos da conta, é preciso verificar seus documentos de forma segura pela Didit."}
+                        </p>
+                      </div>
+                    </div>
+                    {!documentoEmAnalise && (
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.preventDefault();
+                          event.stopPropagation();
+                          iniciarVerificacao();
+                        }}
+                        disabled={iniciandoVerificacao}
+                        className={`${botaoPrimario} w-full sm:w-auto`}
+                      >
+                        {iniciandoVerificacao ? (
+                          <>
+                            <RefreshCw size={18} className="animate-spin" />
+                            Iniciando...
+                          </>
+                        ) : (
+                          <>
+                            <ShieldCheck size={18} />
+                            Iniciar verificação
+                          </>
+                        )}
+                      </button>
+                    )}
+                  </div>
+                </section>
+              )}
+
               <section className="overflow-hidden rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
                 <div className="flex items-start gap-3 border-b border-slate-100 pb-5">
                   <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#35a989]/10 text-[#35a989]">

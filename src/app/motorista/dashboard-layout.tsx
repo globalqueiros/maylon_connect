@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import Sidebar from "../components/sidebar";
 import Header from "../components/header";
-import ProvaVidaModal from "../components/ProvaVidaModal";
+import VerificacaoModal from "../components/VerificacaoModal";
 
 export default function DashboardLayout({
   children,
@@ -45,7 +45,7 @@ export default function DashboardLayout({
         <main className="p-4 min-h-screen bg-gradient-to-b from-[#0B6F68] via-[#35A78D] via-40% to-white">
           {children}
         </main>
-        <ProvaVidaModal />
+        <VerificacaoModal />
       </div>
     </div>
   );

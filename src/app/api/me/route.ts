@@ -277,7 +277,7 @@ export async function GET() {
           `,
           [resolvedId]
         )) as unknown as [
-          Array<{ current_status?: string | null; attempt_details?: string | null }>
+          Array<{ current_status?: string | null; attempt_details?: unknown }>
         ];
 
         const detailsRow = driverDetails[0];
@@ -293,7 +293,10 @@ export async function GET() {
         let lastLivenessAt: string | null = null;
         if (verifRow?.attempt_details) {
           try {
-            const detalhes = JSON.parse(verifRow.attempt_details);
+            const detalhes =
+              typeof verifRow.attempt_details === "string"
+                ? JSON.parse(verifRow.attempt_details)
+                : verifRow.attempt_details;
             if (
               typeof detalhes?.[LAST_LIVENESS_KEY] === "string" &&
               detalhes[LAST_LIVENESS_KEY]
