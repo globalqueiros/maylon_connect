@@ -29,7 +29,7 @@ import {
   UserRoundCheck,
   X,
 } from "lucide-react";
-import { verifDocPendente } from "../../lib/didit";
+import { mapearStatusDidit, verifDocPendente } from "../../lib/didit";
 
 type Gerente = {
   id?: number;
@@ -118,6 +118,21 @@ function formatarStatus(status: VerificacaoStatus) {
       return "Em análise";
     default:
       return "Não iniciado";
+  }
+}
+
+function mensagemVerificacaoDocumento(status: VerificacaoStatus) {
+  switch (status) {
+    case "aprovado":
+      return "Documentação validada com sucesso.";
+    case "reprovado":
+      return "Não foi possível validar a documentação. Tente novamente.";
+    case "em_analise":
+      return "Sua documentação está em análise.";
+    case "pendente":
+      return "Sua documentação está pendente de verificação.";
+    default:
+      return "Essa verificação ainda não foi realizada.";
   }
 }
 
@@ -525,6 +540,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         if (data.profile_image) setImgSrc(data.profile_image);
         setPcdSelected(Boolean(data.pcd));
         setAutistaSelected(Boolean(data.autista));
+        const statusDoc = mapearStatusDidit(
+          data.verification?.documento?.didit_status,
+          data.verification?.documento?.is_verified
+        );
+        setJustificativa({
+          status: statusDoc,
+          mensagem: mensagemVerificacaoDocumento(statusDoc),
+        });
+        setLiveness({
+          status: statusDoc,
+          mensagem: mensagemVerificacaoDocumento(statusDoc),
+        });
       } catch (error) {
         console.error("Erro ao carregar usuário:", error);
         window.location.href = "/";
@@ -636,23 +663,43 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     setSelectedFile(null);
   };
 
-  const atualizarJustificativa = async () => {
+  const atualizarStatusDocumento = async (
+    setRefresh: (value: boolean) => void
+  ) => {
     try {
-      setRefreshJustificativa(true);
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      setRefresh(true);
+      const res = await fetch("/api/me", {
+        credentials: "include",
+        cache: "no-store",
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (!data?.id) return;
+      setUsuario(data);
+      const statusDoc = mapearStatusDidit(
+        data.verification?.documento?.didit_status,
+        data.verification?.documento?.is_verified
+      );
+      setJustificativa({
+        status: statusDoc,
+        mensagem: mensagemVerificacaoDocumento(statusDoc),
+      });
+      setLiveness({
+        status: statusDoc,
+        mensagem: mensagemVerificacaoDocumento(statusDoc),
+      });
+    } catch (error) {
+      console.error("Erro ao atualizar status da verificação:", error);
     } finally {
-      setRefreshJustificativa(false);
+      setRefresh(false);
     }
   };
 
-  const atualizarLiveness = async () => {
-    try {
-      setRefreshLiveness(true);
-      await new Promise((resolve) => setTimeout(resolve, 500));
-    } finally {
-      setRefreshLiveness(false);
-    }
-  };
+  const atualizarJustificativa = () =>
+    atualizarStatusDocumento(setRefreshJustificativa);
+
+  const atualizarLiveness = () =>
+    atualizarStatusDocumento(setRefreshLiveness);
 
   const atualizarProcessosJudiciais = async () => {
     try {
