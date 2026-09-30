@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import jwt from "jsonwebtoken";
 import { db } from "../../lib/db";
 import { authCookieOptions } from "../../lib/authCookies";
+import { mapearStatusDidit, provaVidaDevida, LAST_LIVENESS_KEY } from "../../lib/didit";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -154,7 +155,8 @@ export async function GET() {
             identification_number,
             identification_type,
             phone_verified_at,
-            email_verified_at
+            email_verified_at,
+            created_at
           FROM users
           WHERE id = ?
           LIMIT 1
@@ -180,7 +182,8 @@ export async function GET() {
             identification_number,
             identification_type,
             phone_verified_at,
-            email_verified_at
+            email_verified_at,
+            created_at
           FROM users
           WHERE LOWER(email) = LOWER(?)
           LIMIT 1
@@ -249,6 +252,80 @@ export async function GET() {
 
     const userType = normalizeUserType(user.user_type);
 
+    let verificacaoDocumento = null;
+    let provaVida = null;
+
+    if (userType === "driver") {
+      try {
+        const [driverDetails] = (await db.query(
+          `
+          SELECT is_verified
+          FROM driver_details
+          WHERE user_id = ?
+          LIMIT 1
+          `,
+          [resolvedId]
+        )) as unknown as [Array<{ is_verified?: number }>];
+
+        const [verificacoes] = (await db.query(
+          `
+          SELECT current_status, attempt_details
+          FROM driver_identity_verifications
+          WHERE driver_id = ?
+          ORDER BY updated_at DESC
+          LIMIT 1
+          `,
+          [resolvedId]
+        )) as unknown as [
+          Array<{ current_status?: string | null; attempt_details?: string | null }>
+        ];
+
+        const detailsRow = driverDetails[0];
+        const verifRow = verificacoes[0];
+
+        const isVerified = detailsRow?.is_verified ?? 0;
+
+        const diditStatus =
+          typeof verifRow?.current_status === "string"
+            ? verifRow.current_status
+            : null;
+
+        let lastLivenessAt: string | null = null;
+        if (verifRow?.attempt_details) {
+          try {
+            const detalhes = JSON.parse(verifRow.attempt_details);
+            if (
+              typeof detalhes?.[LAST_LIVENESS_KEY] === "string" &&
+              detalhes[LAST_LIVENESS_KEY]
+            ) {
+              lastLivenessAt = detalhes[LAST_LIVENESS_KEY];
+            }
+          } catch {
+            lastLivenessAt = null;
+          }
+        }
+
+        verificacaoDocumento = {
+          status: mapearStatusDidit(diditStatus, isVerified),
+          didit_status: diditStatus,
+          is_verified: Boolean(isVerified),
+        };
+
+        provaVida = {
+          devida: provaVidaDevida(
+            user.created_at,
+            lastLivenessAt
+          ),
+          last_liveness_at: lastLivenessAt,
+        };
+      } catch (dbError) {
+        console.error(
+          "GET /api/me: erro ao consultar verificação do motorista:",
+          dbError
+        );
+      }
+    }
+
     const newToken = jwt.sign(
       {
         id: resolvedId,
@@ -283,7 +360,12 @@ export async function GET() {
           user.phone_verified_at ?? null,
         email_verified_at:
           user.email_verified_at ?? null,
+        created_at: user.created_at ?? null,
         user_type: userType,
+        verification: {
+          documento: verificacaoDocumento,
+          prova_vida: provaVida,
+        },
       },
       {
         status: 200,
