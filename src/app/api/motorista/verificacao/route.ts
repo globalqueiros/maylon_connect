@@ -136,12 +136,22 @@ export async function POST() {
 
     try {
       const [rows] = (await db.query(
-        "SELECT id FROM driver_identity_verifications WHERE driver_id = ? LIMIT 1",
+        "SELECT id, attempt_details FROM driver_identity_verifications WHERE driver_id = ? LIMIT 1",
         [userId]
-      )) as unknown as [Array<{ id?: unknown }>];
+      )) as unknown as [Array<{ id?: unknown; attempt_details?: string | null }>];
       const existente = rows[0];
 
+      let detalhesAnteriores: Record<string, unknown> = {};
+      if (existente?.attempt_details) {
+        try {
+          detalhesAnteriores = JSON.parse(existente.attempt_details);
+        } catch {
+          detalhesAnteriores = {};
+        }
+      }
+
       const attemptDetails = JSON.stringify({
+        ...detalhesAnteriores,
         session_id: sessionId,
         url,
         event_ids: [],

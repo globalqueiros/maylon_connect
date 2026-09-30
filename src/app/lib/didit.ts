@@ -10,6 +10,8 @@ export const DIDIT_WORKFLOW_ID =
 
 export const DIDIT_API_URL = "https://verification.didit.me";
 
+export const LAST_LIVENESS_KEY = "last_liveness_at";
+
 const STATUS_APROVADO = ["Approved"];
 const STATUS_EM_ANALISE = ["In Review"];
 const STATUS_PENDENTE = [
@@ -38,4 +40,39 @@ export function mapearStatusDidit(
 
 export function verifDocPendente(status: VerificacaoStatus): boolean {
   return status === "nao_iniciado" || status === "pendente" || status === "em_analise" || status === "reprovado";
+}
+
+export function provaVidaDevida(
+  created_at: string | Date | null | undefined,
+  lastLivenessAt: string | Date | null | undefined,
+  agora: Date = new Date()
+): boolean {
+  if (!created_at) return false;
+
+  const criacao = new Date(created_at);
+  if (isNaN(criacao.getTime())) return false;
+
+  const primeiroAniversario = new Date(
+    criacao.getFullYear() + 1,
+    criacao.getMonth(),
+    criacao.getDate()
+  );
+
+  if (agora < primeiroAniversario) return false;
+
+  const ultimoAniversario = new Date(
+    agora.getFullYear(),
+    criacao.getMonth(),
+    criacao.getDate()
+  );
+  if (ultimoAniversario > agora) {
+    ultimoAniversario.setFullYear(ultimoAniversario.getFullYear() - 1);
+  }
+
+  if (!lastLivenessAt) return true;
+
+  const ultimaProva = new Date(lastLivenessAt);
+  if (isNaN(ultimaProva.getTime())) return true;
+
+  return ultimaProva < ultimoAniversario;
 }

@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import crypto from "node:crypto";
 import { db } from "../../../lib/db";
+import { LAST_LIVENESS_KEY } from "../../../lib/didit";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -144,6 +145,9 @@ export async function POST(request: NextRequest) {
       last_status: status,
       last_event_id: eventId,
       decision: parsed?.decision ?? attemptDetails?.decision ?? null,
+      ...(status === "Approved"
+        ? { [LAST_LIVENESS_KEY]: new Date().toISOString() }
+        : {}),
     });
 
     if (existente) {
