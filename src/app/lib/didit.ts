@@ -3,7 +3,8 @@ export type VerificacaoStatus =
   | "pendente"
   | "em_analise"
   | "aprovado"
-  | "reprovado";
+  | "reprovado"
+  | "divergencia";
 
 export const DIDIT_WORKFLOW_ID =
   "2fe65fd9-53ee-40ee-91e3-5e8af06fdd90";
@@ -11,6 +12,77 @@ export const DIDIT_WORKFLOW_ID =
 export const DIDIT_API_URL = "https://verification.didit.me";
 
 export const LAST_LIVENESS_KEY = "last_liveness_at";
+
+export const IDENTITY_MATCH_KEY = "identity_match";
+
+export function normalizarDocumento(
+  valor: string | number | null | undefined
+): string {
+  if (valor == null) return "";
+  return String(valor).replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
+}
+
+export type IdentityMatch = {
+  documento: boolean;
+  tipo: { ocr: string | null; cadastro: string | null };
+  ok: boolean;
+  document_number: string | null;
+  tax_number: string | null;
+  personal_number: string | null;
+  identification_number: string | null;
+};
+
+type IdVerificationOcr = {
+  document_number?: string | number | null;
+  tax_number?: string | number | null;
+  personal_number?: string | number | null;
+  document_type?: string | number | null;
+};
+
+export function documentoConfere(
+  decision: unknown,
+  usuario: {
+    identification_number?: string | null;
+    identification_type?: string | null;
+  }
+): IdentityMatch {
+  const idVerif = Array.isArray((decision as { id_verifications?: unknown })?.id_verifications)
+    ? ((decision as { id_verifications?: unknown }).id_verifications as IdVerificationOcr[])[0]
+    : undefined;
+
+  const documentNumber =
+    idVerif?.document_number != null ? String(idVerif.document_number) : null;
+  const taxNumber =
+    idVerif?.tax_number != null ? String(idVerif.tax_number) : null;
+  const personalNumber =
+    idVerif?.personal_number != null ? String(idVerif.personal_number) : null;
+
+  const identificationNumber = usuario.identification_number ?? null;
+  const cadastro = normalizarDocumento(identificationNumber);
+
+  const documento =
+    cadastro !== "" &&
+    [documentNumber, taxNumber, personalNumber].some(
+      (candidato) =>
+        candidato != null && normalizarDocumento(candidato) === cadastro
+    );
+
+  return {
+    documento,
+    tipo: {
+      ocr:
+        idVerif?.document_type != null
+          ? String(idVerif.document_type)
+          : null,
+      cadastro: usuario.identification_type ?? null,
+    },
+    ok: documento,
+    document_number: documentNumber,
+    tax_number: taxNumber,
+    personal_number: personalNumber,
+    identification_number: identificationNumber,
+  };
+}
 
 const STATUS_APROVADO = ["Approved"];
 const STATUS_EM_ANALISE = ["In Review"];
@@ -44,6 +116,10 @@ export function verifDocPendente(status: VerificacaoStatus): boolean {
 
 export function documentacaoBloqueia(status: VerificacaoStatus): boolean {
   return status === "nao_iniciado" || status === "pendente" || status === "reprovado";
+}
+
+export function ehDivergencia(status: VerificacaoStatus): boolean {
+  return status === "divergencia";
 }
 
 export function provaVidaDevida(
