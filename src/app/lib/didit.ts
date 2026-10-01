@@ -3,8 +3,7 @@ export type VerificacaoStatus =
   | "pendente"
   | "em_analise"
   | "aprovado"
-  | "reprovado"
-  | "divergencia";
+  | "reprovado";
 
 export const DIDIT_WORKFLOW_ID =
   "2fe65fd9-53ee-40ee-91e3-5e8af06fdd90";
@@ -116,10 +115,6 @@ export function verifDocPendente(status: VerificacaoStatus): boolean {
 
 export function documentacaoBloqueia(status: VerificacaoStatus): boolean {
   return status === "nao_iniciado" || status === "pendente" || status === "reprovado";
-}
-
-export function ehDivergencia(status: VerificacaoStatus): boolean {
-  return status === "divergencia";
 }
 
 export function provaVidaDevida(

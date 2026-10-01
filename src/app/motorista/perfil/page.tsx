@@ -67,8 +67,7 @@ type VerificacaoStatus =
   | "pendente"
   | "em_analise"
   | "aprovado"
-  | "reprovado"
-  | "divergencia";
+  | "reprovado";
 
 type Verificacao = {
   status: VerificacaoStatus;
@@ -119,8 +118,6 @@ function formatarStatus(status: VerificacaoStatus) {
       return "Pendente";
     case "em_analise":
       return "Em análise";
-    case "divergencia":
-      return "Revisão manual";
     default:
       return "Não iniciado";
   }
@@ -136,8 +133,6 @@ function mensagemVerificacaoDocumento(status: VerificacaoStatus) {
       return "Sua documentação está em análise.";
     case "pendente":
       return "Sua documentação está pendente de verificação.";
-    case "divergencia":
-      return "Os dados do documento não conferem com o cadastro. Aguardando revisão manual.";
     default:
       return "Essa verificação ainda não foi realizada.";
   }
@@ -159,7 +154,6 @@ function statusClasses(status: VerificacaoStatus) {
       };
     case "pendente":
     case "em_analise":
-    case "divergencia":
       return {
         badge: "border-amber-200 bg-amber-50 text-amber-700",
         box: "border-amber-100 bg-amber-50/60",

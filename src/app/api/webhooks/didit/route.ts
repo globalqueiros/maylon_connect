@@ -206,7 +206,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (status === "Approved" && identityMatch?.ok) {
+    if (status === "Approved") {
       await db.query(
         "UPDATE driver_details SET is_verified = 1, updated_at = NOW() WHERE user_id = ?",
         [driverId]

@@ -317,15 +317,8 @@ export async function GET() {
           }
         }
 
-        const statusBase = mapearStatusDidit(diditStatus, isVerified);
-
-        const divergente =
-          diditStatus === "Approved" &&
-          identityMatch != null &&
-          (identityMatch as { ok?: boolean })?.ok === false;
-
         verificacaoDocumento = {
-          status: divergente ? "divergencia" : statusBase,
+          status: mapearStatusDidit(diditStatus, isVerified),
           didit_status: diditStatus,
           is_verified: Boolean(isVerified),
           identity_match: identityMatch,
