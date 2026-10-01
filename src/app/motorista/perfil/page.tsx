@@ -29,7 +29,7 @@ import {
   UserRoundCheck,
   X,
 } from "lucide-react";
-import { verifDocPendente } from "../../lib/didit";
+import { documentacaoBloqueia, verifDocPendente } from "../../lib/didit";
 
 type Gerente = {
   id?: number;
@@ -95,7 +95,8 @@ const botaoSecundario = `inline-flex cursor-pointer items-center justify-center 
 
 const botaoFechar = `flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-xl text-gray-400 transition hover:bg-gray-100 hover:text-gray-700 ${foco}`;
 
-const cartao = "rounded-2xl bg-white shadow-sm ring-1 ring-gray-900/5 sm:rounded-3xl";
+const cartao =
+  "rounded-2xl bg-white shadow-sm ring-1 ring-gray-900/5 sm:rounded-3xl";
 
 const inputSenha = `h-12 w-full rounded-xl border border-gray-200 bg-gray-50 pl-11 pr-12 text-sm outline-none transition placeholder:text-gray-400 focus:border-[#149C8B] focus:bg-white focus:ring-4 focus:ring-[#149C8B]/10`;
 
@@ -188,7 +189,9 @@ function CabecalhoSecao({
         <Icon size={20} />
       </span>
       <div className="min-w-0">
-        <h2 className="text-base font-semibold text-gray-900 sm:text-lg">{titulo}</h2>
+        <h2 className="text-base font-semibold text-gray-900 sm:text-lg">
+          {titulo}
+        </h2>
         <p className="text-xs text-gray-500 sm:text-sm">{descricao}</p>
       </div>
     </div>
@@ -227,7 +230,9 @@ function Campo({
       </span>
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-          <dt className="text-xs font-medium text-gray-500 sm:text-sm">{label}</dt>
+          <dt className="text-xs font-medium text-gray-500 sm:text-sm">
+            {label}
+          </dt>
           {selo}
         </div>
         <dd className="mt-0.5 text-sm font-semibold text-gray-900 [overflow-wrap:anywhere] sm:text-base">
@@ -259,11 +264,17 @@ function CampoSenha({
 }) {
   return (
     <div>
-      <label htmlFor={id} className="mb-2 block text-sm font-medium text-gray-700">
+      <label
+        htmlFor={id}
+        className="mb-2 block text-sm font-medium text-gray-700"
+      >
         {label}
       </label>
       <div className="relative">
-        <LockKeyhole size={18} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+        <LockKeyhole
+          size={18}
+          className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
+        />
         <input
           id={id}
           type={visivel ? "text" : "password"}
@@ -317,18 +328,28 @@ function VerificacaoCard({
               <Icon size={23} />
             </div>
             <div className="min-w-0">
-              <h3 className="text-base font-bold text-slate-900 sm:text-lg">{titulo}</h3>
-              <p className="mt-1 text-sm leading-5 text-slate-500">{descricao}</p>
+              <h3 className="text-base font-bold text-slate-900 sm:text-lg">
+                {titulo}
+              </h3>
+              <p className="mt-1 text-sm leading-5 text-slate-500">
+                {descricao}
+              </p>
             </div>
           </div>
-          <span className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold ${classes.badge}`}>
+          <span
+            className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold ${classes.badge}`}
+          >
             <ShieldCheck size={14} />
             {formatarStatus(verification.status)}
           </span>
         </div>
-        <div className={`flex items-center justify-between gap-3 rounded-2xl border p-4 ${classes.box}`}>
+        <div
+          className={`flex items-center justify-between gap-3 rounded-2xl border p-4 ${classes.box}`}
+        >
           <div className="min-w-0">
-            <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Situação</p>
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+              Situação
+            </p>
             <p className="mt-1 text-sm font-bold text-slate-900">
               {verification.mensagem ||
                 (verification.status === "nao_iniciado"
@@ -386,13 +407,17 @@ function AccessibilityOption({
           : "border-slate-200 bg-white hover:border-[#35a989]/40 hover:bg-slate-50"
       }`}
     >
-      <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${selected ? "bg-[#35a989] text-white" : "bg-[#EAF6F4] text-[#35a989]"}`}>
+      <div
+        className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${selected ? "bg-[#35a989] text-white" : "bg-[#EAF6F4] text-[#35a989]"}`}
+      >
         <Icon size={21} />
       </div>
       <div className="min-w-0 flex-1">
         <div className="flex items-center justify-between gap-3">
           <h3 className="font-semibold text-slate-900">{title}</h3>
-          {selected && <CheckCircle2 size={19} className="shrink-0 text-[#35a989]" />}
+          {selected && (
+            <CheckCircle2 size={19} className="shrink-0 text-[#35a989]" />
+          )}
         </div>
         <p className="mt-1 text-sm leading-5 text-slate-500">{description}</p>
       </div>
@@ -418,9 +443,13 @@ function AccessibilityStatusCard({
         </div>
         <div className="min-w-0 flex-1">
           <h4 className="text-sm font-bold text-slate-900">{title}</h4>
-          <p className="mt-1 text-xs text-slate-500">{verification.mensagem || formatarStatus(verification.status)}</p>
+          <p className="mt-1 text-xs text-slate-500">
+            {verification.mensagem || formatarStatus(verification.status)}
+          </p>
         </div>
-        <span className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${classes.badge}`}>
+        <span
+          className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${classes.badge}`}
+        >
           {formatarStatus(verification.status)}
         </span>
       </div>
@@ -443,9 +472,13 @@ function LaudoUploadForm({
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h4 className="font-semibold text-slate-900">Enviar documentação</h4>
-          <p className="mt-1 text-sm text-slate-500">Envie o laudo ou documento necessário para análise.</p>
+          <p className="mt-1 text-sm text-slate-500">
+            Envie o laudo ou documento necessário para análise.
+          </p>
         </div>
-        <label className={`inline-flex cursor-pointer items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 ${disabled ? "pointer-events-none opacity-50" : ""}`}>
+        <label
+          className={`inline-flex cursor-pointer items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 ${disabled ? "pointer-events-none opacity-50" : ""}`}
+        >
           {file ? file.name : "Selecionar arquivo"}
           <input
             type="file"
@@ -483,7 +516,11 @@ function LaudoUploadForm({
   );
 }
 
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+export default function DashboardLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const [usuario, setUsuario] = useState<Usuario | null>(null);
   const [loading, setLoading] = useState(true);
   const [imgSrc, setImgSrc] = useState("/favicon.ico");
@@ -491,7 +528,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [alert, setAlert] = useState<{ type: "success" | "error"; message: string } | null>(null);
+  const [alert, setAlert] = useState<{
+    type: "success" | "error";
+    message: string;
+  } | null>(null);
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [senha, setSenha] = useState("");
@@ -508,10 +548,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     status: "nao_iniciado",
     mensagem: "Essa verificação ainda não foi realizada.",
   });
-  const [verificationAutista, setVerificationAutista] = useState<AccessibilityStatus>({
-    status: "nao_iniciado",
-    mensagem: "Essa verificação ainda não foi realizada.",
-  });
+  const [verificationAutista, setVerificationAutista] =
+    useState<AccessibilityStatus>({
+      status: "nao_iniciado",
+      mensagem: "Essa verificação ainda não foi realizada.",
+    });
   const [justificativa, setJustificativa] = useState<Verificacao>({
     status: "nao_iniciado",
     mensagem: "Essa verificação ainda não foi realizada.",
@@ -526,14 +567,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   });
   const [refreshJustificativa, setRefreshJustificativa] = useState(false);
   const [refreshLiveness, setRefreshLiveness] = useState(false);
-  const [refreshProcessosJudiciais, setRefreshProcessosJudiciais] = useState(false);
+  const [refreshProcessosJudiciais, setRefreshProcessosJudiciais] =
+    useState(false);
   const [verificacaoUrl, setVerificacaoUrl] = useState<string | null>(null);
   const [iniciandoVerificacao, setIniciandoVerificacao] = useState(false);
 
   useEffect(() => {
     async function carregarUsuario() {
       try {
-        const res = await fetch("/api/me", { credentials: "include", cache: "no-store" });
+        const res = await fetch("/api/me", {
+          credentials: "include",
+          cache: "no-store",
+        });
         if (!res.ok) {
           window.location.href = "/";
           return;
@@ -583,8 +628,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     if (!phone) return "Não informado";
     let digits = phone.replace(/\D/g, "");
     if (digits.startsWith("55")) digits = digits.slice(2);
-    if (digits.length === 11) return digits.replace(/^(\d{2})(\d{5})(\d{4})$/, "($1) $2-$3");
-    if (digits.length === 10) return digits.replace(/^(\d{2})(\d{4})(\d{4})$/, "($1) $2-$3");
+    if (digits.length === 11)
+      return digits.replace(/^(\d{2})(\d{5})(\d{4})$/, "($1) $2-$3");
+    if (digits.length === 10)
+      return digits.replace(/^(\d{2})(\d{4})(\d{4})$/, "($1) $2-$3");
     return phone;
   };
 
@@ -633,21 +680,32 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     formData.append("file", selectedFile);
     try {
       setUploading(true);
-      const res = await fetch("/api/upload-photo", { method: "POST", body: formData });
+      const res = await fetch("/api/upload-photo", {
+        method: "POST",
+        body: formData,
+      });
       const data = await res.json();
       if (!res.ok) {
-        setAlert({ type: "error", message: data.error || "Erro ao atualizar foto." });
+        setAlert({
+          type: "error",
+          message: data.error || "Erro ao atualizar foto.",
+        });
         return;
       }
       setImgSrc(data.url);
-      setUsuario((prev) => (prev ? { ...prev, profile_image: data.url } : prev));
+      setUsuario((prev) =>
+        prev ? { ...prev, profile_image: data.url } : prev,
+      );
       setShowModal(false);
       setPreviewSrc(null);
       setSelectedFile(null);
       setAlert({ type: "success", message: "Foto atualizada com sucesso." });
     } catch (error) {
       console.error(error);
-      setAlert({ type: "error", message: "Erro inesperado ao atualizar foto." });
+      setAlert({
+        type: "error",
+        message: "Erro inesperado ao atualizar foto.",
+      });
     } finally {
       setUploading(false);
     }
@@ -669,7 +727,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   };
 
   const atualizarStatusDocumento = async (
-    setRefresh: (value: boolean) => void
+    setRefresh: (value: boolean) => void,
   ) => {
     try {
       setRefresh(true);
@@ -701,8 +759,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const atualizarJustificativa = () =>
     atualizarStatusDocumento(setRefreshJustificativa);
 
-  const atualizarLiveness = () =>
-    atualizarStatusDocumento(setRefreshLiveness);
+  const atualizarLiveness = () => atualizarStatusDocumento(setRefreshLiveness);
 
   const atualizarProcessosJudiciais = async () => {
     try {
@@ -827,17 +884,40 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const ehMotorista = usuario.tipo === "driver";
   const isPassageiro = usuario.tipo === "customer";
   const gerente = usuario.gerente;
-  const verificacoes: { label: string; ok: boolean; textoOk: string; icon: LucideIcon }[] = [
-    { label: "E-mail", ok: Boolean(usuario.email_verified_at), textoOk: "Verificado", icon: Mail },
-    { label: "Telefone", ok: Boolean(usuario.phone_verified_at), textoOk: "Verificado", icon: Phone },
-    { label: "CPF", ok: Boolean(usuario.identification_number), textoOk: "Verificado", icon: IdCard },
+  const verificacoes: {
+    label: string;
+    ok: boolean;
+    textoOk: string;
+    icon: LucideIcon;
+  }[] = [
+    {
+      label: "E-mail",
+      ok: Boolean(usuario.email_verified_at),
+      textoOk: "Verificado",
+      icon: Mail,
+    },
+    {
+      label: "Telefone",
+      ok: Boolean(usuario.phone_verified_at),
+      textoOk: "Verificado",
+      icon: Phone,
+    },
+    {
+      label: "CPF",
+      ok: Boolean(usuario.identification_number),
+      textoOk: "Verificado",
+      icon: IdCard,
+    },
   ];
   const verificados = verificacoes.filter((item) => item.ok).length;
   const progresso = Math.round((verificados / verificacoes.length) * 100);
-  const possuiMaylonPassAtivo = Boolean(usuario.nome_plano || usuario.plano_nome || usuario.plano);
-  const statusDocumento = usuario.verification?.documento?.status ?? "nao_iniciado";
+  const possuiMaylonPassAtivo = Boolean(
+    usuario.nome_plano || usuario.plano_nome || usuario.plano,
+  );
+  const statusDocumento =
+    usuario.verification?.documento?.status ?? "nao_iniciado";
   const documentacaoPendente = verifDocPendente(statusDocumento);
-  const documentoEmAnalise = statusDocumento === "em_analise" || statusDocumento === "pendente";
+  const documentacaoAprovada = statusDocumento === "aprovado";
 
   return (
     <div className="min-h-screen min-w-0">
@@ -862,12 +942,21 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <main>
         <div className="mx-auto w-full min-w-0 max-w-8xl 2xl:max-w-[1500px]">
           <section className="relative overflow-hidden rounded-2xl sm:rounded-3xl">
-            <div className="relative h-44 sm:h-48 lg:h-56">
-              <Image src="/bg-login.png" alt="" fill priority sizes="(max-width: 1536px) 100vw, 1500px" className="object-cover" />
+            <div className="relative">
+              <Image
+                src="/bg-login.png"
+                alt=""
+                fill
+                priority
+                sizes="(max-width: 1536px) 100vw, 1500px"
+                className="object-cover"
+              />
               <div className="absolute inset-0 bg-gradient-to-r from-[#063F3B]/95 via-[#0B6F68]/75 to-[#0B6F68]/30" />
-              <div className="relative flex h-full items-start justify-between gap-4 px-5 pt-5 sm:px-8 sm:pt-7 lg:pl-[324px] lg:pr-8 xl:pl-[344px] 2xl:pl-[364px]">
+              <div className="relative flex items-start justify-between gap-4 px-5 py-5 sm:px-8 sm:py-7 lg:pl-[324px] lg:pr-8 xl:pl-[344px] 2xl:pl-[364px]">
                 <div className="min-w-0 text-white">
-                  <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Meu perfil</h1>
+                  <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+                    Meu perfil
+                  </h1>
                   <p className="mt-1.5 hidden max-w-md text-sm text-white/75 sm:block">
                     Gerencie seus dados e a segurança da conta.
                   </p>
@@ -881,13 +970,26 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </section>
 
           <div className="grid items-start gap-5 sm:gap-6 lg:grid-cols-[300px_minmax(0,1fr)] xl:grid-cols-[320px_minmax(0,1fr)] 2xl:grid-cols-[340px_minmax(0,1fr)]">
-            <aside className="relative z-10 -mt-10 sm:-mt-14 lg:sticky lg:top-6 lg:-mt-32">
-              <div className={`${cartao} p-5 shadow-xl shadow-teal-950/10 sm:p-6`}>
+            <aside className="relative z-10 -mt-2 sm:-mt-4 lg:sticky lg:top-6 lg:mt-6">
+              <div
+                className={`${cartao} p-5 shadow-xl shadow-teal-950/10 sm:p-6`}
+              >
                 <div className="flex flex-col items-center md:flex-row md:gap-8 lg:flex-col lg:gap-0">
                   <div className="flex flex-col items-center text-center md:max-w-[45%] md:shrink-0 md:flex-row md:gap-6 md:text-left lg:max-w-none lg:flex-col lg:gap-0 lg:text-center">
                     <div className="relative h-32 w-32 shrink-0 sm:h-36 sm:w-36 xl:h-40 xl:w-40">
-                      <svg viewBox="0 0 100 100" className="absolute inset-0 h-full w-full -rotate-90" aria-hidden="true">
-                        <circle cx="50" cy="50" r="46" fill="none" strokeWidth="4" className="stroke-gray-200" />
+                      <svg
+                        viewBox="0 0 100 100"
+                        className="absolute inset-0 h-full w-full -rotate-90"
+                        aria-hidden="true"
+                      >
+                        <circle
+                          cx="50"
+                          cy="50"
+                          r="46"
+                          fill="none"
+                          strokeWidth="4"
+                          className="stroke-gray-200"
+                        />
                         <circle
                           cx="50"
                           cy="50"
@@ -901,7 +1003,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                         />
                       </svg>
                       <div className="absolute inset-[9px] overflow-hidden rounded-full bg-gray-100 sm:inset-[10px]">
-                        <Image src={imgSrc} alt="Foto do perfil" fill sizes="160px" onError={() => setImgSrc("/favicon.ico")} className="object-cover" />
+                        <Image
+                          src={imgSrc}
+                          alt="Foto do perfil"
+                          fill
+                          sizes="160px"
+                          onError={() => setImgSrc("/favicon.ico")}
+                          className="object-cover"
+                        />
                       </div>
                       <button
                         type="button"
@@ -934,35 +1043,60 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     </div>
 
                     <div className="mt-4 min-w-0 md:mt-0 lg:mt-4">
-                      <h2 className="text-lg font-semibold text-gray-900 [overflow-wrap:anywhere] sm:text-xl">{usuario.full_name}</h2>
+                      <h2 className="text-lg font-semibold text-gray-900 [overflow-wrap:anywhere] sm:text-xl">
+                        {usuario.full_name}
+                      </h2>
                       <span className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-[#EAF6F4] px-3 py-1 text-xs font-medium text-[#0B6F68]">
-                        {ehMotorista ? <Car size={14} /> : <UserRound size={14} />}
+                        {ehMotorista ? (
+                          <Car size={14} />
+                        ) : (
+                          <UserRound size={14} />
+                        )}
                         {ehMotorista ? "Motorista" : "Passageiro"}
                       </span>
-                      <p className="mt-2 text-sm text-gray-500 [overflow-wrap:anywhere]">{usuario.email}</p>
+                      <p className="mt-2 text-sm text-gray-500 [overflow-wrap:anywhere]">
+                        {usuario.email}
+                      </p>
                     </div>
                   </div>
 
                   <div className="mt-5 w-full border-t border-gray-100 pt-5 md:mt-0 md:flex-1 md:border-l md:border-t-0 md:pl-8 md:pt-0 lg:mt-5 lg:border-l-0 lg:border-t lg:pl-0 lg:pt-5">
                     <div className="flex items-center justify-between gap-3">
-                      <h2 className="text-sm font-semibold text-gray-900">Verificação da conta</h2>
+                      <h2 className="text-sm font-semibold text-gray-900">
+                        Verificação da conta
+                      </h2>
                       <span className="text-xs font-medium text-gray-500">
                         {verificados} de {verificacoes.length}
                       </span>
                     </div>
                     <ul className="mt-3 space-y-2.5">
-                      {verificacoes.map(({ label, ok, textoOk, icon: Icone }) => (
-                        <li key={label} className="flex items-center gap-3 text-sm">
-                          <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${ok ? "bg-emerald-50 text-emerald-600" : "bg-amber-50 text-amber-600"}`}>
-                            <Icone size={16} />
-                          </span>
-                          <span className="flex-1 font-medium text-gray-700">{label}</span>
-                          <span className={`inline-flex items-center gap-1 text-xs font-medium ${ok ? "text-emerald-700" : "text-amber-700"}`}>
-                            {ok ? <CheckCircle2 size={14} /> : <CircleAlert size={14} />}
-                            {ok ? textoOk : "Pendente"}
-                          </span>
-                        </li>
-                      ))}
+                      {verificacoes.map(
+                        ({ label, ok, textoOk, icon: Icone }) => (
+                          <li
+                            key={label}
+                            className="flex items-center gap-3 text-sm"
+                          >
+                            <span
+                              className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${ok ? "bg-emerald-50 text-emerald-600" : "bg-amber-50 text-amber-600"}`}
+                            >
+                              <Icone size={16} />
+                            </span>
+                            <span className="flex-1 font-medium text-gray-700">
+                              {label}
+                            </span>
+                            <span
+                              className={`inline-flex items-center gap-1 text-xs font-medium ${ok ? "text-emerald-700" : "text-amber-700"}`}
+                            >
+                              {ok ? (
+                                <CheckCircle2 size={14} />
+                              ) : (
+                                <CircleAlert size={14} />
+                              )}
+                              {ok ? textoOk : "Pendente"}
+                            </span>
+                          </li>
+                        ),
+                      )}
                     </ul>
                   </div>
                 </div>
@@ -970,12 +1104,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </aside>
 
             <div className="min-w-0 space-y-5 sm:space-y-6 lg:mt-6">
-              {documentacaoPendente && (
+              {(documentacaoPendente || documentacaoAprovada) && (
                 <section
                   role="alert"
                   className={`overflow-hidden rounded-2xl border p-4 sm:p-5 ${
-                    documentoEmAnalise
-                      ? "border-[#149C8B]/20 bg-[#F1F9F8]"
+                    documentacaoAprovada
+                      ? "border-emerald-200 bg-emerald-50"
                       : "border-amber-200 bg-amber-50"
                   }`}
                 >
@@ -983,50 +1117,55 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     <div className="flex items-start gap-3.5">
                       <span
                         className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${
-                          documentoEmAnalise
-                            ? "bg-[#EAF6F4] text-[#149C8B]"
+                          documentacaoAprovada
+                            ? "bg-emerald-100 text-emerald-600"
                             : "bg-amber-100 text-amber-600"
                         }`}
                       >
-                        <CircleAlert size={22} />
+                        {documentacaoAprovada ? (
+                          <CheckCircle2 size={22} />
+                        ) : (
+                          <CircleAlert size={22} />
+                        )}
                       </span>
                       <div className="min-w-0">
                         <h2 className="text-sm font-semibold text-gray-900 sm:text-base">
-                          {documentoEmAnalise
-                            ? "Sua documentação está em análise"
+                          {documentacaoAprovada
+                            ? "Conta aprovada"
                             : "Documentação pendente de verificação"}
                         </h2>
                         <p className="mt-0.5 text-xs leading-5 text-gray-600 sm:text-sm">
-                          {documentoEmAnalise
-                            ? "Assim que a análise for concluída, o status da sua conta será atualizado automaticamente."
+                          {documentacaoAprovada
+                            ? "Sua documentação foi aprovada e sua conta está ativa."
                             : "Para usar todos os recursos da conta, é preciso verificar seus documentos de forma segura pela Didit."}
                         </p>
                       </div>
                     </div>
-                    {!documentoEmAnalise && (
-                      <button
-                        type="button"
-                        onClick={(event) => {
-                          event.preventDefault();
-                          event.stopPropagation();
-                          iniciarVerificacao();
-                        }}
-                        disabled={iniciandoVerificacao}
-                        className={`${botaoPrimario} w-full sm:w-auto`}
-                      >
-                        {iniciandoVerificacao ? (
-                          <>
-                            <RefreshCw size={18} className="animate-spin" />
-                            Iniciando...
-                          </>
-                        ) : (
-                          <>
-                            <ShieldCheck size={18} />
-                            Iniciar verificação
-                          </>
-                        )}
-                      </button>
-                    )}
+                    {!documentacaoAprovada &&
+                      documentacaoBloqueia(statusDocumento) && (
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            iniciarVerificacao();
+                          }}
+                          disabled={iniciandoVerificacao}
+                          className={`${botaoPrimario} w-full sm:w-auto`}
+                        >
+                          {iniciandoVerificacao ? (
+                            <>
+                              <RefreshCw size={18} className="animate-spin" />
+                              Iniciando...
+                            </>
+                          ) : (
+                            <>
+                              <ShieldCheck size={18} />
+                              Iniciar verificação
+                            </>
+                          )}
+                        </button>
+                      )}
                   </div>
                 </section>
               )}
@@ -1037,8 +1176,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     <ShieldCheck size={22} />
                   </div>
                   <div className="min-w-0">
-                    <h2 className="text-lg font-bold text-slate-900">Verificação da conta</h2>
-                    <p className="mt-0.5 text-sm text-slate-500">Acompanhe o status das suas verificações e consultas.</p>
+                    <h2 className="text-lg font-bold text-slate-900">
+                      Verificação da conta
+                    </h2>
+                    <p className="mt-0.5 text-sm text-slate-500">
+                      Acompanhe o status das suas verificações e consultas.
+                    </p>
                   </div>
                 </div>
                 <div className="mt-5 grid grid-cols-1 gap-4 xl:grid-cols-2">
@@ -1060,35 +1203,44 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     refreshing={refreshProcessosJudiciais}
                   />
 
-                  {justificativa.status === "aprovado" && processosJudiciais.status === "aprovado" && (
-                    <div className="xl:col-span-2">
-                      <VerificacaoCard
-                        icon={Eye}
-                        titulo="Prova de vida"
-                        descricao="Verificação de identidade e confirmação de presença por meio da prova de vida."
-                        verification={liveness}
-                        onRefresh={atualizarLiveness}
-                        refreshing={refreshLiveness}
-                      />
-                    </div>
-                  )}
+                  {justificativa.status === "aprovado" &&
+                    processosJudiciais.status === "aprovado" && (
+                      <div className="xl:col-span-2">
+                        <VerificacaoCard
+                          icon={Eye}
+                          titulo="Prova de vida"
+                          descricao="Verificação de identidade e confirmação de presença por meio da prova de vida."
+                          verification={liveness}
+                          onRefresh={atualizarLiveness}
+                          refreshing={refreshLiveness}
+                        />
+                      </div>
+                    )}
                 </div>
               </section>
 
               <section className={`${cartao} overflow-hidden`}>
                 <CabecalhoSecao
                   icon={ehMotorista ? Car : User}
-                  titulo={ehMotorista ? "Dados do motorista" : "Dados do passageiro"}
+                  titulo={
+                    ehMotorista ? "Dados do motorista" : "Dados do passageiro"
+                  }
                   descricao="Informações cadastradas na sua conta."
                 />
                 <dl className="grid px-5 text-sm sm:grid-cols-2 sm:gap-x-10 sm:px-6 lg:px-7">
                   <Campo icon={User} label="Nome completo">
-                    <span className="text-xs font-semibold text-gray-900 [overflow-wrap:anywhere] sm:text-sm">{usuario.full_name}</span>
+                    <span className="text-xs font-semibold text-gray-900 [overflow-wrap:anywhere] sm:text-sm">
+                      {usuario.full_name}
+                    </span>
                   </Campo>
                   <Campo
                     icon={IdCard}
                     label="CPF"
-                    selo={<SeloVerificacao ok={Boolean(usuario.identification_number)} />}
+                    selo={
+                      <SeloVerificacao
+                        ok={Boolean(usuario.identification_number)}
+                      />
+                    }
                   >
                     <span className="text-xs font-semibold text-gray-900 [overflow-wrap:anywhere] sm:text-sm">
                       {formatarCPF(usuario.identification_number)}
@@ -1097,7 +1249,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   <Campo
                     icon={Phone}
                     label="Telefone"
-                    selo={<SeloVerificacao ok={Boolean(usuario.phone_verified_at)} />}
+                    selo={
+                      <SeloVerificacao
+                        ok={Boolean(usuario.phone_verified_at)}
+                      />
+                    }
                   >
                     <span className="text-xs font-semibold text-gray-900 [overflow-wrap:anywhere] sm:text-sm">
                       {formatPhoneBR(usuario.phone)}
@@ -1106,9 +1262,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   <Campo
                     icon={Mail}
                     label="E-mail"
-                    selo={<SeloVerificacao ok={Boolean(usuario.email_verified_at)} />}
+                    selo={
+                      <SeloVerificacao
+                        ok={Boolean(usuario.email_verified_at)}
+                      />
+                    }
                   >
-                    <span className="text-xs font-semibold text-gray-900 [overflow-wrap:anywhere] sm:text-sm">{usuario.email}</span>
+                    <span className="text-xs font-semibold text-gray-900 [overflow-wrap:anywhere] sm:text-sm">
+                      {usuario.email}
+                    </span>
                   </Campo>
                 </dl>
               </section>
@@ -1120,11 +1282,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   descricao="Quem cuida da sua conta na Maylon."
                 />
                 <div className="p-5 sm:p-6 lg:p-7">
-                  {gerente && (gerente.full_name || gerente.email || gerente.phone) ? (
+                  {gerente &&
+                  (gerente.full_name || gerente.email || gerente.phone) ? (
                     <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-5">
                       <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-2xl bg-[#EAF6F4] sm:h-[72px] sm:w-[72px]">
                         {gerente.profile_image ? (
-                          <Image src={gerente.profile_image} alt={gerente.full_name || "Gerente"} fill sizes="72px" className="object-cover" />
+                          <Image
+                            src={gerente.profile_image}
+                            alt={gerente.full_name || "Gerente"}
+                            fill
+                            sizes="72px"
+                            className="object-cover"
+                          />
                         ) : (
                           <span className="flex h-full w-full items-center justify-center text-[#149C8B]">
                             <UserRoundCheck size={28} />
@@ -1133,7 +1302,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
-                          <h3 className="text-base font-semibold text-gray-900 [overflow-wrap:anywhere] sm:text-lg">{gerente.full_name || "Gerente responsável"}</h3>
+                          <h3 className="text-base font-semibold text-gray-900 [overflow-wrap:anywhere] sm:text-lg">
+                            {gerente.full_name || "Gerente responsável"}
+                          </h3>
                           <span className="inline-flex items-center gap-1.5 rounded-full bg-[#EAF6F4] px-2.5 py-1 text-xs font-medium text-[#0B6F68]">
                             <ShieldCheck size={13} />
                             Gerente
@@ -1141,14 +1312,28 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                         </div>
                         <div className="mt-2 flex flex-col gap-1.5 text-sm text-gray-600 sm:flex-row sm:flex-wrap sm:gap-x-6">
                           {gerente.email && (
-                            <a href={`mailto:${gerente.email}`} className={`inline-flex items-center gap-2 rounded-md transition hover:text-[#0B6F68] ${foco}`}>
-                              <Mail size={15} className="shrink-0 text-gray-400" />
-                              <span className="[overflow-wrap:anywhere]">{gerente.email}</span>
+                            <a
+                              href={`mailto:${gerente.email}`}
+                              className={`inline-flex items-center gap-2 rounded-md transition hover:text-[#0B6F68] ${foco}`}
+                            >
+                              <Mail
+                                size={15}
+                                className="shrink-0 text-gray-400"
+                              />
+                              <span className="[overflow-wrap:anywhere]">
+                                {gerente.email}
+                              </span>
                             </a>
                           )}
                           {gerente.phone && (
-                            <a href={`tel:${gerente.phone.replace(/\s+/g, "")}`} className={`inline-flex items-center gap-2 rounded-md transition hover:text-[#0B6F68] ${foco}`}>
-                              <Phone size={15} className="shrink-0 text-gray-400" />
+                            <a
+                              href={`tel:${gerente.phone.replace(/\s+/g, "")}`}
+                              className={`inline-flex items-center gap-2 rounded-md transition hover:text-[#0B6F68] ${foco}`}
+                            >
+                              <Phone
+                                size={15}
+                                className="shrink-0 text-gray-400"
+                              />
                               {formatPhoneBR(gerente.phone)}
                             </a>
                           )}
@@ -1162,14 +1347,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                       </span>
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
-                          <h3 className="text-base font-semibold text-gray-900 sm:text-lg">Gerente Digital</h3>
+                          <h3 className="text-base font-semibold text-gray-900 sm:text-lg">
+                            Gerente Digital
+                          </h3>
                           <span className="inline-flex items-center gap-1.5 rounded-full bg-white px-2.5 py-1 text-xs font-medium text-[#0B6F68] ring-1 ring-[#149C8B]/20">
                             <BadgeCheck size={13} />
                             Atendimento digital
                           </span>
                         </div>
                         <p className="mt-1.5 max-w-2xl text-sm leading-6 text-gray-600">
-                          Sua conta ainda não tem um gerente responsável. O Gerente Digital ajuda você sempre que precisar.
+                          Sua conta ainda não tem um gerente responsável. O
+                          Gerente Digital ajuda você sempre que precisar.
                         </p>
                       </div>
                     </div>
@@ -1185,9 +1373,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                         <Accessibility size={22} />
                       </div>
                       <div>
-                        <h2 className="text-lg font-bold text-slate-900">Acessibilidade</h2>
+                        <h2 className="text-lg font-bold text-slate-900">
+                          Acessibilidade
+                        </h2>
                         <p className="mt-0.5 max-w-2xl text-sm leading-5 text-slate-500">
-                          Informe se você possui alguma condição que exige recursos de acessibilidade durante suas viagens.
+                          Informe se você possui alguma condição que exige
+                          recursos de acessibilidade durante suas viagens.
                         </p>
                       </div>
                     </div>
@@ -1212,9 +1403,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   </div>
                   <div className="mt-4 flex flex-col gap-3 rounded-2xl border border-[#35a989]/15 bg-[#35a989]/5 p-4 sm:flex-row sm:items-center sm:justify-between">
                     <div>
-                      <p className="text-sm font-semibold text-slate-900">Atualizar informações</p>
+                      <p className="text-sm font-semibold text-slate-900">
+                        Atualizar informações
+                      </p>
                       <p className="mt-1 text-xs leading-5 text-slate-500">
-                        Após salvar, algumas alterações podem exigir análise e envio de documentação.
+                        Após salvar, algumas alterações podem exigir análise e
+                        envio de documentação.
                       </p>
                     </div>
                     <button
@@ -1243,22 +1437,38 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   {(pcdSelected || autistaSelected) && (
                     <div className="mt-6 space-y-3">
                       <div>
-                        <h3 className="font-bold text-slate-900">Status das solicitações</h3>
-                        <p className="mt-1 text-sm text-slate-500">Acompanhe a análise das informações de acessibilidade.</p>
+                        <h3 className="font-bold text-slate-900">
+                          Status das solicitações
+                        </h3>
+                        <p className="mt-1 text-sm text-slate-500">
+                          Acompanhe a análise das informações de acessibilidade.
+                        </p>
                       </div>
                       <div className="grid gap-3 md:grid-cols-2">
                         {pcdSelected && (
-                          <AccessibilityStatusCard title="Pessoa com deficiência" verification={verificationPcd} icon={Accessibility} />
+                          <AccessibilityStatusCard
+                            title="Pessoa com deficiência"
+                            verification={verificationPcd}
+                            icon={Accessibility}
+                          />
                         )}
                         {autistaSelected && (
-                          <AccessibilityStatusCard title="Pessoa com autismo" verification={verificationAutista} icon={Brain} />
+                          <AccessibilityStatusCard
+                            title="Pessoa com autismo"
+                            verification={verificationAutista}
+                            icon={Brain}
+                          />
                         )}
                       </div>
                     </div>
                   )}
                   {(pcdSelected || autistaSelected) && (
                     <div className="mt-6">
-                      <LaudoUploadForm disabled={contaBloqueada} uploading={uploadingLaudo} onSubmit={enviarLaudo} />
+                      <LaudoUploadForm
+                        disabled={contaBloqueada}
+                        uploading={uploadingLaudo}
+                        onSubmit={enviarLaudo}
+                      />
                     </div>
                   )}
                 </section>
@@ -1278,22 +1488,35 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                       />
                       <div className="absolute left-[4%] top-[56%] flex w-[100%] items-end gap-[8%]">
                         <div className="min-w-0 flex-1">
-                          <p className="text-[clamp(6px,0.65vw,9px)] font-medium uppercase tracking-[0.12em] text-white/70">Titular</p>
+                          <p className="text-[clamp(6px,0.65vw,9px)] font-medium uppercase tracking-[0.12em] text-white/70">
+                            Titular
+                          </p>
                           <p className="mt-1 truncate text-[clamp(9px,1.05vw,15px)] font-bold uppercase leading-none text-white">
                             {usuario.full_name || "NOME COMPLETO"}
                           </p>
                         </div>
                         <div className="shrink-0">
-                          <p className="text-[clamp(6px,0.65vw,9px)] font-medium uppercase tracking-[0.12em] text-white/70">Data da aquisição</p>
+                          <p className="text-[clamp(6px,0.65vw,9px)] font-medium uppercase tracking-[0.12em] text-white/70">
+                            Data da aquisição
+                          </p>
                           <p className="mt-1 text-[clamp(9px,1vw,14px)] font-semibold leading-none text-white">
-                            {usuario.data_aquisicao ? new Date(usuario.data_aquisicao).toLocaleDateString("pt-BR") : "--/--/----"}
+                            {usuario.data_aquisicao
+                              ? new Date(
+                                  usuario.data_aquisicao,
+                                ).toLocaleDateString("pt-BR")
+                              : "--/--/----"}
                           </p>
                         </div>
                       </div>
                       <div className="absolute left-[4%] top-[75%]">
-                        <p className="text-[clamp(6px,0.65vw,9px)] font-medium uppercase tracking-[0.12em] text-white/70">Plano</p>
+                        <p className="text-[clamp(6px,0.65vw,9px)] font-medium uppercase tracking-[0.12em] text-white/70">
+                          Plano
+                        </p>
                         <p className="mt-1 text-[clamp(10px,1.1vw,16px)] font-bold leading-none text-white">
-                          {usuario.nome_plano || usuario.plano_nome || usuario.plano || "Maylon Pass"}
+                          {usuario.nome_plano ||
+                            usuario.plano_nome ||
+                            usuario.plano ||
+                            "Maylon Pass"}
                         </p>
                       </div>
                     </div>
@@ -1308,9 +1531,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                       <Lock size={20} />
                     </span>
                     <div>
-                      <h2 className="text-base font-semibold text-gray-900 sm:text-lg">Senha e segurança</h2>
+                      <h2 className="text-base font-semibold text-gray-900 sm:text-lg">
+                        Senha e segurança
+                      </h2>
                       <p className="mt-0.5 max-w-xl text-sm leading-6 text-gray-500">
-                        Troque a senha com frequência para manter sua conta protegida.
+                        Troque a senha com frequência para manter sua conta
+                        protegida.
                       </p>
                     </div>
                   </div>
@@ -1336,7 +1562,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </main>
 
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-gray-950/60 backdrop-blur-sm sm:items-center sm:p-4" onClick={fecharModalFoto}>
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-gray-950/60 backdrop-blur-sm sm:items-center sm:p-4"
+          onClick={fecharModalFoto}
+        >
           <div
             role="dialog"
             aria-modal="true"
@@ -1349,10 +1578,22 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 <Camera size={22} />
               </span>
               <div className="min-w-0 flex-1">
-                <h2 id="titulo-modal-foto" className="text-lg font-semibold text-gray-900">Alterar foto</h2>
-                <p className="mt-0.5 text-sm text-gray-500">Confira a prévia antes de salvar.</p>
+                <h2
+                  id="titulo-modal-foto"
+                  className="text-lg font-semibold text-gray-900"
+                >
+                  Alterar foto
+                </h2>
+                <p className="mt-0.5 text-sm text-gray-500">
+                  Confira a prévia antes de salvar.
+                </p>
               </div>
-              <button type="button" onClick={fecharModalFoto} aria-label="Fechar" className={botaoFechar}>
+              <button
+                type="button"
+                onClick={fecharModalFoto}
+                aria-label="Fechar"
+                className={botaoFechar}
+              >
                 <X size={19} />
               </button>
             </div>
@@ -1360,12 +1601,23 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               {previewSrc && (
                 <div className="mb-6 flex justify-center">
                   <div className="rounded-full p-1 ring-4 ring-[#EAF6F4]">
-                    <Image src={previewSrc} alt="Pré-visualização da nova foto" width={176} height={176} unoptimized className="h-36 w-36 rounded-full object-cover sm:h-44 sm:w-44" />
+                    <Image
+                      src={previewSrc}
+                      alt="Pré-visualização da nova foto"
+                      width={176}
+                      height={176}
+                      unoptimized
+                      className="h-36 w-36 rounded-full object-cover sm:h-44 sm:w-44"
+                    />
                   </div>
                 </div>
               )}
               <div className="flex flex-col-reverse gap-2.5 sm:flex-row">
-                <button type="button" onClick={fecharModalFoto} className={`${botaoSecundario} sm:flex-1`}>
+                <button
+                  type="button"
+                  onClick={fecharModalFoto}
+                  className={`${botaoSecundario} sm:flex-1`}
+                >
                   Cancelar
                 </button>
                 <button
@@ -1387,7 +1639,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       )}
 
       {open && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-gray-950/60 backdrop-blur-sm sm:items-center sm:p-4" onClick={fecharModalSenha}>
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-gray-950/60 backdrop-blur-sm sm:items-center sm:p-4"
+          onClick={fecharModalSenha}
+        >
           <div
             role="dialog"
             aria-modal="true"
@@ -1400,10 +1655,22 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 <LockKeyhole size={22} />
               </span>
               <div className="min-w-0 flex-1">
-                <h2 id="titulo-modal-senha" className="text-lg font-semibold text-gray-900">Alterar senha</h2>
-                <p className="mt-0.5 text-sm text-gray-500">Crie uma senha forte para proteger sua conta.</p>
+                <h2
+                  id="titulo-modal-senha"
+                  className="text-lg font-semibold text-gray-900"
+                >
+                  Alterar senha
+                </h2>
+                <p className="mt-0.5 text-sm text-gray-500">
+                  Crie uma senha forte para proteger sua conta.
+                </p>
               </div>
-              <button type="button" onClick={fecharModalSenha} aria-label="Fechar" className={botaoFechar}>
+              <button
+                type="button"
+                onClick={fecharModalSenha}
+                aria-label="Fechar"
+                className={botaoFechar}
+              >
                 <X size={19} />
               </button>
             </div>
@@ -1428,13 +1695,20 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 onToggle={() => setShowConfirmar((value) => !value)}
               />
               {erro && (
-                <div role="alert" className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-600">
+                <div
+                  role="alert"
+                  className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-600"
+                >
                   <CircleAlert size={18} className="mt-0.5 shrink-0" />
                   <span>{erro}</span>
                 </div>
               )}
               <div className="flex flex-col-reverse gap-2.5 pt-1 sm:flex-row">
-                <button type="button" onClick={fecharModalSenha} className={`${botaoSecundario} sm:flex-1`}>
+                <button
+                  type="button"
+                  onClick={fecharModalSenha}
+                  className={`${botaoSecundario} sm:flex-1`}
+                >
                   Cancelar
                 </button>
                 <button
@@ -1456,7 +1730,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       )}
 
       {verificacaoUrl && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-gray-950/60 backdrop-blur-sm sm:items-center sm:p-4" onClick={fecharVerificacao}>
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-gray-950/60 backdrop-blur-sm sm:items-center sm:p-4"
+          onClick={fecharVerificacao}
+        >
           <div
             role="dialog"
             aria-modal="true"
@@ -1469,10 +1746,22 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 <ShieldCheck size={22} />
               </span>
               <div className="min-w-0 flex-1">
-                <h2 id="titulo-modal-verificacao" className="text-lg font-semibold text-gray-900">Verificação de documentos</h2>
-                <p className="mt-0.5 text-sm text-gray-500">Conclua a verificação para ativar sua conta.</p>
+                <h2
+                  id="titulo-modal-verificacao"
+                  className="text-lg font-semibold text-gray-900"
+                >
+                  Verificação de documentos
+                </h2>
+                <p className="mt-0.5 text-sm text-gray-500">
+                  Conclua a verificação para ativar sua conta.
+                </p>
               </div>
-              <button type="button" onClick={fecharVerificacao} aria-label="Fechar" className={botaoFechar}>
+              <button
+                type="button"
+                onClick={fecharVerificacao}
+                aria-label="Fechar"
+                className={botaoFechar}
+              >
                 <X size={19} />
               </button>
             </div>
