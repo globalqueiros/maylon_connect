@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Eye, RefreshCw, ShieldCheck, X } from "lucide-react";
+import { CircleAlert, Eye, RefreshCw, ShieldCheck, X } from "lucide-react";
 import { documentacaoBloqueia } from "../lib/didit";
 import type { VerificacaoStatus } from "../lib/didit";
 
@@ -21,8 +21,11 @@ export default function VerificacaoModal() {
   const [contexto, setContexto] = useState<ContextoVerificacao | null>(null);
   const [url, setUrl] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
+  const [falhou, setFalhou] = useState(false);
 
-  const decidir = (data: DadosVerificacao | null | undefined): ContextoVerificacao | "idle" => {
+  const decidir = (
+    data: DadosVerificacao | null | undefined
+  ): ContextoVerificacao | "idle" => {
     const statusDoc = data?.verification?.documento?.status;
     const devida = Boolean(data?.verification?.prova_vida?.devida);
 
@@ -31,24 +34,33 @@ export default function VerificacaoModal() {
     return "idle";
   };
 
-  const verificarAlvo = async (): Promise<ContextoVerificacao | "idle"> => {
+  const verificarEstado = async (): Promise<{
+    alvo: ContextoVerificacao | "idle";
+    reprovado: boolean;
+  }> => {
     try {
       const res = await fetch("/api/me", {
         credentials: "include",
         cache: "no-store",
       });
-      if (!res.ok) return "idle";
+      if (!res.ok) return { alvo: "idle", reprovado: false };
       const data = await res.json();
-      return decidir(data);
+      return {
+        alvo: decidir(data),
+        reprovado: data?.verification?.documento?.status === "reprovado",
+      };
     } catch {
-      return "idle";
+      return { alvo: "idle", reprovado: false };
     }
   };
 
-  const abrirVerificacao = async (alvo: ContextoVerificacao) => {
+  const abrirVerificacao = async (
+    alvo: ContextoVerificacao,
+    forcarNova = false
+  ) => {
     setAviso(null);
     setContexto(alvo);
-    if (url) {
+    if (url && !forcarNova) {
       setStatus("open");
       return;
     }
@@ -67,6 +79,7 @@ export default function VerificacaoModal() {
       }
       if (data.url) {
         setUrl(data.url);
+        setFalhou(false);
         setStatus("open");
       } else {
         setAviso("Não foi possível iniciar a verificação.");
@@ -80,10 +93,12 @@ export default function VerificacaoModal() {
     }
   };
 
+  const tentarNovamente = () => abrirVerificacao("doc", true);
+
   useEffect(() => {
     let ativo = true;
     (async () => {
-      const alvo = await verificarAlvo();
+      const { alvo } = await verificarEstado();
       if (!ativo) return;
       if (alvo === "idle") {
         setStatus("idle");
@@ -100,14 +115,18 @@ export default function VerificacaoModal() {
   useEffect(() => {
     if (status !== "open") return;
     const interval = setInterval(async () => {
-      const alvo = await verificarAlvo();
+      const { alvo, reprovado } = await verificarEstado();
       if (alvo === "idle") {
         setStatus("idle");
         setUrl(null);
         setContexto(null);
+        setFalhou(false);
         setAviso(null);
-      } else if (alvo !== contexto) {
-        setContexto(alvo);
+      } else if (alvo === "doc" && reprovado) {
+        setFalhou(true);
+      } else {
+        setFalhou(false);
+        if (alvo !== contexto) setContexto(alvo);
       }
     }, 8000);
     return () => clearInterval(interval);
@@ -115,7 +134,7 @@ export default function VerificacaoModal() {
   }, [status, contexto]);
 
   const fechar = async () => {
-    const alvo = await verificarAlvo();
+    const { alvo } = await verificarEstado();
     if (alvo !== "idle") {
       setContexto(alvo);
       setAviso(
@@ -128,6 +147,7 @@ export default function VerificacaoModal() {
     setStatus("idle");
     setUrl(null);
     setContexto(null);
+    setFalhou(false);
     setAviso(null);
   };
 
@@ -190,13 +210,37 @@ export default function VerificacaoModal() {
               {aviso}
             </div>
           )}
-          {url && (
-            <iframe
-              src={url}
-              title={ehAnual ? "Prova de vida" : "Verificação de documentos"}
-              className="h-full w-full rounded-2xl border border-gray-200 bg-white"
-              allow="camera; microphone; fullscreen; autoplay; encrypted-media; payment"
-            />
+          {falhou ? (
+            <div className="flex h-full flex-col items-center justify-center gap-4 rounded-2xl border border-red-100 bg-red-50/60 p-8 text-center">
+              <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-red-100 text-red-600">
+                <CircleAlert size={24} />
+              </span>
+              <div>
+                <h3 className="text-base font-semibold text-gray-900">
+                  Não foi possível concluir a verificação
+                </h3>
+                <p className="mt-1 text-sm text-gray-500">
+                  Os dados não foram validados. Tente novamente.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={tentarNovamente}
+                className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-[#149C8B] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#11897D]"
+              >
+                <RefreshCw size={18} />
+                Tentar novamente
+              </button>
+            </div>
+          ) : (
+            url && (
+              <iframe
+                src={url}
+                title={ehAnual ? "Prova de vida" : "Verificação de documentos"}
+                className="h-full w-full rounded-2xl border border-gray-200 bg-white"
+                allow="camera; microphone; fullscreen; autoplay; encrypted-media; payment"
+              />
+            )
           )}
         </div>
       </div>

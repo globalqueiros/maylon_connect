@@ -83,9 +83,6 @@ export async function POST() {
       );
     }
 
-    const appUrl =
-      process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_URL || "";
-
     const res = await fetch(`${DIDIT_API_URL}/v3/session/`, {
       method: "POST",
       headers: {
@@ -95,7 +92,6 @@ export async function POST() {
       body: JSON.stringify({
         workflow_id: DIDIT_WORKFLOW_ID,
         vendor_data: userId,
-        callback: appUrl ? `${appUrl}/motorista/perfil` : undefined,
       }),
     });
 
