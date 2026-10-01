@@ -49,7 +49,7 @@ type Usuario = {
   identification_type: string | null;
   phone_verified_at: string | null;
   email_verified_at: string | null;
-  tipo: "driver" | "customer";
+  user_type: "driver" | "customer";
   data_aquisicao?: string | null;
   nome_plano?: string | null;
   plano_nome?: string | null;
@@ -875,8 +875,8 @@ export default function DashboardLayout({
     );
   }
 
-  const ehMotorista = usuario.tipo === "driver";
-  const isPassageiro = usuario.tipo === "customer";
+  const ehMotorista = usuario.user_type === "driver";
+  const isPassageiro = usuario.user_type === "customer";
   const gerente = usuario.gerente;
   const verificacoes: {
     label: string;
