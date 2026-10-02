@@ -1,13 +1,23 @@
 "use client";
 
 import {
+  ArrowDownToLine,
+  ArrowLeft,
   ArrowRight,
+  ArrowUpRight,
   CreditCard,
+  Eye,
+  EyeOff,
   FileText,
   Gift,
+  History,
+  Plus,
+  QrCode,
   Smartphone,
+  Wallet,
 } from "lucide-react";
 import Link from "next/link";
+import { useState } from "react";
 
 const services = [
   {
@@ -44,101 +54,375 @@ const services = [
   },
 ];
 
-export default function ServicosPage() {
+const transactions = [
+  {
+    title: "Pix recebido",
+    description: "Hoje, 14:32",
+    value: "+ R$ 150,00",
+    type: "in",
+  },
+  {
+    title: "Recarga de celular",
+    description: "Hoje, 11:18",
+    value: "- R$ 30,00",
+    type: "out",
+  },
+  {
+    title: "Pagamento de boleto",
+    description: "Ontem, 18:42",
+    value: "- R$ 85,90",
+    type: "out",
+  },
+];
+
+export default function MaylonservicosPage() {
+  const [showBalance, setShowBalance] = useState(true);
+
+  // Futuramente este valor pode vir da API/MySQL
+  const balance = 1248.75;
+
   return (
-    <main className="min-h-screen">
-      <div className="mx-auto w-full max-w-8xl px-4 sm:px-6 lg:px-8">
+    <main className="min-h-screen pb-12">
+      <div className="mx-auto w-full max-w-7xl">
 
         {/* Header */}
         <header className="flex items-center justify-between pt-6 sm:pt-8">
-          <div>
-            <h1 className="mt-1 text-2xl font-black tracking-tight text-white sm:text-3xl">
-              Maylon Pay
-            </h1>
+          <div className="flex items-center gap-3">
+            <Link
+              href="/passageiro"
+              className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/10 text-white transition hover:bg-white/15"
+              aria-label="Voltar"
+            >
+              <ArrowLeft size={18} />
+            </Link>
+
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-white/40">
+                Carteira digital
+              </p>
+
+              <h1 className="mt-0.5 text-xl font-black text-white sm:text-2xl">
+                Maylon servicos
+              </h1>
+            </div>
           </div>
 
           <Link
-            href="/passageiro"
-            className="group flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/10 text-white backdrop-blur transition hover:bg-white/15"
-            aria-label="Voltar"
+            href="/passageiro/servicos/maylon-servicos/extrato"
+            className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/10 text-white transition hover:bg-white/15"
+            aria-label="Extrato"
           >
-            <ArrowRight
-              size={18}
-              className="rotate-180 transition-transform group-hover:-translate-x-0.5"
-            />
+            <History size={18} />
           </Link>
         </header>
 
-        {/* Hero */}
-        <section className="mt-7">
-          <div className="relative overflow-hidden rounded-[32px] bg-white p-6 shadow-[0_20px_60px_rgba(0,0,0,0.12)] sm:p-8">
+        {/* Carteira / Saldo */}
+        <section className="mt-6">
+          <div className="relative overflow-hidden rounded-[30px] bg-gradient-to-br from-[#062b4f] via-[#07566b] to-[#08a89d] p-6 shadow-[0_20px_55px_rgba(8,168,157,0.20)] sm:p-8">
 
-            <div className="absolute -right-20 -top-24 h-64 w-64 rounded-full bg-[#08a89d]/10 blur-3xl" />
-            <div className="absolute -bottom-32 left-1/3 h-64 w-64 rounded-full bg-[#1676b7]/10 blur-3xl" />
+            {/* Background */}
+            <div className="absolute -right-20 -top-24 h-64 w-64 rounded-full bg-[#5be0c8]/20 blur-3xl" />
+            <div className="absolute -bottom-32 left-1/3 h-64 w-64 rounded-full bg-[#08a89d]/20 blur-3xl" />
 
             <div className="relative">
-              <div className="flex items-center gap-2">
-                <span className="h-2 w-2 rounded-full bg-[#08a89d]" />
-                <span className="text-xs font-bold uppercase tracking-wider text-[#08a89d]">
-                  Tudo em um só lugar
-                </span>
+
+              {/* Topo */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/10 text-white">
+                    <Wallet size={18} />
+                  </div>
+
+                  <span className="text-xs font-bold text-white/70">
+                    Saldo disponível
+                  </span>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setShowBalance((value) => !value)}
+                  className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/10 text-white transition hover:bg-white/15"
+                  aria-label={
+                    showBalance
+                      ? "Ocultar saldo"
+                      : "Mostrar saldo"
+                  }
+                >
+                  {showBalance ? (
+                    <EyeOff size={17} />
+                  ) : (
+                    <Eye size={17} />
+                  )}
+                </button>
               </div>
 
-              <h2 className="mt-3 max-w-xl text-xl font-black leading-tight text-[#062b4f] sm:text-3xl">
-                Pague, recarregue e
-                <span className="text-[#08a89d]"> aproveite.</span>
-              </h2>
-              <p className="mt-2 max-w-lg text-sm leading-6 text-[#7d91a2]">
-                Tenha acesso aos principais serviços do dia a dia
-                diretamente pela Maylon.
-              </p>
+              {/* Saldo */}
+              <div className="mt-6">
+                <p className="text-[11px] font-medium text-white/50">
+                  Seu saldo
+                </p>
+
+                <h2 className="mt-1 text-4xl font-black tracking-tight text-white sm:text-5xl">
+                  {showBalance
+                    ? balance.toLocaleString("pt-BR", {
+                        style: "currency",
+                        currency: "BRL",
+                      })
+                    : "R$ ••••••"}
+                </h2>
+              </div>
+
+              {/* Ações */}
+              <div className="mt-7 grid grid-cols-2 gap-3">
+
+                <Link
+                  href="/passageiro/servicos/pix"
+                  className="group flex items-center gap-3 rounded-2xl bg-white p-3.5 text-[#062b4f] transition hover:bg-white/95"
+                >
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#e7f8f4] text-[#08a89d]">
+                    <QrCode size={20} />
+                  </div>
+
+                  <div className="min-w-0">
+                    <p className="text-xs font-black">
+                      Pix
+                    </p>
+
+                    <p className="mt-0.5 text-[10px] text-[#8ca0b2]">
+                      Enviar ou receber
+                    </p>
+                  </div>
+
+                  <ArrowRight
+                    size={15}
+                    className="ml-auto text-[#9aabb8] transition-transform group-hover:translate-x-1"
+                  />
+                </Link>
+
+                <Link
+                  href="/passageiro/servicos/deposito"
+                  className="group flex items-center gap-3 rounded-2xl bg-white/10 p-3.5 text-white backdrop-blur-sm transition hover:bg-white/15"
+                >
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/10 text-[#83ead9]">
+                    <ArrowDownToLine size={20} />
+                  </div>
+
+                  <div className="min-w-0">
+                    <p className="text-xs font-black">
+                      Depositar
+                    </p>
+
+                    <p className="mt-0.5 text-[10px] text-white/50">
+                      Adicionar dinheiro
+                    </p>
+                  </div>
+
+                  <ArrowRight
+                    size={15}
+                    className="ml-auto text-white/40 transition-transform group-hover:translate-x-1"
+                  />
+                </Link>
+              </div>
             </div>
           </div>
         </section>
-        <section className="mt-8">
-          <div className="mb-5">
-            <h2 className="text-xl font-black text-white">
-              O que você precisa?
+
+        {/* Atalhos */}
+        <section className="mt-7">
+          <div className="mb-4">
+            <h2 className="text-lg font-black text-white">
+              Ações rápidas
             </h2>
-            <p className="mt-1 text-xs text-white/45">
-              Escolha uma opção para continuar
+
+            <p className="mt-0 text-xs text-white/45">
+              Faça mais com seu dinheiro
             </p>
           </div>
+
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+
+            <Link
+              href="/passageiro/servicos/pix"
+              className="group rounded-[22px] border border-white/10 bg-white p-4 transition hover:-translate-y-1"
+            >
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#e7f8f4] text-[#08a89d]">
+                <QrCode size={21} />
+              </div>
+
+              <p className="mt-4 text-sm font-black text-[#062b4f]">
+                Pix
+              </p>
+
+              <p className="mt-1 text-[10px] text-[#8ca0b2]">
+                Enviar e receber
+              </p>
+            </Link>
+
+            <Link
+              href="/passageiro/servicos/deposito"
+              className="group rounded-[22px] border border-white/10 bg-white p-4 transition hover:-translate-y-1"
+            >
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#eaf4fb] text-[#1676b7]">
+                <ArrowDownToLine size={21} />
+              </div>
+
+              <p className="mt-4 text-sm font-black text-[#062b4f]">
+                Depositar
+              </p>
+
+              <p className="mt-1 text-[10px] text-[#8ca0b2]">
+                Adicionar saldo
+              </p>
+            </Link>
+
+            <Link
+              href="/passageiro/servicos/transferir"
+              className="group rounded-[22px] border border-white/10 bg-white p-4 transition hover:-translate-y-1"
+            >
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#f1ebff] text-[#8b5cf6]">
+                <ArrowUpRight size={21} />
+              </div>
+
+              <p className="mt-4 text-sm font-black text-[#062b4f]">
+                Transferir
+              </p>
+
+              <p className="mt-1 text-[10px] text-[#8ca0b2]">
+                Enviar dinheiro
+              </p>
+            </Link>
+
+            <Link
+              href="/passageiro/servicos/extrato"
+              className="group rounded-[22px] border border-white/10 bg-white p-4 transition hover:-translate-y-1"
+            >
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#fff3e7] text-[#f08a24]">
+                <History size={21} />
+              </div>
+
+              <p className="mt-4 text-sm font-black text-[#062b4f]">
+                Extrato
+              </p>
+
+              <p className="mt-1 text-[10px] text-[#8ca0b2]">
+                Ver movimentações
+              </p>
+            </Link>
+          </div>
+        </section>
+
+        {/* Extrato recente */}
+        <section className="mt-8">
+          <div className="mb-4 flex items-end justify-between">
+            <div>
+              <h2 className="text-lg font-black text-white">
+                Movimentações recentes
+              </h2>
+
+              <p className="mt-0 text-xs text-white/45">
+                Últimas movimentações da sua carteira
+              </p>
+            </div>
+
+            <Link
+              href="/passageiro/servicos/extrato"
+              className="text-sm font-bold text-white/60 transition hover:text-white/80"
+            >
+              Ver extrato
+            </Link>
+          </div>
+
+          <div className="overflow-hidden rounded-[24px] border border-white/10 bg-white">
+            {transactions.map((transaction, index) => (
+              <div
+                key={transaction.title + index}
+                className={`flex items-center gap-3 p-4 sm:p-5 ${
+                  index !== transactions.length - 1
+                    ? "border-b border-[#edf1f3]"
+                    : ""
+                }`}
+              >
+                <div
+                  className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${
+                    transaction.type === "in"
+                      ? "bg-[#e7f8f4] text-[#08a89d]"
+                      : "bg-[#fff3f1] text-[#ef5b5b]"
+                  }`}
+                >
+                  {transaction.type === "in" ? (
+                    <ArrowDownToLine size={19} />
+                  ) : (
+                    <ArrowUpRight size={19} />
+                  )}
+                </div>
+
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-black text-[#062b4f]">
+                    {transaction.title}
+                  </p>
+
+                  <p className="mt-1 text-[10px] text-[#9aabb8]">
+                    {transaction.description}
+                  </p>
+                </div>
+
+                <p
+                  className={`text-sm font-black ${
+                    transaction.type === "in"
+                      ? "text-[#08a89d]"
+                      : "text-[#062b4f]"
+                  }`}
+                >
+                  {transaction.value}
+                </p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* Serviços */}
+        <section className="mt-8">
+          <div className="mb-5">
+            <h2 className="text-lg font-black text-white">
+              Outros serviços
+            </h2>
+
+            <p className="mt-0 text-xs text-white/45">
+              Use seu saldo para facilitar seu dia
+            </p>
+          </div>
+
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             {services.map((service) => {
               const Icon = service.icon;
+
               return (
                 <Link
                   key={service.title}
                   href={service.href}
-                  className="group relative overflow-hidden rounded-[26px] border border-white/10 bg-white p-5 shadow-[0_12px_35px_rgba(0,0,0,0.08)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_20px_45px_rgba(0,0,0,0.13)] sm:p-6"
+                  className="group relative overflow-hidden rounded-[24px] border border-white/10 bg-white p-5 transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_20px_45px_rgba(0,0,0,0.13)]"
                 >
                   <div className="absolute -right-10 -top-10 h-28 w-28 rounded-full bg-[#f7fafb] transition-transform duration-500 group-hover:scale-150" />
-                  <div className="relative">
-                    <div className="flex items-start justify-between">
-                      <div
-                        className={`flex h-16 w-16 items-center justify-center rounded-[20px] ${service.iconBg} ${service.iconColor}`}
-                      >
-                        <Icon size={29} strokeWidth={1.8} />
-                      </div>
-                      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#f5f8f9] text-[#8194a4] transition-all group-hover:bg-[#08a89d] group-hover:text-white">
-                        <ArrowRight size={16} />
-                      </div>
+
+                  <div className="relative flex items-center gap-4">
+                    <div
+                      className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl ${service.iconBg} ${service.iconColor}`}
+                    >
+                      <Icon size={25} strokeWidth={1.8} />
                     </div>
-                    <div className="mt-3.5">
-                      <h3 className="text-base font-black text-[#062b4f] sm:text-lg">
+
+                    <div className="min-w-0 flex-1">
+                      <h3 className="text-sm font-black text-[#062b4f]">
                         {service.title}
                       </h3>
-                      <p className="mt-1.5 text-xs leading-5 text-[#8ca0b2] sm:text-sm">
+
+                      <p className="mt-1 text-[11px] leading-4 text-[#8ca0b2]">
                         {service.description}
                       </p>
                     </div>
-                    <div className="mt-3 flex items-center gap-2 text-[11px] font-bold text-[#08a89d]">
-                      Acessar serviço
-                      <ArrowRight
-                        size={13}
-                        className="transition-transform group-hover:translate-x-1"
-                      />
+
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#f5f8f9] text-[#8194a4] transition-all group-hover:bg-[#08a89d] group-hover:text-white">
+                      <ArrowRight size={15} />
                     </div>
                   </div>
                 </Link>
@@ -146,21 +430,26 @@ export default function ServicosPage() {
             })}
           </div>
         </section>
+
+        {/* Segurança */}
         <section className="mt-5">
           <div className="flex items-center gap-4 rounded-[24px] border border-[#5be0c8]/20 bg-[#08a89d] p-4 shadow-[0_12px_30px_rgba(8,168,157,0.18)]">
             <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/15 text-white">
-              <CreditCard size={20} />
+              <Wallet size={20} />
             </div>
+
             <div>
               <p className="text-xs font-bold text-white">
-                Prático e seguro
+                Seu dinheiro na Maylon
               </p>
+
               <p className="mt-0.5 text-[11px] leading-4 text-white/75">
-                Faça seus pagamentos sem sair da Maylon.
+                Gerencie seu saldo, Pix e pagamentos em um só lugar.
               </p>
             </div>
           </div>
         </section>
+
       </div>
     </main>
   );
