@@ -21,7 +21,7 @@ import {
   formatarValorConta,
   pagarConta,
   type ContaConsultada,
-} from "../lib/asaas/contaCliente";
+} from "../lib/rvhub/contaCliente";
 
 /* ------------------------------------------------------------------ */
 /* TIPOS                                                               */
@@ -806,13 +806,6 @@ const primaryButtonClass =
 /* MODAL RECARGA                                                       */
 /* ------------------------------------------------------------------ */
 
-const OPERATORS = [
-  "Vivo",
-  "Claro",
-  "TIM",
-  "Oi",
-];
-
 const RECHARGE_VALUES = [
   15,
   20,
@@ -829,9 +822,8 @@ function RecargaModal({
   onClose: () => void;
 }) {
   const [phone, setPhone] = useState("");
-  const [operator, setOperator] = useState(
-    OPERATORS[0]
-  );
+  const [operator, setOperator] = useState("");
+  const [operators, setOperators] = useState<string[]>([]);
 
   const [amount, setAmount] = useState<number>(20);
 
@@ -845,12 +837,37 @@ function RecargaModal({
   useEffect(() => {
     if (!open) {
       setPhone("");
-      setOperator(OPERATORS[0]);
       setAmount(20);
       setLoading(false);
       setFeedback(null);
     }
   }, [open]);
+
+  // Operadoras habilitadas na conta RVHub (lista dinâmica, não fixa).
+  useEffect(() => {
+    if (!open || operators.length > 0) return;
+    let ativo = true;
+    (async () => {
+      try {
+        const res = await fetch("/api/rvhub/recarga/operadoras", {
+          credentials: "include",
+          cache: "no-store",
+        });
+        const data = await res.json().catch(() => null);
+        if (!ativo || !res.ok) return;
+        const lista: string[] = Array.isArray(data?.operadoras)
+          ? data.operadoras.map((o: { provider: string }) => String(o.provider))
+          : [];
+        setOperators(lista);
+        setOperator((atual) => atual || lista[0] || "");
+      } catch {
+        // Sem lista a tela fica sem seletor.
+      }
+    })();
+    return () => {
+      ativo = false;
+    };
+  }, [open, operators.length]);
 
   async function handleSubmit() {
     const digits = onlyDigits(phone);
@@ -869,10 +886,11 @@ function RecargaModal({
     setFeedback(null);
 
     const result = await postJson(
-      "/api/asaas/recarga",
+      "/api/rvhub/recarga",
       {
         telefone: digits,
         valor: amount,
+        provider: operator,
       }
     );
 
@@ -934,7 +952,13 @@ function RecargaModal({
           </span>
 
           <div className="grid grid-cols-4 gap-2">
-            {OPERATORS.map((item) => (
+            {operators.length === 0 && (
+              <span className="col-span-full text-xs text-[#8ca0b2]">
+                Carregando operadoras...
+              </span>
+            )}
+
+            {operators.map((item) => (
               <button
                 key={item}
                 type="button"
