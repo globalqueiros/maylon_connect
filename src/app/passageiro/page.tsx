@@ -21,10 +21,10 @@ import {
   formatarValorConta,
   pagarConta,
   type ContaConsultada,
-} from "../lib/asaas/contaCliente";
+} from "../lib/rvhub/contaCliente";
 
 /* ------------------------------------------------------------------ */
-/* TIPOS                                                               */
+/* TIPOS                                                              */
 /* ------------------------------------------------------------------ */
 
 type User = {
@@ -57,7 +57,7 @@ type Trip = {
 type ModalType = "recarga" | "conta" | null;
 
 /* ------------------------------------------------------------------ */
-/* HELPERS                                                             */
+/* STATUS                                                             */
 /* ------------------------------------------------------------------ */
 
 const STATUS_COMPLETED = [
@@ -91,6 +91,10 @@ const STATUS_IN_PROGRESS = [
   "em_andamento",
   "em andamento",
 ];
+
+/* ------------------------------------------------------------------ */
+/* HELPERS                                                            */
+/* ------------------------------------------------------------------ */
 
 function parseDate(value: unknown): Date | null {
   if (!value) return null;
@@ -191,6 +195,10 @@ function formatTime(value: unknown): string {
   });
 }
 
+/* ------------------------------------------------------------------ */
+/* USUÁRIO                                                            */
+/* ------------------------------------------------------------------ */
+
 function normalizeUser(response: unknown): User | null {
   if (!response || typeof response !== "object") return null;
 
@@ -246,6 +254,14 @@ function normalizeUser(response: unknown): User | null {
     email: typeof email === "string" ? email : "",
   };
 }
+
+function extractUser(response: unknown): User | null {
+  return normalizeUser(response);
+}
+
+/* ------------------------------------------------------------------ */
+/* VIAGENS                                                            */
+/* ------------------------------------------------------------------ */
 
 function normalizeTrip(raw: unknown): Trip {
   if (!raw || typeof raw !== "object") {
@@ -385,10 +401,6 @@ function normalizeTrip(raw: unknown): Trip {
   };
 }
 
-function extractUser(response: unknown): User | null {
-  return normalizeUser(response);
-}
-
 function extractTrips(response: unknown): unknown[] {
   if (Array.isArray(response)) return response;
 
@@ -434,6 +446,10 @@ function extractTrips(response: unknown): unknown[] {
 
   return [];
 }
+
+/* ------------------------------------------------------------------ */
+/* STATUS VIAGEM                                                      */
+/* ------------------------------------------------------------------ */
 
 function normalizeStatus(status: string | null): string {
   return String(status ?? "")
@@ -530,7 +546,7 @@ function getTripStatusLabel(status: string | null): string {
 }
 
 /* ------------------------------------------------------------------ */
-/* MÁSCARAS                                                            */
+/* MÁSCARAS                                                           */
 /* ------------------------------------------------------------------ */
 
 function onlyDigits(value: string): string {
@@ -555,16 +571,6 @@ function maskPhone(value: string): string {
   return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
 }
 
-/**
- * Máscara para linha digitável de boleto.
- *
- * Exemplo visual:
- *
- * 12345.67890 12345.678901 12345.678901 1 12345678901234
- *
- * A função remove qualquer caractere que não seja número
- * e depois aplica a máscara visual.
- */
 function maskBarcode(value: string): string {
   const digits = onlyDigits(value).slice(0, 48);
 
@@ -623,7 +629,7 @@ function maskBarcode(value: string): string {
 }
 
 /* ------------------------------------------------------------------ */
-/* POST JSON                                                           */
+/* POST JSON                                                          */
 /* ------------------------------------------------------------------ */
 
 async function postJson(
@@ -684,7 +690,7 @@ async function postJson(
 }
 
 /* ------------------------------------------------------------------ */
-/* MODAL BASE                                                          */
+/* MODAL BASE                                                         */
 /* ------------------------------------------------------------------ */
 
 function Modal({
@@ -772,6 +778,10 @@ function Modal({
   );
 }
 
+/* ------------------------------------------------------------------ */
+/* FEEDBACK                                                           */
+/* ------------------------------------------------------------------ */
+
 function Feedback({
   type,
   message,
@@ -803,15 +813,8 @@ const primaryButtonClass =
   "mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-[#08a89d] px-4 py-3.5 text-sm font-bold text-white shadow-[0_8px_20px_rgba(8,168,157,0.2)] transition hover:-translate-y-0.5 hover:bg-[#078f80] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0";
 
 /* ------------------------------------------------------------------ */
-/* MODAL RECARGA                                                       */
+/* MODAL RECARGA                                                      */
 /* ------------------------------------------------------------------ */
-
-const OPERATORS = [
-  "Vivo",
-  "Claro",
-  "TIM",
-  "Oi",
-];
 
 const RECHARGE_VALUES = [
   15,
@@ -829,12 +832,9 @@ function RecargaModal({
   onClose: () => void;
 }) {
   const [phone, setPhone] = useState("");
-  const [operator, setOperator] = useState(
-    OPERATORS[0]
-  );
-
+  const [operator, setOperator] = useState("");
+  const [operators, setOperators] = useState<string[]>([]);
   const [amount, setAmount] = useState<number>(20);
-
   const [loading, setLoading] = useState(false);
 
   const [feedback, setFeedback] = useState<{
@@ -845,12 +845,53 @@ function RecargaModal({
   useEffect(() => {
     if (!open) {
       setPhone("");
-      setOperator(OPERATORS[0]);
       setAmount(20);
       setLoading(false);
       setFeedback(null);
     }
   }, [open]);
+
+  useEffect(() => {
+    if (!open || operators.length > 0) return;
+
+    let ativo = true;
+
+    (async () => {
+      try {
+        const res = await fetch(
+          "/api/rvhub/recarga/operadoras",
+          {
+            credentials: "include",
+            cache: "no-store",
+          }
+        );
+
+        const data = await res.json().catch(() => null);
+
+        if (!ativo || !res.ok) return;
+
+        const lista: string[] = Array.isArray(data?.operadoras)
+          ? data.operadoras.map(
+              (o: { provider: string }) =>
+                String(o.provider)
+            )
+          : [];
+
+        setOperators(lista);
+
+        setOperator(
+          (atual) =>
+            atual || lista[0] || ""
+        );
+      } catch {
+        // Sem lista.
+      }
+    })();
+
+    return () => {
+      ativo = false;
+    };
+  }, [open, operators.length]);
 
   async function handleSubmit() {
     const digits = onlyDigits(phone);
@@ -869,10 +910,11 @@ function RecargaModal({
     setFeedback(null);
 
     const result = await postJson(
-      "/api/asaas/recarga",
+      "/api/rvhub/recarga",
       {
         telefone: digits,
         valor: amount,
+        provider: operator,
       }
     );
 
@@ -934,7 +976,13 @@ function RecargaModal({
           </span>
 
           <div className="grid grid-cols-4 gap-2">
-            {OPERATORS.map((item) => (
+            {operators.length === 0 && (
+              <span className="col-span-full text-xs text-[#8ca0b2]">
+                Carregando operadoras...
+              </span>
+            )}
+
+            {operators.map((item) => (
               <button
                 key={item}
                 type="button"
@@ -1024,7 +1072,7 @@ function RecargaModal({
 }
 
 /* ------------------------------------------------------------------ */
-/* MODAL PAGAMENTO DE CONTA                                            */
+/* MODAL CONTA                                                        */
 /* ------------------------------------------------------------------ */
 
 function ContaModal({
@@ -1035,10 +1083,7 @@ function ContaModal({
   onClose: () => void;
 }) {
   const [code, setCode] = useState("");
-
-  const [loading, setLoading] =
-    useState(false);
-
+  const [loading, setLoading] = useState(false);
   const [consulta, setConsulta] =
     useState<ContaConsultada | null>(null);
 
@@ -1056,26 +1101,7 @@ function ContaModal({
     }
   }, [open]);
 
-  /**
-   * Primeiro clique:
-   * consulta o boleto.
-   *
-   * Segundo clique:
-   * confirma o pagamento.
-   */
   async function handleSubmit() {
-    /**
-     * IMPORTANTE:
-     *
-     * code contém a máscara visual.
-     *
-     * Exemplo:
-     *
-     * 12345.67890 12345.678901 ...
-     *
-     * Para validar e enviar para a API,
-     * removemos a máscara.
-     */
     const digits = onlyDigits(code);
 
     if (digits.length < 44) {
@@ -1102,11 +1128,6 @@ function ContaModal({
     setFeedback(null);
 
     try {
-      /**
-       * PRIMEIRA ETAPA
-       *
-       * Consulta o boleto usando somente números.
-       */
       if (!consulta) {
         const resultado =
           await consultarConta(digits);
@@ -1116,12 +1137,6 @@ function ContaModal({
         return;
       }
 
-      /**
-       * SEGUNDA ETAPA
-       *
-       * Depois de consultar e mostrar os dados,
-       * confirma o pagamento.
-       */
       await pagarConta(
         consulta.linhaDigitavel
       );
@@ -1147,10 +1162,6 @@ function ContaModal({
   const done =
     feedback?.type === "success";
 
-  /**
-   * Quantidade real de números,
-   * sem contar pontos e espaços.
-   */
   const barcodeDigits = onlyDigits(code);
 
   return (
@@ -1184,12 +1195,6 @@ function ContaModal({
               );
 
             setCode(masked);
-
-            /**
-             * Se o usuário alterar o código,
-             * precisamos obrigatoriamente
-             * fazer uma nova consulta.
-             */
             setConsulta(null);
             setFeedback(null);
           }}
@@ -1211,8 +1216,7 @@ function ContaModal({
 
         <p className="mt-1 text-[10px] leading-4 text-[#9aabb7]">
           Você pode digitar ou colar o código.
-          Pontos e espaços são aplicados
-          automaticamente.
+          Pontos e espaços são aplicados automaticamente.
         </p>
       </div>
 
@@ -1222,8 +1226,7 @@ function ContaModal({
             <span>Quem recebe</span>
 
             <span className="text-right font-bold text-[#062b4f]">
-              {consulta.beneficiario ||
-                "—"}
+              {consulta.beneficiario || "—"}
             </span>
           </div>
 
@@ -1303,7 +1306,7 @@ function ContaModal({
 }
 
 /* ------------------------------------------------------------------ */
-/* PÁGINA                                                              */
+/* DASHBOARD                                                          */
 /* ------------------------------------------------------------------ */
 
 export default function PassageiroDashboard() {
@@ -1324,6 +1327,20 @@ export default function PassageiroDashboard() {
 
   const [modal, setModal] =
     useState<ModalType>(null);
+
+  /* -------------------------------------------------------------- */
+  /* WALLET                                                         */
+  /* -------------------------------------------------------------- */
+
+  const [walletExists, setWalletExists] =
+    useState(false);
+
+  const [walletLoading, setWalletLoading] =
+    useState(true);
+
+  /* -------------------------------------------------------------- */
+  /* DATA                                                           */
+  /* -------------------------------------------------------------- */
 
   const hoje = useMemo(
     () => new Date(),
@@ -1352,8 +1369,7 @@ export default function PassageiroDashboard() {
             credentials: "include",
             cache: "no-store",
             headers: {
-              Accept:
-                "application/json",
+              Accept: "application/json",
             },
           });
 
@@ -1377,6 +1393,80 @@ export default function PassageiroDashboard() {
     }
 
     void loadUser();
+  }, []);
+
+  /* -------------------------------------------------------------- */
+  /* VERIFICAR WALLET NO BANCO                                     */
+  /* -------------------------------------------------------------- */
+
+  useEffect(() => {
+    let ativo = true;
+
+    async function checkWallet() {
+      try {
+        setWalletLoading(true);
+
+        const response =
+          await fetch("/api/wallet", {
+            method: "GET",
+            credentials: "include",
+            cache: "no-store",
+            headers: {
+              Accept: "application/json",
+            },
+          });
+
+        if (!response.ok) {
+          if (ativo) {
+            setWalletExists(false);
+          }
+
+          return;
+        }
+
+        const data =
+          await response.json();
+
+        /*
+         * Esperado da API:
+         *
+         * {
+         *   exists: true
+         * }
+         *
+         * ou
+         *
+         * {
+         *   exists: false
+         * }
+         */
+
+        if (ativo) {
+          setWalletExists(
+            data?.exists === true
+          );
+        }
+      } catch (err) {
+        console.error(
+          "Erro ao verificar wallet:",
+          err
+        );
+
+        if (ativo) {
+          setWalletExists(false);
+        }
+      } finally {
+        if (ativo) {
+          setWalletLoading(false);
+        }
+      }
+    }
+
+    void checkWallet();
+
+    return () => {
+      ativo = false;
+    };
   }, []);
 
   /* -------------------------------------------------------------- */
@@ -1792,7 +1882,6 @@ export default function PassageiroDashboard() {
           banners[0]?.image && (
             <section className="mt-5 sm:mt-6 lg:mt-7 overflow-hidden rounded-2xl sm:rounded-[24px] lg:rounded-[28px] border border-white/60 bg-white shadow-[0_15px_45px_rgba(6,43,79,0.1)]">
               <div className="relative min-h-[150px] sm:min-h-[180px] md:min-h-[200px] lg:min-h-[220px] xl:min-h-[240px] overflow-hidden">
-
                 <img
                   src={banners[0].image}
                   alt={
@@ -1802,96 +1891,92 @@ export default function PassageiroDashboard() {
                   className="absolute inset-0 h-full w-full object-cover"
                   loading="lazy"
                 />
-
                 <div className="absolute inset-0" />
-
                 <div className="relative z-10 flex min-h-[150px] sm:min-h-[180px] md:min-h-[210px] lg:min-h-[250px] xl:min-h-[260px] items-center px-4 py-6 sm:px-6 sm:py-7 md:px-8 md:py-8 lg:px-10 xl:px-12" />
               </div>
             </section>
           )}
-
         <div className="h-2" />
+        {!walletLoading && walletExists && (
+          <section className="mt-4 sm:mt-5">
+            <div className="mb-3 sm:mb-4">
+              <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white">
+                Serviços rápidos
+              </h2>
 
-        {/* SERVIÇOS RÁPIDOS */}
+              <p className="mt-0 text-xs sm:text-sm text-white">
+                Recarregue seu celular e
+                pague contas sem sair da
+                Maylon.
+              </p>
+            </div>
 
-        <section className="mt-4 sm:mt-5">
-          <div className="mb-3 sm:mb-4">
-            <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white">
-              Serviços rápidos
-            </h2>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5">
 
-            <p className="mt-0 text-xs sm:text-sm text-white">
-              Recarregue seu celular e
-              pague contas sem sair da
-              Maylon.
-            </p>
-          </div>
+              {/* RECARGA */}
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5">
+              <button
+                type="button"
+                onClick={() =>
+                  setModal("recarga")
+                }
+                className="group relative flex w-full items-center gap-4 overflow-hidden rounded-2xl sm:rounded-[26px] border border-[#e2ebee] bg-white p-5 sm:p-6 text-left shadow-[0_10px_35px_rgba(6,43,79,0.07)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_18px_45px_rgba(6,43,79,0.11)]"
+              >
+                <div className="absolute -right-12 -top-12 h-32 w-32 rounded-full bg-[#08a89d]/5 transition group-hover:scale-125" />
 
-            {/* RECARGA */}
+                <div className="relative flex h-12 w-12 sm:h-14 sm:w-14 shrink-0 items-center justify-center rounded-2xl bg-[#e5f8f4] text-[#08a89d] transition group-hover:bg-[#08a89d] group-hover:text-white">
+                  <Smartphone size={24} />
+                </div>
 
-            <button
-              type="button"
-              onClick={() =>
-                setModal("recarga")
-              }
-              className="group relative flex w-full items-center gap-4 overflow-hidden rounded-2xl sm:rounded-[26px] border border-[#e2ebee] bg-white p-5 sm:p-6 text-left shadow-[0_10px_35px_rgba(6,43,79,0.07)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_18px_45px_rgba(6,43,79,0.11)]"
-            >
-              <div className="absolute -right-12 -top-12 h-32 w-32 rounded-full bg-[#08a89d]/5 transition group-hover:scale-125" />
+                <div className="relative min-w-0 flex-1">
+                  <p className="text-sm sm:text-base font-black text-[#062b4f]">
+                    Recarga de Celular
+                  </p>
 
-              <div className="relative flex h-12 w-12 sm:h-14 sm:w-14 shrink-0 items-center justify-center rounded-2xl bg-[#e5f8f4] text-[#08a89d] transition group-hover:bg-[#08a89d] group-hover:text-white">
-                <Smartphone size={24} />
-              </div>
+                  <p className="mt-0.5 text-[11px] sm:text-xs font-medium text-[#71869a]">
+                    Adicione créditos de forma rápida e segura.
+                  </p>
+                </div>
 
-              <div className="relative min-w-0 flex-1">
-                <p className="text-sm sm:text-base font-black text-[#062b4f]">
-                  Recarga de Celular
-                </p>
+                <ArrowUpRight
+                  size={18}
+                  className="relative shrink-0 text-[#08a89d]"
+                />
+              </button>
 
-                <p className="mt-0.5 text-[11px] sm:text-xs font-medium text-[#71869a]">
-                  Adicione créditos de forma rápida e segura.
-                </p>
-              </div>
+              {/* CONTA */}
 
-              <ArrowUpRight
-                size={18}
-                className="relative shrink-0 text-[#08a89d]"
-              />
-            </button>
+              <button
+                type="button"
+                onClick={() =>
+                  setModal("conta")
+                }
+                className="group relative flex w-full items-center gap-4 overflow-hidden rounded-2xl sm:rounded-[26px] border border-[#e2ebee] bg-white p-5 sm:p-6 text-left shadow-[0_10px_35px_rgba(6,43,79,0.07)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_18px_45px_rgba(6,43,79,0.11)]"
+              >
+                <div className="absolute -right-12 -top-12 h-32 w-32 rounded-full bg-[#0c75bd]/5 transition group-hover:scale-125" />
 
-            {/* CONTA */}
+                <div className="relative flex h-12 w-12 sm:h-14 sm:w-14 shrink-0 items-center justify-center rounded-2xl bg-[#e5f8f4] text-[#08a89d] transition group-hover:bg-[#08a89d] group-hover:text-white">
+                  <Receipt size={24} />
+                </div>
 
-            <button
-              type="button"
-              onClick={() =>
-                setModal("conta")
-              }
-              className="group relative flex w-full items-center gap-4 overflow-hidden rounded-2xl sm:rounded-[26px] border border-[#e2ebee] bg-white p-5 sm:p-6 text-left shadow-[0_10px_35px_rgba(6,43,79,0.07)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_18px_45px_rgba(6,43,79,0.11)]"
-            >
-              <div className="absolute -right-12 -top-12 h-32 w-32 rounded-full bg-[#0c75bd]/5 transition group-hover:scale-125" />
+                <div className="relative min-w-0 flex-1">
+                  <p className="text-sm sm:text-base font-black text-[#062b4f]">
+                    Pagamento de Conta
+                  </p>
 
-              <div className="relative flex h-12 w-12 sm:h-14 sm:w-14 shrink-0 items-center justify-center rounded-2xl bg-[#e5f8f4] text-[#08a89d] transition group-hover:bg-[#08a89d] group-hover:text-white">
-                <Receipt size={24} />
-              </div>
+                  <p className="mt-0.5 text-[11px] sm:text-xs font-medium text-[#71869a]">
+                    Pague boletos e contas direto pelo app.
+                  </p>
+                </div>
 
-              <div className="relative min-w-0 flex-1">
-                <p className="text-sm sm:text-base font-black text-[#062b4f]">
-                  Pagamento de Conta
-                </p>
-
-                <p className="mt-0.5 text-[11px] sm:text-xs font-medium text-[#71869a]">
-                  Pague boletos e contas direto pelo app.
-                </p>
-              </div>
-
-              <ArrowUpRight
-                size={18}
-                className="relative shrink-0 text-[#08a89d]"
-              />
-            </button>
-          </div>
-        </section>
+                <ArrowUpRight
+                  size={18}
+                  className="relative shrink-0 text-[#08a89d]"
+                />
+              </button>
+            </div>
+          </section>
+        )}
 
         {/* SUA MOVIMENTAÇÃO */}
 
@@ -1924,7 +2009,6 @@ export default function PassageiroDashboard() {
 
             <div className="group relative overflow-hidden rounded-2xl sm:rounded-[26px] border border-[#e2ebee] bg-white p-5 sm:p-6 shadow-[0_10px_35px_rgba(6,43,79,0.07)]">
               <div className="relative">
-
                 <div className="flex items-start justify-between">
 
                   <div className="flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-2xl bg-[#e5f8f4] text-[#08a89d]">
@@ -1955,7 +2039,6 @@ export default function PassageiroDashboard() {
             {/* CARD 2 */}
 
             <div className="group relative overflow-hidden rounded-2xl sm:rounded-[26px] border border-[#e2ebee] bg-white p-5 sm:p-6 shadow-[0_10px_35px_rgba(6,43,79,0.07)]">
-
               <div className="relative">
 
                 <div className="flex items-start justify-between">
@@ -1988,7 +2071,6 @@ export default function PassageiroDashboard() {
             {/* CARD 3 */}
 
             <div className="group relative overflow-hidden rounded-2xl sm:rounded-[26px] border border-[#e2ebee] bg-white p-5 sm:p-6 shadow-[0_10px_35px_rgba(6,43,79,0.07)] sm:col-span-2 lg:col-span-1">
-
               <div className="relative">
 
                 <div className="flex items-start justify-between">
@@ -2059,7 +2141,6 @@ export default function PassageiroDashboard() {
               <div className="relative h-[240px] sm:h-[270px] md:h-[290px] lg:h-[310px] w-full">
 
                 <div className="absolute inset-0 flex flex-col justify-between pb-9 pt-3">
-
                   {[4, 3, 2, 1, 0].map(
                     (item) => (
                       <div
@@ -2094,17 +2175,14 @@ export default function PassageiroDashboard() {
                           key={`${item.label}-${index}`}
                           className="group relative flex h-full flex-1 flex-col justify-end"
                         >
-                          {item.value >
-                            0 && (
+                          {item.value > 0 && (
                             <div
                               className="absolute left-1/2 z-20 flex -translate-x-1/2 -translate-y-2 items-center justify-center rounded-lg bg-[#062b4f] px-2 py-1 text-[10px] font-bold text-white opacity-0 shadow-lg transition group-hover:opacity-100"
                               style={{
                                 bottom: `${height}%`,
                               }}
                             >
-                              {
-                                item.value
-                              }
+                              {item.value}
                             </div>
                           )}
 
@@ -2113,8 +2191,7 @@ export default function PassageiroDashboard() {
                             style={{
                               height: `${height}%`,
                               opacity:
-                                item.value ===
-                                0
+                                item.value === 0
                                   ? 0.18
                                   : 1,
                             }}
@@ -2123,9 +2200,7 @@ export default function PassageiroDashboard() {
                           </div>
 
                           <span className="absolute -bottom-7 left-1/2 -translate-x-1/2 whitespace-nowrap text-[9px] font-semibold text-[#71869a]">
-                            {
-                              item.label
-                            }
+                            {item.label}
                           </span>
                         </div>
                       );
@@ -2134,10 +2209,8 @@ export default function PassageiroDashboard() {
                 </div>
 
                 {!loading &&
-                  rows.length ===
-                    0 && (
+                  rows.length === 0 && (
                     <div className="absolute inset-0 flex items-center justify-center">
-
                       <div className="rounded-2xl border border-dashed border-[#dbe5e9] bg-[#fbfcfd] px-5 py-4 text-center">
 
                         <Car
@@ -2198,14 +2271,11 @@ export default function PassageiroDashboard() {
               )}
 
               {!loading &&
-                ultimasViagens.length ===
-                  0 && (
+                ultimasViagens.length === 0 && (
                   <div className="py-10 text-center">
 
                     <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#f2f6f7] text-[#91a5b3]">
-                      <CalendarDays
-                        size={23}
-                      />
+                      <CalendarDays size={23} />
                     </div>
 
                     <p className="mt-4 text-xs sm:text-sm font-bold text-[#506a82]">
@@ -2219,8 +2289,7 @@ export default function PassageiroDashboard() {
                 )}
 
               {!loading &&
-                ultimasViagens.length >
-                  0 &&
+                ultimasViagens.length > 0 &&
                 ultimasViagens.map(
                   (
                     trip,
@@ -2233,25 +2302,20 @@ export default function PassageiroDashboard() {
                           trip.trip_request_id ??
                           trip.id;
 
-                        if (!tripId)
-                          return;
+                        if (!tripId) return;
 
-                        window.location.href = `/passageiro/viagens/${tripId}`;
+                        window.location.href =
+                          `/passageiro/viagens/${tripId}`;
                       }}
                       className="group flex cursor-pointer gap-3 border-b border-[#edf1f4] py-4 sm:py-5 transition hover:bg-[#f8fbfc] last:border-0"
                     >
 
                       <div className="flex h-10 w-10 sm:h-11 sm:w-11 shrink-0 items-center justify-center rounded-xl bg-[#e6f7f4] text-[#08a89d] transition group-hover:bg-[#08a89d] group-hover:text-white">
 
-                        {index ===
-                        0 ? (
-                          <CheckCircle2
-                            size={19}
-                          />
+                        {index === 0 ? (
+                          <CheckCircle2 size={19} />
                         ) : (
-                          <CalendarDays
-                            size={19}
-                          />
+                          <CalendarDays size={19} />
                         )}
                       </div>
 
@@ -2260,9 +2324,7 @@ export default function PassageiroDashboard() {
                         <div className="flex items-start justify-between gap-2">
 
                           <p className="truncate text-xs sm:text-sm font-bold text-[#163a59]">
-                            {getTripTitle(
-                              trip
-                            )}
+                            {getTripTitle(trip)}
                           </p>
 
                           <span
@@ -2284,9 +2346,7 @@ export default function PassageiroDashboard() {
                           />
 
                           <span className="truncate">
-                            {getTripLocation(
-                              trip
-                            )}
+                            {getTripLocation(trip)}
                           </span>
                         </div>
 
@@ -2330,16 +2390,12 @@ export default function PassageiroDashboard() {
 
       <RecargaModal
         open={modal === "recarga"}
-        onClose={() =>
-          setModal(null)
-        }
+        onClose={() => setModal(null)}
       />
 
       <ContaModal
         open={modal === "conta"}
-        onClose={() =>
-          setModal(null)
-        }
+        onClose={() => setModal(null)}
       />
     </main>
   );

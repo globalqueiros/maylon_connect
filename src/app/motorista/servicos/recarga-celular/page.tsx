@@ -133,8 +133,8 @@ export default function RecargaCelularPage() {
       setLoading(true);
       setErro(null);
 
-      // A operadora é detectada pela Asaas pelo número.
-      const response = await fetch("/api/asaas/recarga", {
+      // A operadora é escolhida na tela e enviada para a RVHub.
+      const response = await fetch("/api/rvhub/recarga", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -143,6 +143,7 @@ export default function RecargaCelularPage() {
         body: JSON.stringify({
           telefone: somenteNumeros(telefone),
           valor: valorFinal,
+          operadora,
         }),
       });
 

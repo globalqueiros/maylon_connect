@@ -18,7 +18,7 @@ import {
   formatarValorConta,
   pagarConta,
   type ContaConsultada,
-} from "../../../lib/asaas/contaCliente";
+} from "../../../lib/rvhub/contaCliente";
 
 type Method = "pdf" | "codigo";
 
