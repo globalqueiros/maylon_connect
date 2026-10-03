@@ -24,7 +24,7 @@ import {
 } from "../lib/rvhub/contaCliente";
 
 /* ------------------------------------------------------------------ */
-/* TIPOS                                                               */
+/* TIPOS                                                              */
 /* ------------------------------------------------------------------ */
 
 type User = {
@@ -57,7 +57,7 @@ type Trip = {
 type ModalType = "recarga" | "conta" | null;
 
 /* ------------------------------------------------------------------ */
-/* HELPERS                                                             */
+/* STATUS                                                             */
 /* ------------------------------------------------------------------ */
 
 const STATUS_COMPLETED = [
@@ -91,6 +91,10 @@ const STATUS_IN_PROGRESS = [
   "em_andamento",
   "em andamento",
 ];
+
+/* ------------------------------------------------------------------ */
+/* HELPERS                                                            */
+/* ------------------------------------------------------------------ */
 
 function parseDate(value: unknown): Date | null {
   if (!value) return null;
@@ -191,6 +195,10 @@ function formatTime(value: unknown): string {
   });
 }
 
+/* ------------------------------------------------------------------ */
+/* USUÁRIO                                                            */
+/* ------------------------------------------------------------------ */
+
 function normalizeUser(response: unknown): User | null {
   if (!response || typeof response !== "object") return null;
 
@@ -246,6 +254,14 @@ function normalizeUser(response: unknown): User | null {
     email: typeof email === "string" ? email : "",
   };
 }
+
+function extractUser(response: unknown): User | null {
+  return normalizeUser(response);
+}
+
+/* ------------------------------------------------------------------ */
+/* VIAGENS                                                            */
+/* ------------------------------------------------------------------ */
 
 function normalizeTrip(raw: unknown): Trip {
   if (!raw || typeof raw !== "object") {
@@ -385,10 +401,6 @@ function normalizeTrip(raw: unknown): Trip {
   };
 }
 
-function extractUser(response: unknown): User | null {
-  return normalizeUser(response);
-}
-
 function extractTrips(response: unknown): unknown[] {
   if (Array.isArray(response)) return response;
 
@@ -434,6 +446,10 @@ function extractTrips(response: unknown): unknown[] {
 
   return [];
 }
+
+/* ------------------------------------------------------------------ */
+/* STATUS VIAGEM                                                      */
+/* ------------------------------------------------------------------ */
 
 function normalizeStatus(status: string | null): string {
   return String(status ?? "")
@@ -530,7 +546,7 @@ function getTripStatusLabel(status: string | null): string {
 }
 
 /* ------------------------------------------------------------------ */
-/* MÁSCARAS                                                            */
+/* MÁSCARAS                                                           */
 /* ------------------------------------------------------------------ */
 
 function onlyDigits(value: string): string {
@@ -555,16 +571,6 @@ function maskPhone(value: string): string {
   return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
 }
 
-/**
- * Máscara para linha digitável de boleto.
- *
- * Exemplo visual:
- *
- * 12345.67890 12345.678901 12345.678901 1 12345678901234
- *
- * A função remove qualquer caractere que não seja número
- * e depois aplica a máscara visual.
- */
 function maskBarcode(value: string): string {
   const digits = onlyDigits(value).slice(0, 48);
 
@@ -577,53 +583,26 @@ function maskBarcode(value: string): string {
   }
 
   if (digits.length <= 15) {
-    return `${digits.slice(0, 5)}.${digits.slice(
-      5,
-      10
-    )} ${digits.slice(10)}`;
+    return `${digits.slice(0, 5)}.${digits.slice(5, 10)} ${digits.slice(10)}`;
   }
 
   if (digits.length <= 20) {
-    return `${digits.slice(0, 5)}.${digits.slice(
-      5,
-      10
-    )} ${digits.slice(10, 15)}.${digits.slice(15)}`;
+    return `${digits.slice(0, 5)}.${digits.slice(5, 10)} ${digits.slice(10, 15)}.${digits.slice(15)}`;
   }
 
   if (digits.length <= 25) {
-    return `${digits.slice(0, 5)}.${digits.slice(
-      5,
-      10
-    )} ${digits.slice(10, 15)}.${digits.slice(
-      15,
-      20
-    )} ${digits.slice(20)}`;
+    return `${digits.slice(0, 5)}.${digits.slice(5, 10)} ${digits.slice(10, 15)}.${digits.slice(15, 20)} ${digits.slice(20)}`;
   }
 
   if (digits.length <= 30) {
-    return `${digits.slice(0, 5)}.${digits.slice(
-      5,
-      10
-    )} ${digits.slice(10, 15)}.${digits.slice(
-      15,
-      20
-    )} ${digits.slice(20, 25)} ${digits.slice(25)}`;
+    return `${digits.slice(0, 5)}.${digits.slice(5, 10)} ${digits.slice(10, 15)}.${digits.slice(15, 20)} ${digits.slice(20, 25)} ${digits.slice(25)}`;
   }
 
-  return `${digits.slice(0, 5)}.${digits.slice(
-    5,
-    10
-  )} ${digits.slice(10, 15)}.${digits.slice(
-    15,
-    20
-  )} ${digits.slice(20, 25)} ${digits.slice(
-    25,
-    30
-  )} ${digits.slice(30)}`;
+  return `${digits.slice(0, 5)}.${digits.slice(5, 10)} ${digits.slice(10, 15)}.${digits.slice(15, 20)} ${digits.slice(20, 25)} ${digits.slice(25, 30)} ${digits.slice(30)}`;
 }
 
 /* ------------------------------------------------------------------ */
-/* POST JSON                                                           */
+/* POST JSON                                                          */
 /* ------------------------------------------------------------------ */
 
 async function postJson(
@@ -684,7 +663,7 @@ async function postJson(
 }
 
 /* ------------------------------------------------------------------ */
-/* MODAL BASE                                                          */
+/* MODAL BASE                                                         */
 /* ------------------------------------------------------------------ */
 
 function Modal({
@@ -772,6 +751,10 @@ function Modal({
   );
 }
 
+/* ------------------------------------------------------------------ */
+/* FEEDBACK                                                           */
+/* ------------------------------------------------------------------ */
+
 function Feedback({
   type,
   message,
@@ -803,16 +786,10 @@ const primaryButtonClass =
   "mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-[#08a89d] px-4 py-3.5 text-sm font-bold text-white shadow-[0_8px_20px_rgba(8,168,157,0.2)] transition hover:-translate-y-0.5 hover:bg-[#078f80] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0";
 
 /* ------------------------------------------------------------------ */
-/* MODAL RECARGA                                                       */
+/* MODAL RECARGA                                                      */
 /* ------------------------------------------------------------------ */
 
-const RECHARGE_VALUES = [
-  15,
-  20,
-  30,
-  50,
-  100,
-];
+const RECHARGE_VALUES = [15, 20, 30, 50, 100];
 
 function RecargaModal({
   open,
@@ -824,9 +801,7 @@ function RecargaModal({
   const [phone, setPhone] = useState("");
   const [operator, setOperator] = useState("");
   const [operators, setOperators] = useState<string[]>([]);
-
   const [amount, setAmount] = useState<number>(20);
-
   const [loading, setLoading] = useState(false);
 
   const [feedback, setFeedback] = useState<{
@@ -837,33 +812,60 @@ function RecargaModal({
   useEffect(() => {
     if (!open) {
       setPhone("");
+      setOperator("");
+      setOperators([]);
       setAmount(20);
       setLoading(false);
       setFeedback(null);
     }
   }, [open]);
 
-  // Operadoras habilitadas na conta RVHub (lista dinâmica, não fixa).
+  /* -------------------------------------------------------------- */
+  /* OPERADORAS DINÂMICAS                                           */
+  /* -------------------------------------------------------------- */
+
   useEffect(() => {
     if (!open || operators.length > 0) return;
+
     let ativo = true;
+
     (async () => {
       try {
-        const res = await fetch("/api/rvhub/recarga/operadoras", {
-          credentials: "include",
-          cache: "no-store",
-        });
+        const res = await fetch(
+          "/api/rvhub/recarga/operadoras",
+          {
+            credentials: "include",
+            cache: "no-store",
+          }
+        );
+
         const data = await res.json().catch(() => null);
+
         if (!ativo || !res.ok) return;
+
         const lista: string[] = Array.isArray(data?.operadoras)
-          ? data.operadoras.map((o: { provider: string }) => String(o.provider))
+          ? data.operadoras
+              .map((o: { provider: string }) =>
+                String(o.provider)
+              )
+              .filter(Boolean)
           : [];
+
+        if (!ativo) return;
+
         setOperators(lista);
-        setOperator((atual) => atual || lista[0] || "");
-      } catch {
-        // Sem lista a tela fica sem seletor.
+
+        setOperator(
+          (atual) => atual || lista[0] || ""
+        );
+      } catch (error) {
+        console.error(
+          "Erro ao carregar operadoras:",
+          error
+        );
       }
     })();
+
     return () => {
       ativo = false;
     };
@@ -877,6 +879,15 @@ function RecargaModal({
         type: "error",
         message:
           "Informe um número de celular válido com DDD.",
+      });
+
+      return;
+    }
+
+    if (!operator) {
+      setFeedback({
+        type: "error",
+        message: "Selecione uma operadora.",
       });
 
       return;
@@ -963,10 +974,8 @@ function RecargaModal({
                 key={item}
                 type="button"
                 disabled={loading || done}
-                onClick={() =>
-                  setOperator(item)
-                }
-                className={`rounded-xl cursor-pointer border px-2 py-2.5 text-xs font-bold transition ${
+                onClick={() => setOperator(item)}
+                className={`cursor-pointer rounded-xl border px-2 py-2.5 text-xs font-bold transition ${
                   operator === item
                     ? "border-[#08a89d] bg-[#e5f8f4] text-[#078f80]"
                     : "border-[#dce5e9] bg-white text-[#506a82] hover:border-[#08a89d]"
@@ -989,10 +998,8 @@ function RecargaModal({
                 key={value}
                 type="button"
                 disabled={loading || done}
-                onClick={() =>
-                  setAmount(value)
-                }
-                className={`rounded-xl cursor-pointer border px-2 py-2.5 text-sm font-bold transition ${
+                onClick={() => setAmount(value)}
+                className={`cursor-pointer rounded-xl border px-2 py-2.5 text-sm font-bold transition ${
                   amount === value
                     ? "border-[#08a89d] bg-[#e5f8f4] text-[#078f80]"
                     : "border-[#dce5e9] bg-white text-[#506a82] hover:border-[#08a89d]"
@@ -1024,7 +1031,7 @@ function RecargaModal({
         <button
           type="button"
           onClick={handleSubmit}
-          disabled={loading}
+          disabled={loading || !operator}
           className={primaryButtonClass}
         >
           {loading ? (
@@ -1048,7 +1055,7 @@ function RecargaModal({
 }
 
 /* ------------------------------------------------------------------ */
-/* MODAL PAGAMENTO DE CONTA                                            */
+/* MODAL CONTA                                                        */
 /* ------------------------------------------------------------------ */
 
 function ContaModal({
@@ -1059,10 +1066,7 @@ function ContaModal({
   onClose: () => void;
 }) {
   const [code, setCode] = useState("");
-
-  const [loading, setLoading] =
-    useState(false);
-
+  const [loading, setLoading] = useState(false);
   const [consulta, setConsulta] =
     useState<ContaConsultada | null>(null);
 
@@ -1080,26 +1084,7 @@ function ContaModal({
     }
   }, [open]);
 
-  /**
-   * Primeiro clique:
-   * consulta o boleto.
-   *
-   * Segundo clique:
-   * confirma o pagamento.
-   */
   async function handleSubmit() {
-    /**
-     * IMPORTANTE:
-     *
-     * code contém a máscara visual.
-     *
-     * Exemplo:
-     *
-     * 12345.67890 12345.678901 ...
-     *
-     * Para validar e enviar para a API,
-     * removemos a máscara.
-     */
     const digits = onlyDigits(code);
 
     if (digits.length < 44) {
@@ -1126,11 +1111,6 @@ function ContaModal({
     setFeedback(null);
 
     try {
-      /**
-       * PRIMEIRA ETAPA
-       *
-       * Consulta o boleto usando somente números.
-       */
       if (!consulta) {
         const resultado =
           await consultarConta(digits);
@@ -1140,12 +1120,6 @@ function ContaModal({
         return;
       }
 
-      /**
-       * SEGUNDA ETAPA
-       *
-       * Depois de consultar e mostrar os dados,
-       * confirma o pagamento.
-       */
       await pagarConta(
         consulta.linhaDigitavel
       );
@@ -1171,10 +1145,6 @@ function ContaModal({
   const done =
     feedback?.type === "success";
 
-  /**
-   * Quantidade real de números,
-   * sem contar pontos e espaços.
-   */
   const barcodeDigits = onlyDigits(code);
 
   return (
@@ -1203,17 +1173,9 @@ function ContaModal({
           value={code}
           onChange={(event) => {
             const masked =
-              maskBarcode(
-                event.target.value
-              );
+              maskBarcode(event.target.value);
 
             setCode(masked);
-
-            /**
-             * Se o usuário alterar o código,
-             * precisamos obrigatoriamente
-             * fazer uma nova consulta.
-             */
             setConsulta(null);
             setFeedback(null);
           }}
@@ -1235,8 +1197,7 @@ function ContaModal({
 
         <p className="mt-1 text-[10px] leading-4 text-[#9aabb7]">
           Você pode digitar ou colar o código.
-          Pontos e espaços são aplicados
-          automaticamente.
+          Pontos e espaços são aplicados automaticamente.
         </p>
       </div>
 
@@ -1246,8 +1207,7 @@ function ContaModal({
             <span>Quem recebe</span>
 
             <span className="text-right font-bold text-[#062b4f]">
-              {consulta.beneficiario ||
-                "—"}
+              {consulta.beneficiario || "—"}
             </span>
           </div>
 
@@ -1327,7 +1287,7 @@ function ContaModal({
 }
 
 /* ------------------------------------------------------------------ */
-/* PÁGINA                                                              */
+/* DASHBOARD                                                          */
 /* ------------------------------------------------------------------ */
 
 export default function PassageiroDashboard() {
@@ -1348,6 +1308,20 @@ export default function PassageiroDashboard() {
 
   const [modal, setModal] =
     useState<ModalType>(null);
+
+  /* -------------------------------------------------------------- */
+  /* WALLET                                                         */
+  /* -------------------------------------------------------------- */
+
+  const [walletExists, setWalletExists] =
+    useState(false);
+
+  const [walletLoading, setWalletLoading] =
+    useState(true);
+
+  /* -------------------------------------------------------------- */
+  /* DATA                                                           */
+  /* -------------------------------------------------------------- */
 
   const hoje = useMemo(
     () => new Date(),
@@ -1376,8 +1350,7 @@ export default function PassageiroDashboard() {
             credentials: "include",
             cache: "no-store",
             headers: {
-              Accept:
-                "application/json",
+              Accept: "application/json",
             },
           });
 
@@ -1401,6 +1374,66 @@ export default function PassageiroDashboard() {
     }
 
     void loadUser();
+  }, []);
+
+  /* -------------------------------------------------------------- */
+  /* VERIFICAR WALLET                                               */
+  /* -------------------------------------------------------------- */
+
+  useEffect(() => {
+    let ativo = true;
+
+    async function checkWallet() {
+      try {
+        setWalletLoading(true);
+
+        const response =
+          await fetch("/api/wallet", {
+            method: "GET",
+            credentials: "include",
+            cache: "no-store",
+            headers: {
+              Accept: "application/json",
+            },
+          });
+
+        if (!response.ok) {
+          if (ativo) {
+            setWalletExists(false);
+          }
+
+          return;
+        }
+
+        const data =
+          await response.json();
+
+        if (ativo) {
+          setWalletExists(
+            data?.exists === true
+          );
+        }
+      } catch (err) {
+        console.error(
+          "Erro ao verificar wallet:",
+          err
+        );
+
+        if (ativo) {
+          setWalletExists(false);
+        }
+      } finally {
+        if (ativo) {
+          setWalletLoading(false);
+        }
+      }
+    }
+
+    void checkWallet();
+
+    return () => {
+      ativo = false;
+    };
   }, []);
 
   /* -------------------------------------------------------------- */
@@ -1756,12 +1789,12 @@ export default function PassageiroDashboard() {
 
   return (
     <main className="min-h-screen text-white">
-      <div className="mx-auto w-full max-w-8xl px-3 sm:px-4 md:px-6 lg:px-0 2xl:max-w-[1600px]">
+      <div className="mx-auto w-full max-w-[1600px] px-3 sm:px-4 md:px-6 lg:px-8">
 
         {/* HEADER */}
 
-        <section className="relative mt-3 overflow-hidden rounded-2xl sm:rounded-[28px] lg:rounded-[32px] bg-white shadow-[0_20px_60px_rgba(6,43,79,0.12)]">
-          <div className="relative min-h-[190px] sm:min-h-[210px] md:min-h-[230px] lg:min-h-[245px] overflow-hidden">
+        <section className="relative mt-3 overflow-hidden rounded-2xl bg-white shadow-[0_20px_60px_rgba(6,43,79,0.12)] sm:rounded-[28px] lg:rounded-[32px]">
+          <div className="relative min-h-[190px] overflow-hidden sm:min-h-[210px] md:min-h-[230px] lg:min-h-[245px]">
 
             <div
               className="absolute inset-0 bg-cover bg-center"
@@ -1773,24 +1806,24 @@ export default function PassageiroDashboard() {
 
             <div className="absolute inset-0 bg-gradient-to-br from-[#0a9d86]/95 via-[#0b9b85]/80 to-[#062b4f]/85" />
 
-            <div className="absolute -right-16 -top-20 h-56 w-56 sm:-right-24 sm:-top-32 sm:h-80 sm:w-80 rounded-full bg-white/10 blur-3xl" />
+            <div className="absolute -right-16 -top-20 h-56 w-56 rounded-full bg-white/10 blur-3xl sm:-right-24 sm:-top-32 sm:h-80 sm:w-80" />
 
-            <div className="absolute -bottom-28 right-1/4 h-56 w-56 sm:-bottom-40 sm:h-80 sm:w-80 rounded-full bg-[#5be0c8]/10 blur-3xl" />
+            <div className="absolute -bottom-28 right-1/4 h-56 w-56 rounded-full bg-[#5be0c8]/10 blur-3xl sm:-bottom-40 sm:h-80 sm:w-80" />
 
             <div className="relative z-10 px-4 py-6 sm:px-6 sm:py-7 md:px-8 md:py-8 lg:px-10 lg:py-9 xl:px-12 xl:py-10">
 
-              <p className="mt-4 sm:mt-6 lg:mt-7 text-sm sm:text-base font-medium text-white/85">
+              <p className="mt-4 text-sm font-medium text-white/85 sm:mt-6 sm:text-base lg:mt-7">
                 {texto},
               </p>
 
-              <h1 className="mt-1 max-w-3xl text-2xl sm:text-3xl md:text-3xl lg:text-4xl xl:text-5xl font-black tracking-tight text-white">
+              <h1 className="mt-1 max-w-3xl text-2xl font-black tracking-tight text-white sm:text-3xl md:text-3xl lg:text-4xl xl:text-5xl">
                 {loading
                   ? "Carregando..."
                   : user?.full_name ||
                     "Bem-vindo à Maylon"}
               </h1>
 
-              <p className="mt-2 sm:mt-3 max-w-2xl text-xs sm:text-sm leading-6 text-white/80 lg:text-base">
+              <p className="mt-2 max-w-2xl text-xs leading-6 text-white/80 sm:mt-3 sm:text-sm lg:text-base">
                 Acompanhe suas viagens,
                 seus gastos e tudo o que
                 acontece na sua conta Maylon.
@@ -1802,7 +1835,7 @@ export default function PassageiroDashboard() {
         {/* ERRO */}
 
         {error && (
-          <div className="mt-5 sm:mt-6 rounded-xl sm:rounded-2xl border border-red-200 bg-white px-4 py-3 sm:px-5 sm:py-4 text-xs sm:text-sm text-red-600 shadow-sm">
+          <div className="mt-5 rounded-xl border border-red-200 bg-white px-4 py-3 text-xs text-red-600 shadow-sm sm:mt-6 sm:rounded-2xl sm:px-5 sm:py-4 sm:text-sm">
             <strong>
               Erro ao carregar viagens:
             </strong>{" "}
@@ -1814,9 +1847,8 @@ export default function PassageiroDashboard() {
 
         {banners.length > 0 &&
           banners[0]?.image && (
-            <section className="mt-5 sm:mt-6 lg:mt-7 overflow-hidden rounded-2xl sm:rounded-[24px] lg:rounded-[28px] border border-white/60 bg-white shadow-[0_15px_45px_rgba(6,43,79,0.1)]">
-              <div className="relative min-h-[150px] sm:min-h-[180px] md:min-h-[200px] lg:min-h-[220px] xl:min-h-[240px] overflow-hidden">
-
+            <section className="mt-5 overflow-hidden rounded-2xl border border-white/60 bg-white shadow-[0_15px_45px_rgba(6,43,79,0.1)] sm:mt-6 sm:rounded-[24px] lg:mt-7 lg:rounded-[28px]">
+              <div className="relative min-h-[150px] overflow-hidden sm:min-h-[180px] md:min-h-[200px] lg:min-h-[220px] xl:min-h-[240px]">
                 <img
                   src={banners[0].image}
                   alt={
@@ -1829,105 +1861,107 @@ export default function PassageiroDashboard() {
 
                 <div className="absolute inset-0" />
 
-                <div className="relative z-10 flex min-h-[150px] sm:min-h-[180px] md:min-h-[210px] lg:min-h-[250px] xl:min-h-[260px] items-center px-4 py-6 sm:px-6 sm:py-7 md:px-8 md:py-8 lg:px-10 xl:px-12" />
+                <div className="relative z-10 flex min-h-[150px] items-center px-4 py-6 sm:min-h-[180px] sm:px-6 sm:py-7 md:min-h-[210px] md:px-8 md:py-8 lg:min-h-[250px] lg:px-10 xl:min-h-[260px] xl:px-12" />
               </div>
             </section>
           )}
 
         <div className="h-2" />
 
-        {/* SERVIÇOS RÁPIDOS */}
+        {/* SERVIÇOS */}
 
-        <section className="mt-4 sm:mt-5">
-          <div className="mb-3 sm:mb-4">
-            <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white">
-              Serviços rápidos
-            </h2>
+        {!walletLoading && walletExists && (
+          <section className="mt-4 sm:mt-5">
+            <div className="mb-3 sm:mb-4">
+              <h2 className="text-xl font-black tracking-tight text-white sm:text-2xl">
+                Serviços rápidos
+              </h2>
 
-            <p className="mt-0 text-xs sm:text-sm text-white">
-              Recarregue seu celular e
-              pague contas sem sair da
-              Maylon.
-            </p>
-          </div>
+              <p className="mt-0 text-xs text-white sm:text-sm">
+                Recarregue seu celular e
+                pague contas sem sair da
+                Maylon.
+              </p>
+            </div>
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5">
 
-            {/* RECARGA */}
+              {/* RECARGA */}
 
-            <button
-              type="button"
-              onClick={() =>
-                setModal("recarga")
-              }
-              className="group relative flex w-full items-center gap-4 overflow-hidden rounded-2xl sm:rounded-[26px] border border-[#e2ebee] bg-white p-5 sm:p-6 text-left shadow-[0_10px_35px_rgba(6,43,79,0.07)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_18px_45px_rgba(6,43,79,0.11)]"
-            >
-              <div className="absolute -right-12 -top-12 h-32 w-32 rounded-full bg-[#08a89d]/5 transition group-hover:scale-125" />
+              <button
+                type="button"
+                onClick={() =>
+                  setModal("recarga")
+                }
+                className="group relative flex w-full items-center gap-4 overflow-hidden rounded-2xl border border-[#e2ebee] bg-white p-5 text-left shadow-[0_10px_35px_rgba(6,43,79,0.07)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_18px_45px_rgba(6,43,79,0.11)] sm:rounded-[26px] sm:p-6"
+              >
+                <div className="absolute -right-12 -top-12 h-32 w-32 rounded-full bg-[#08a89d]/5 transition group-hover:scale-125" />
 
-              <div className="relative flex h-12 w-12 sm:h-14 sm:w-14 shrink-0 items-center justify-center rounded-2xl bg-[#e5f8f4] text-[#08a89d] transition group-hover:bg-[#08a89d] group-hover:text-white">
-                <Smartphone size={24} />
-              </div>
+                <div className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#e5f8f4] text-[#08a89d] transition group-hover:bg-[#08a89d] group-hover:text-white sm:h-14 sm:w-14">
+                  <Smartphone size={24} />
+                </div>
 
-              <div className="relative min-w-0 flex-1">
-                <p className="text-sm sm:text-base font-black text-[#062b4f]">
-                  Recarga de Celular
-                </p>
+                <div className="relative min-w-0 flex-1">
+                  <p className="text-sm font-black text-[#062b4f] sm:text-base">
+                    Recarga de Celular
+                  </p>
 
-                <p className="mt-0.5 text-[11px] sm:text-xs font-medium text-[#71869a]">
-                  Adicione créditos de forma rápida e segura.
-                </p>
-              </div>
+                  <p className="mt-0.5 text-[11px] font-medium text-[#71869a] sm:text-xs">
+                    Adicione créditos de forma rápida e segura.
+                  </p>
+                </div>
 
-              <ArrowUpRight
-                size={18}
-                className="relative shrink-0 text-[#08a89d]"
-              />
-            </button>
+                <ArrowUpRight
+                  size={18}
+                  className="relative shrink-0 text-[#08a89d]"
+                />
+              </button>
 
-            {/* CONTA */}
+              {/* CONTA */}
 
-            <button
-              type="button"
-              onClick={() =>
-                setModal("conta")
-              }
-              className="group relative flex w-full items-center gap-4 overflow-hidden rounded-2xl sm:rounded-[26px] border border-[#e2ebee] bg-white p-5 sm:p-6 text-left shadow-[0_10px_35px_rgba(6,43,79,0.07)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_18px_45px_rgba(6,43,79,0.11)]"
-            >
-              <div className="absolute -right-12 -top-12 h-32 w-32 rounded-full bg-[#0c75bd]/5 transition group-hover:scale-125" />
+              <button
+                type="button"
+                onClick={() =>
+                  setModal("conta")
+                }
+                className="group relative flex w-full items-center gap-4 overflow-hidden rounded-2xl border border-[#e2ebee] bg-white p-5 text-left shadow-[0_10px_35px_rgba(6,43,79,0.07)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_18px_45px_rgba(6,43,79,0.11)] sm:rounded-[26px] sm:p-6"
+              >
+                <div className="absolute -right-12 -top-12 h-32 w-32 rounded-full bg-[#0c75bd]/5 transition group-hover:scale-125" />
 
-              <div className="relative flex h-12 w-12 sm:h-14 sm:w-14 shrink-0 items-center justify-center rounded-2xl bg-[#e5f8f4] text-[#08a89d] transition group-hover:bg-[#08a89d] group-hover:text-white">
-                <Receipt size={24} />
-              </div>
+                <div className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#e5f8f4] text-[#08a89d] transition group-hover:bg-[#08a89d] group-hover:text-white sm:h-14 sm:w-14">
+                  <Receipt size={24} />
+                </div>
 
-              <div className="relative min-w-0 flex-1">
-                <p className="text-sm sm:text-base font-black text-[#062b4f]">
-                  Pagamento de Conta
-                </p>
+                <div className="relative min-w-0 flex-1">
+                  <p className="text-sm font-black text-[#062b4f] sm:text-base">
+                    Pagamento de Conta
+                  </p>
 
-                <p className="mt-0.5 text-[11px] sm:text-xs font-medium text-[#71869a]">
-                  Pague boletos e contas direto pelo app.
-                </p>
-              </div>
+                  <p className="mt-0.5 text-[11px] font-medium text-[#71869a] sm:text-xs">
+                    Pague boletos e contas direto pelo app.
+                  </p>
+                </div>
 
-              <ArrowUpRight
-                size={18}
-                className="relative shrink-0 text-[#08a89d]"
-              />
-            </button>
-          </div>
-        </section>
+                <ArrowUpRight
+                  size={18}
+                  className="relative shrink-0 text-[#08a89d]"
+                />
+              </button>
+            </div>
+          </section>
+        )}
 
         {/* SUA MOVIMENTAÇÃO */}
 
         <section className="mt-6 sm:mt-7">
-          <div className="mb-4 sm:mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div className="mb-4 flex flex-col gap-3 sm:mb-5 sm:flex-row sm:items-end sm:justify-between">
 
             <div>
-              <h2 className="mt-1 text-xl sm:text-2xl font-black tracking-tight text-white">
+              <h2 className="mt-1 text-xl font-black tracking-tight text-white sm:text-2xl">
                 Sua movimentação
               </h2>
 
-              <p className="mt-0 text-xs sm:text-sm text-white">
+              <p className="mt-0 text-xs text-white sm:text-sm">
                 Uma visão rápida da sua
                 atividade na Maylon.
               </p>
@@ -1935,7 +1969,7 @@ export default function PassageiroDashboard() {
 
             <Link
               href="/passageiro/viagens"
-              className="inline-flex items-center gap-2 self-start rounded-xl border border-[#dce5e9] bg-white px-3.5 py-2 sm:px-4 sm:py-2.5 text-xs sm:text-sm font-bold text-[#163a59] shadow-sm transition hover:border-[#08a89d] hover:text-[#08a89d] sm:self-auto"
+              className="inline-flex items-center gap-2 self-start rounded-xl border border-[#dce5e9] bg-white px-3.5 py-2 text-xs font-bold text-[#163a59] shadow-sm transition hover:border-[#08a89d] hover:text-[#08a89d] sm:self-auto sm:px-4 sm:py-2.5 sm:text-sm"
             >
               Ver histórico
               <ArrowUpRight size={16} />
@@ -1946,12 +1980,10 @@ export default function PassageiroDashboard() {
 
             {/* CARD 1 */}
 
-            <div className="group relative overflow-hidden rounded-2xl sm:rounded-[26px] border border-[#e2ebee] bg-white p-5 sm:p-6 shadow-[0_10px_35px_rgba(6,43,79,0.07)]">
+            <div className="group relative overflow-hidden rounded-2xl border border-[#e2ebee] bg-white p-5 shadow-[0_10px_35px_rgba(6,43,79,0.07)] sm:rounded-[26px] sm:p-6">
               <div className="relative">
-
                 <div className="flex items-start justify-between">
-
-                  <div className="flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-2xl bg-[#e5f8f4] text-[#08a89d]">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#e5f8f4] text-[#08a89d] sm:h-14 sm:w-14">
                     <Car size={25} />
                   </div>
 
@@ -1960,17 +1992,17 @@ export default function PassageiroDashboard() {
                   </span>
                 </div>
 
-                <p className="mt-5 text-xs sm:text-sm font-semibold text-[#71869a]">
+                <p className="mt-5 text-xs font-semibold text-[#71869a] sm:text-sm">
                   Viagens no mês
                 </p>
 
-                <p className="mt-1 text-2xl sm:text-3xl font-black text-[#062b4f]">
+                <p className="mt-1 text-2xl font-black text-[#062b4f] sm:text-3xl">
                   {loading
                     ? "—"
                     : viagensMes.length}
                 </p>
 
-                <p className="mt-2 text-[11px] sm:text-xs font-medium text-[#08a89d]">
+                <p className="mt-2 text-[11px] font-medium text-[#08a89d] sm:text-xs">
                   Atividade deste mês
                 </p>
               </div>
@@ -1978,13 +2010,10 @@ export default function PassageiroDashboard() {
 
             {/* CARD 2 */}
 
-            <div className="group relative overflow-hidden rounded-2xl sm:rounded-[26px] border border-[#e2ebee] bg-white p-5 sm:p-6 shadow-[0_10px_35px_rgba(6,43,79,0.07)]">
-
+            <div className="group relative overflow-hidden rounded-2xl border border-[#e2ebee] bg-white p-5 shadow-[0_10px_35px_rgba(6,43,79,0.07)] sm:rounded-[26px] sm:p-6">
               <div className="relative">
-
                 <div className="flex items-start justify-between">
-
-                  <div className="flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-2xl bg-[#e5f8f4] text-[#08a89d]">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#e5f8f4] text-[#08a89d] sm:h-14 sm:w-14">
                     <Car size={25} />
                   </div>
 
@@ -1993,17 +2022,17 @@ export default function PassageiroDashboard() {
                   </span>
                 </div>
 
-                <p className="mt-5 text-xs sm:text-sm font-semibold text-[#71869a]">
+                <p className="mt-5 text-xs font-semibold text-[#71869a] sm:text-sm">
                   Total de viagens
                 </p>
 
-                <p className="mt-1 text-2xl sm:text-3xl font-black text-[#062b4f]">
+                <p className="mt-1 text-2xl font-black text-[#062b4f] sm:text-3xl">
                   {loading
                     ? "—"
                     : totalViagens}
                 </p>
 
-                <p className="mt-2 text-[11px] sm:text-xs font-medium text-[#1676b7]">
+                <p className="mt-2 text-[11px] font-medium text-[#1676b7] sm:text-xs">
                   Todas as viagens registradas
                 </p>
               </div>
@@ -2011,13 +2040,10 @@ export default function PassageiroDashboard() {
 
             {/* CARD 3 */}
 
-            <div className="group relative overflow-hidden rounded-2xl sm:rounded-[26px] border border-[#e2ebee] bg-white p-5 sm:p-6 shadow-[0_10px_35px_rgba(6,43,79,0.07)] sm:col-span-2 lg:col-span-1">
-
+            <div className="group relative overflow-hidden rounded-2xl border border-[#e2ebee] bg-white p-5 shadow-[0_10px_35px_rgba(6,43,79,0.07)] sm:col-span-2 sm:rounded-[26px] sm:p-6 lg:col-span-1">
               <div className="relative">
-
                 <div className="flex items-start justify-between">
-
-                  <div className="flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-2xl bg-[#e5f8f4] text-[#08a89d]">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#e5f8f4] text-[#08a89d] sm:h-14 sm:w-14">
                     <Wallet size={25} />
                   </div>
 
@@ -2026,11 +2052,11 @@ export default function PassageiroDashboard() {
                   </span>
                 </div>
 
-                <p className="mt-5 text-xs sm:text-sm font-semibold text-[#71869a]">
+                <p className="mt-5 text-xs font-semibold text-[#71869a] sm:text-sm">
                   Gasto do mês
                 </p>
 
-                <p className="mt-1 text-2xl sm:text-3xl font-black text-[#062b4f]">
+                <p className="mt-1 text-2xl font-black text-[#062b4f] sm:text-3xl">
                   {loading
                     ? "—"
                     : formatCurrency(
@@ -2038,7 +2064,7 @@ export default function PassageiroDashboard() {
                       )}
                 </p>
 
-                <p className="mt-2 text-[11px] sm:text-xs font-medium text-[#08a89d]">
+                <p className="mt-2 text-[11px] font-medium text-[#08a89d] sm:text-xs">
                   Total acumulado no mês
                 </p>
               </div>
@@ -2048,26 +2074,25 @@ export default function PassageiroDashboard() {
 
         {/* CONTEÚDO PRINCIPAL */}
 
-        <section className="mt-6 sm:mt-7 grid grid-cols-1 gap-5 sm:gap-6 lg:gap-7 xl:grid-cols-[1.45fr_0.95fr] 2xl:grid-cols-[1.6fr_1fr]">
+        <section className="mt-6 grid grid-cols-1 gap-5 sm:mt-7 sm:gap-6 lg:gap-7 xl:grid-cols-[1.45fr_0.95fr] 2xl:grid-cols-[1.6fr_1fr]">
 
           {/* GRÁFICO */}
 
-          <div className="overflow-hidden rounded-2xl sm:rounded-[28px] border border-[#e2ebee] bg-white shadow-[0_12px_40px_rgba(6,43,79,0.07)]">
+          <div className="overflow-hidden rounded-2xl border border-[#e2ebee] bg-white shadow-[0_12px_40px_rgba(6,43,79,0.07)] sm:rounded-[28px]">
 
-            <div className="flex flex-col gap-3 border-b border-[#edf1f4] px-4 py-5 sm:px-6 sm:py-6 sm:flex-row sm:items-center sm:justify-between lg:px-8">
+            <div className="flex flex-col gap-3 border-b border-[#edf1f4] px-4 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:py-6 lg:px-8">
 
               <div className="flex items-center gap-3">
-
-                <div className="flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-xl bg-[#e5f8f4] text-[#08a89d]">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#e5f8f4] text-[#08a89d] sm:h-11 sm:w-11">
                   <Car size={20} />
                 </div>
 
                 <div>
-                  <h2 className="text-base sm:text-lg font-black text-[#062b4f]">
+                  <h2 className="text-base font-black text-[#062b4f] sm:text-lg">
                     Atividade recente
                   </h2>
 
-                  <p className="mt-0 text-[11px] sm:text-xs text-[#71869a]">
+                  <p className="mt-0 text-[11px] text-[#71869a] sm:text-xs">
                     Viagens dos últimos 7 dias
                   </p>
                 </div>
@@ -2079,11 +2104,9 @@ export default function PassageiroDashboard() {
             </div>
 
             <div className="p-4 sm:p-6 lg:p-8">
-
-              <div className="relative h-[240px] sm:h-[270px] md:h-[290px] lg:h-[310px] w-full">
+              <div className="relative h-[240px] w-full sm:h-[270px] md:h-[290px] lg:h-[310px]">
 
                 <div className="absolute inset-0 flex flex-col justify-between pb-9 pt-3">
-
                   {[4, 3, 2, 1, 0].map(
                     (item) => (
                       <div
@@ -2097,7 +2120,6 @@ export default function PassageiroDashboard() {
                 </div>
 
                 <div className="absolute inset-0 flex items-end gap-1.5 px-1 pb-9 pt-5 sm:gap-2 md:gap-3 lg:gap-4">
-
                   {chartData.map(
                     (
                       item,
@@ -2118,17 +2140,14 @@ export default function PassageiroDashboard() {
                           key={`${item.label}-${index}`}
                           className="group relative flex h-full flex-1 flex-col justify-end"
                         >
-                          {item.value >
-                            0 && (
+                          {item.value > 0 && (
                             <div
                               className="absolute left-1/2 z-20 flex -translate-x-1/2 -translate-y-2 items-center justify-center rounded-lg bg-[#062b4f] px-2 py-1 text-[10px] font-bold text-white opacity-0 shadow-lg transition group-hover:opacity-100"
                               style={{
                                 bottom: `${height}%`,
                               }}
                             >
-                              {
-                                item.value
-                              }
+                              {item.value}
                             </div>
                           )}
 
@@ -2137,8 +2156,7 @@ export default function PassageiroDashboard() {
                             style={{
                               height: `${height}%`,
                               opacity:
-                                item.value ===
-                                0
+                                item.value === 0
                                   ? 0.18
                                   : 1,
                             }}
@@ -2147,9 +2165,7 @@ export default function PassageiroDashboard() {
                           </div>
 
                           <span className="absolute -bottom-7 left-1/2 -translate-x-1/2 whitespace-nowrap text-[9px] font-semibold text-[#71869a]">
-                            {
-                              item.label
-                            }
+                            {item.label}
                           </span>
                         </div>
                       );
@@ -2158,10 +2174,8 @@ export default function PassageiroDashboard() {
                 </div>
 
                 {!loading &&
-                  rows.length ===
-                    0 && (
+                  rows.length === 0 && (
                     <div className="absolute inset-0 flex items-center justify-center">
-
                       <div className="rounded-2xl border border-dashed border-[#dbe5e9] bg-[#fbfcfd] px-5 py-4 text-center">
 
                         <Car
@@ -2169,11 +2183,11 @@ export default function PassageiroDashboard() {
                           className="mx-auto text-[#9aafbd]"
                         />
 
-                        <p className="mt-2 text-xs sm:text-sm font-semibold text-[#506a82]">
+                        <p className="mt-2 text-xs font-semibold text-[#506a82] sm:text-sm">
                           Nenhuma viagem encontrada
                         </p>
 
-                        <p className="mt-1 text-[11px] sm:text-xs text-[#8ca0b2]">
+                        <p className="mt-1 text-[11px] text-[#8ca0b2] sm:text-xs">
                           Suas próximas viagens aparecerão aqui.
                         </p>
                       </div>
@@ -2185,7 +2199,7 @@ export default function PassageiroDashboard() {
 
           {/* ATIVIDADES */}
 
-          <div className="overflow-hidden rounded-2xl sm:rounded-[28px] border border-[#e2ebee] bg-white shadow-[0_12px_40px_rgba(6,43,79,0.07)]">
+          <div className="overflow-hidden rounded-2xl border border-[#e2ebee] bg-white shadow-[0_12px_40px_rgba(6,43,79,0.07)] sm:rounded-[28px]">
 
             <div className="flex items-center justify-between border-b border-[#edf1f4] px-4 py-5 sm:px-6 sm:py-6">
 
@@ -2194,16 +2208,16 @@ export default function PassageiroDashboard() {
                   Histórico
                 </p>
 
-                <h2 className="text-base sm:text-lg font-black text-[#062b4f]">
+                <h2 className="text-base font-black text-[#062b4f] sm:text-lg">
                   Últimas atividades
                 </h2>
 
-                <p className="mt-0 text-[11px] sm:text-xs text-[#71869a]">
+                <p className="mt-0 text-[11px] text-[#71869a] sm:text-xs">
                   Suas viagens mais recentes
                 </p>
               </div>
 
-              <div className="flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-xl bg-[#e6f7f4] text-[#08a89d]">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#e6f7f4] text-[#08a89d] sm:h-11 sm:w-11">
                 <Clock3 size={20} />
               </div>
             </div>
@@ -2212,7 +2226,6 @@ export default function PassageiroDashboard() {
 
               {loading && (
                 <div className="py-10 text-center">
-
                   <div className="mx-auto h-7 w-7 animate-spin rounded-full border-2 border-[#dceceb] border-t-[#08a89d]" />
 
                   <p className="mt-3 text-xs font-medium text-[#71869a]">
@@ -2222,29 +2235,25 @@ export default function PassageiroDashboard() {
               )}
 
               {!loading &&
-                ultimasViagens.length ===
-                  0 && (
+                ultimasViagens.length === 0 && (
                   <div className="py-10 text-center">
 
                     <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#f2f6f7] text-[#91a5b3]">
-                      <CalendarDays
-                        size={23}
-                      />
+                      <CalendarDays size={23} />
                     </div>
 
-                    <p className="mt-4 text-xs sm:text-sm font-bold text-[#506a82]">
+                    <p className="mt-4 text-xs font-bold text-[#506a82] sm:text-sm">
                       Nenhuma atividade recente
                     </p>
 
-                    <p className="mt-1 text-[11px] sm:text-xs text-[#8ca0b2]">
+                    <p className="mt-1 text-[11px] text-[#8ca0b2] sm:text-xs">
                       Você ainda não possui viagens.
                     </p>
                   </div>
                 )}
 
               {!loading &&
-                ultimasViagens.length >
-                  0 &&
+                ultimasViagens.length > 0 &&
                 ultimasViagens.map(
                   (
                     trip,
@@ -2257,25 +2266,20 @@ export default function PassageiroDashboard() {
                           trip.trip_request_id ??
                           trip.id;
 
-                        if (!tripId)
-                          return;
+                        if (!tripId) return;
 
-                        window.location.href = `/passageiro/viagens/${tripId}`;
+                        window.location.href =
+                          `/passageiro/viagens/${tripId}`;
                       }}
-                      className="group flex cursor-pointer gap-3 border-b border-[#edf1f4] py-4 sm:py-5 transition hover:bg-[#f8fbfc] last:border-0"
+                      className="group flex cursor-pointer gap-3 border-b border-[#edf1f4] py-4 transition hover:bg-[#f8fbfc] last:border-0 sm:py-5"
                     >
 
-                      <div className="flex h-10 w-10 sm:h-11 sm:w-11 shrink-0 items-center justify-center rounded-xl bg-[#e6f7f4] text-[#08a89d] transition group-hover:bg-[#08a89d] group-hover:text-white">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#e6f7f4] text-[#08a89d] transition group-hover:bg-[#08a89d] group-hover:text-white sm:h-11 sm:w-11">
 
-                        {index ===
-                        0 ? (
-                          <CheckCircle2
-                            size={19}
-                          />
+                        {index === 0 ? (
+                          <CheckCircle2 size={19} />
                         ) : (
-                          <CalendarDays
-                            size={19}
-                          />
+                          <CalendarDays size={19} />
                         )}
                       </div>
 
@@ -2283,10 +2287,8 @@ export default function PassageiroDashboard() {
 
                         <div className="flex items-start justify-between gap-2">
 
-                          <p className="truncate text-xs sm:text-sm font-bold text-[#163a59]">
-                            {getTripTitle(
-                              trip
-                            )}
+                          <p className="truncate text-xs font-bold text-[#163a59] sm:text-sm">
+                            {getTripTitle(trip)}
                           </p>
 
                           <span
@@ -2308,9 +2310,7 @@ export default function PassageiroDashboard() {
                           />
 
                           <span className="truncate">
-                            {getTripLocation(
-                              trip
-                            )}
+                            {getTripLocation(trip)}
                           </span>
                         </div>
 
@@ -2340,7 +2340,7 @@ export default function PassageiroDashboard() {
 
               <Link
                 href="/passageiro/viagens"
-                className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#08a89d] px-4 py-3.5 text-xs sm:text-sm font-bold text-white shadow-[0_8px_20px_rgba(8,168,157,0.2)] transition hover:-translate-y-0.5 hover:bg-[#078f80]"
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#08a89d] px-4 py-3.5 text-xs font-bold text-white shadow-[0_8px_20px_rgba(8,168,157,0.2)] transition hover:-translate-y-0.5 hover:bg-[#078f80] sm:text-sm"
               >
                 Ver todas as viagens
                 <ArrowUpRight size={17} />
@@ -2354,16 +2354,12 @@ export default function PassageiroDashboard() {
 
       <RecargaModal
         open={modal === "recarga"}
-        onClose={() =>
-          setModal(null)
-        }
+        onClose={() => setModal(null)}
       />
 
       <ContaModal
         open={modal === "conta"}
-        onClose={() =>
-          setModal(null)
-        }
+        onClose={() => setModal(null)}
       />
     </main>
   );
