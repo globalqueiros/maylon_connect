@@ -153,6 +153,63 @@ async function getTransactions(
   return rows as any[];
 }
 
+async function estaVerificado(
+  userId: string
+): Promise<boolean> {
+  try {
+    const [verifRows] = await db.execute(
+      `
+      SELECT current_status
+      FROM driver_identity_verifications
+      WHERE driver_id = ?
+      ORDER BY updated_at DESC
+      LIMIT 1
+      `,
+      [userId]
+    );
+
+    const status = (
+      verifRows as unknown as Array<{
+        current_status?: string | null;
+      }>
+    )[0]?.current_status;
+
+    if (
+      typeof status === "string" &&
+      status === "Approved"
+    ) {
+      return true;
+    }
+  } catch (error) {
+    console.error(
+      "estaVerificado: erro ao consultar verificação:",
+      error
+    );
+  }
+
+  try {
+    const [driverRows] = await db.execute(
+      `
+      SELECT is_verified
+      FROM driver_details
+      WHERE user_id = ?
+      LIMIT 1
+      `,
+      [userId]
+    );
+
+    const isVerified = (
+      driverRows as unknown as Array<{
+        is_verified?: number | null;
+      }>
+    )[0]?.is_verified;
+
+    return Number(isVerified) === 1;
+  } catch {
+    return false;
+  }
+}
+
 function formatWallet(
   wallet: any
 ) {
@@ -325,6 +382,17 @@ export async function POST(
             ),
         },
         { status: 200 }
+      );
+    }
+
+    const verificado = await estaVerificado(
+      userId
+    );
+
+    if (!verificado) {
+      return jsonError(
+        "É necessário concluir a verificação de identidade antes de criar a carteira.",
+        403
       );
     }
 
