@@ -789,7 +789,17 @@ const primaryButtonClass =
 /* MODAL RECARGA                                                      */
 /* ------------------------------------------------------------------ */
 
+<<<<<<< HEAD
 const RECHARGE_VALUES = [15, 20, 30, 50, 100];
+=======
+const RECHARGE_VALUES = [
+  15,
+  20,
+  30,
+  50,
+  100,
+];
+>>>>>>> b70f8d32ca76bb50322f5815f2c7be5f0a97195c
 
 function RecargaModal({
   open,
@@ -812,18 +822,24 @@ function RecargaModal({
   useEffect(() => {
     if (!open) {
       setPhone("");
+<<<<<<< HEAD
       setOperator("");
       setOperators([]);
+=======
+>>>>>>> b70f8d32ca76bb50322f5815f2c7be5f0a97195c
       setAmount(20);
       setLoading(false);
       setFeedback(null);
     }
   }, [open]);
 
+<<<<<<< HEAD
   /* -------------------------------------------------------------- */
   /* OPERADORAS DINÂMICAS                                           */
   /* -------------------------------------------------------------- */
 
+=======
+>>>>>>> b70f8d32ca76bb50322f5815f2c7be5f0a97195c
   useEffect(() => {
     if (!open || operators.length > 0) return;
 
@@ -844,6 +860,7 @@ function RecargaModal({
         if (!ativo || !res.ok) return;
 
         const lista: string[] = Array.isArray(data?.operadoras)
+<<<<<<< HEAD
           ? data.operadoras
               .map((o: { provider: string }) =>
                 String(o.provider)
@@ -863,6 +880,22 @@ function RecargaModal({
           "Erro ao carregar operadoras:",
           error
         );
+=======
+          ? data.operadoras.map(
+              (o: { provider: string }) =>
+                String(o.provider)
+            )
+          : [];
+
+        setOperators(lista);
+
+        setOperator(
+          (atual) =>
+            atual || lista[0] || ""
+        );
+      } catch {
+        // Sem lista.
+>>>>>>> b70f8d32ca76bb50322f5815f2c7be5f0a97195c
       }
     })();
 
@@ -1377,7 +1410,11 @@ export default function PassageiroDashboard() {
   }, []);
 
   /* -------------------------------------------------------------- */
+<<<<<<< HEAD
   /* VERIFICAR WALLET                                               */
+=======
+  /* VERIFICAR WALLET NO BANCO                                     */
+>>>>>>> b70f8d32ca76bb50322f5815f2c7be5f0a97195c
   /* -------------------------------------------------------------- */
 
   useEffect(() => {
@@ -1408,6 +1445,23 @@ export default function PassageiroDashboard() {
         const data =
           await response.json();
 
+<<<<<<< HEAD
+=======
+        /*
+         * Esperado da API:
+         *
+         * {
+         *   exists: true
+         * }
+         *
+         * ou
+         *
+         * {
+         *   exists: false
+         * }
+         */
+
+>>>>>>> b70f8d32ca76bb50322f5815f2c7be5f0a97195c
         if (ativo) {
           setWalletExists(
             data?.exists === true
@@ -1847,8 +1901,13 @@ export default function PassageiroDashboard() {
 
         {banners.length > 0 &&
           banners[0]?.image && (
+<<<<<<< HEAD
             <section className="mt-5 overflow-hidden rounded-2xl border border-white/60 bg-white shadow-[0_15px_45px_rgba(6,43,79,0.1)] sm:mt-6 sm:rounded-[24px] lg:mt-7 lg:rounded-[28px]">
               <div className="relative min-h-[150px] overflow-hidden sm:min-h-[180px] md:min-h-[200px] lg:min-h-[220px] xl:min-h-[240px]">
+=======
+            <section className="mt-5 sm:mt-6 lg:mt-7 overflow-hidden rounded-2xl sm:rounded-[24px] lg:rounded-[28px] border border-white/60 bg-white shadow-[0_15px_45px_rgba(6,43,79,0.1)]">
+              <div className="relative min-h-[150px] sm:min-h-[180px] md:min-h-[200px] lg:min-h-[220px] xl:min-h-[240px] overflow-hidden">
+>>>>>>> b70f8d32ca76bb50322f5815f2c7be5f0a97195c
                 <img
                   src={banners[0].image}
                   alt={
@@ -1858,16 +1917,25 @@ export default function PassageiroDashboard() {
                   className="absolute inset-0 h-full w-full object-cover"
                   loading="lazy"
                 />
-
                 <div className="absolute inset-0" />
+<<<<<<< HEAD
 
                 <div className="relative z-10 flex min-h-[150px] items-center px-4 py-6 sm:min-h-[180px] sm:px-6 sm:py-7 md:min-h-[210px] md:px-8 md:py-8 lg:min-h-[250px] lg:px-10 xl:min-h-[260px] xl:px-12" />
+=======
+                <div className="relative z-10 flex min-h-[150px] sm:min-h-[180px] md:min-h-[210px] lg:min-h-[250px] xl:min-h-[260px] items-center px-4 py-6 sm:px-6 sm:py-7 md:px-8 md:py-8 lg:px-10 xl:px-12" />
+>>>>>>> b70f8d32ca76bb50322f5815f2c7be5f0a97195c
               </div>
             </section>
           )}
-
         <div className="h-2" />
+        {!walletLoading && walletExists && (
+          <section className="mt-4 sm:mt-5">
+            <div className="mb-3 sm:mb-4">
+              <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white">
+                Serviços rápidos
+              </h2>
 
+<<<<<<< HEAD
         {/* SERVIÇOS */}
 
         {!walletLoading && walletExists && (
@@ -1942,6 +2010,73 @@ export default function PassageiroDashboard() {
                   </p>
                 </div>
 
+=======
+              <p className="mt-0 text-xs sm:text-sm text-white">
+                Recarregue seu celular e
+                pague contas sem sair da
+                Maylon.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5">
+
+              {/* RECARGA */}
+
+              <button
+                type="button"
+                onClick={() =>
+                  setModal("recarga")
+                }
+                className="group relative flex w-full items-center gap-4 overflow-hidden rounded-2xl sm:rounded-[26px] border border-[#e2ebee] bg-white p-5 sm:p-6 text-left shadow-[0_10px_35px_rgba(6,43,79,0.07)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_18px_45px_rgba(6,43,79,0.11)]"
+              >
+                <div className="absolute -right-12 -top-12 h-32 w-32 rounded-full bg-[#08a89d]/5 transition group-hover:scale-125" />
+
+                <div className="relative flex h-12 w-12 sm:h-14 sm:w-14 shrink-0 items-center justify-center rounded-2xl bg-[#e5f8f4] text-[#08a89d] transition group-hover:bg-[#08a89d] group-hover:text-white">
+                  <Smartphone size={24} />
+                </div>
+
+                <div className="relative min-w-0 flex-1">
+                  <p className="text-sm sm:text-base font-black text-[#062b4f]">
+                    Recarga de Celular
+                  </p>
+
+                  <p className="mt-0.5 text-[11px] sm:text-xs font-medium text-[#71869a]">
+                    Adicione créditos de forma rápida e segura.
+                  </p>
+                </div>
+
+                <ArrowUpRight
+                  size={18}
+                  className="relative shrink-0 text-[#08a89d]"
+                />
+              </button>
+
+              {/* CONTA */}
+
+              <button
+                type="button"
+                onClick={() =>
+                  setModal("conta")
+                }
+                className="group relative flex w-full items-center gap-4 overflow-hidden rounded-2xl sm:rounded-[26px] border border-[#e2ebee] bg-white p-5 sm:p-6 text-left shadow-[0_10px_35px_rgba(6,43,79,0.07)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_18px_45px_rgba(6,43,79,0.11)]"
+              >
+                <div className="absolute -right-12 -top-12 h-32 w-32 rounded-full bg-[#0c75bd]/5 transition group-hover:scale-125" />
+
+                <div className="relative flex h-12 w-12 sm:h-14 sm:w-14 shrink-0 items-center justify-center rounded-2xl bg-[#e5f8f4] text-[#08a89d] transition group-hover:bg-[#08a89d] group-hover:text-white">
+                  <Receipt size={24} />
+                </div>
+
+                <div className="relative min-w-0 flex-1">
+                  <p className="text-sm sm:text-base font-black text-[#062b4f]">
+                    Pagamento de Conta
+                  </p>
+
+                  <p className="mt-0.5 text-[11px] sm:text-xs font-medium text-[#71869a]">
+                    Pague boletos e contas direto pelo app.
+                  </p>
+                </div>
+
+>>>>>>> b70f8d32ca76bb50322f5815f2c7be5f0a97195c
                 <ArrowUpRight
                   size={18}
                   className="relative shrink-0 text-[#08a89d]"
@@ -2010,7 +2145,11 @@ export default function PassageiroDashboard() {
 
             {/* CARD 2 */}
 
+<<<<<<< HEAD
             <div className="group relative overflow-hidden rounded-2xl border border-[#e2ebee] bg-white p-5 shadow-[0_10px_35px_rgba(6,43,79,0.07)] sm:rounded-[26px] sm:p-6">
+=======
+            <div className="group relative overflow-hidden rounded-2xl sm:rounded-[26px] border border-[#e2ebee] bg-white p-5 sm:p-6 shadow-[0_10px_35px_rgba(6,43,79,0.07)]">
+>>>>>>> b70f8d32ca76bb50322f5815f2c7be5f0a97195c
               <div className="relative">
                 <div className="flex items-start justify-between">
                   <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#e5f8f4] text-[#08a89d] sm:h-14 sm:w-14">
@@ -2040,7 +2179,11 @@ export default function PassageiroDashboard() {
 
             {/* CARD 3 */}
 
+<<<<<<< HEAD
             <div className="group relative overflow-hidden rounded-2xl border border-[#e2ebee] bg-white p-5 shadow-[0_10px_35px_rgba(6,43,79,0.07)] sm:col-span-2 sm:rounded-[26px] sm:p-6 lg:col-span-1">
+=======
+            <div className="group relative overflow-hidden rounded-2xl sm:rounded-[26px] border border-[#e2ebee] bg-white p-5 sm:p-6 shadow-[0_10px_35px_rgba(6,43,79,0.07)] sm:col-span-2 lg:col-span-1">
+>>>>>>> b70f8d32ca76bb50322f5815f2c7be5f0a97195c
               <div className="relative">
                 <div className="flex items-start justify-between">
                   <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#e5f8f4] text-[#08a89d] sm:h-14 sm:w-14">
@@ -2287,7 +2430,11 @@ export default function PassageiroDashboard() {
 
                         <div className="flex items-start justify-between gap-2">
 
+<<<<<<< HEAD
                           <p className="truncate text-xs font-bold text-[#163a59] sm:text-sm">
+=======
+                          <p className="truncate text-xs sm:text-sm font-bold text-[#163a59]">
+>>>>>>> b70f8d32ca76bb50322f5815f2c7be5f0a97195c
                             {getTripTitle(trip)}
                           </p>
 
