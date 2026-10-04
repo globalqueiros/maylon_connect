@@ -5,6 +5,7 @@ import {
   ArrowLeft,
   ArrowRight,
   ArrowUpRight,
+  CircleAlert,
   CreditCard,
   Eye,
   EyeOff,
@@ -12,6 +13,8 @@ import {
   Gift,
   History,
   QrCode,
+  RefreshCw,
+  ShieldCheck,
   Smartphone,
   Wallet,
   X,
@@ -130,6 +133,23 @@ export default function MaylonServicosPage() {
     showCreateWalletModal,
     setShowCreateWalletModal,
   ] = useState(false);
+
+  /*
+   * Verificação de identidade (Didit).
+   */
+  const [verificacaoUrl, setVerificacaoUrl] =
+    useState<string | null>(null);
+
+  const [verificacaoLoading, setVerificacaoLoading] =
+    useState(false);
+
+  const [verificacaoFalhou, setVerificacaoFalhou] =
+    useState(false);
+
+  const [
+    verificacaoAviso,
+    setVerificacaoAviso,
+  ] = useState<string | null>(null);
 
   /*
    * Carrega a carteira.
@@ -312,14 +332,133 @@ export default function MaylonServicosPage() {
   }, [loadWallet]);
 
   /*
+   * Enquanto o modal da Didit estiver aberto,
+   * consulta o status até aprovar. Ao aprovar,
+   * cria a carteira automaticamente.
+   */
+  useEffect(() => {
+    if (!showCreateWalletModal || !verificacaoUrl) {
+      return;
+    }
+
+    let ativo = true;
+
+    const interval = setInterval(async () => {
+      const status = await buscarStatusVerificacao();
+
+      if (!ativo) return;
+
+      if (status === "aprovado") {
+        setVerificacaoUrl(null);
+        await createWallet();
+      } else if (status === "reprovado") {
+        setVerificacaoFalhou(true);
+      }
+    }, 8000);
+
+    return () => {
+      ativo = false;
+      clearInterval(interval);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showCreateWalletModal, verificacaoUrl]);
+
+  /*
+   * Consulta o status da verificação de identidade.
+   */
+  async function buscarStatusVerificacao(): Promise<
+    string | null
+  > {
+    try {
+      const res = await fetch("/api/me", {
+        credentials: "include",
+        cache: "no-store",
+      });
+
+      if (!res.ok) return null;
+
+      const data = await res.json();
+
+      return (
+        (data?.verification?.documento
+          ?.status as string) ?? null
+      );
+    } catch {
+      return null;
+    }
+  }
+
+  /*
+   * Inicia a sessão da Didit e carrega o iframe.
+   */
+  async function iniciarVerificacao(
+    forcarNova = false
+  ) {
+    if (verificacaoUrl && !forcarNova) {
+      return;
+    }
+
+    setVerificacaoAviso(null);
+    setVerificacaoFalhou(false);
+    setVerificacaoLoading(true);
+
+    try {
+      const res = await fetch("/api/verificacao", {
+        method: "POST",
+        credentials: "include",
+      });
+
+      const data = await res
+        .json()
+        .catch(() => null);
+
+      if (!res.ok || !data?.url) {
+        setVerificacaoAviso(
+          data?.message ||
+            "Não foi possível iniciar a verificação."
+        );
+        return;
+      }
+
+      setVerificacaoUrl(data.url);
+    } catch {
+      setVerificacaoAviso(
+        "Erro ao iniciar a verificação."
+      );
+    } finally {
+      setVerificacaoLoading(false);
+    }
+  }
+
+  function tentarNovamenteVerificacao() {
+    void iniciarVerificacao(true);
+  }
+
+  /*
    * ABRE O MODAL.
    *
-   * Importante:
-   * essa função NÃO cria a carteira.
+   * Regra:
+   * - Se a carteira não existe e o usuário já
+   *   está aprovado, cria a carteira direto.
+   * - Caso contrário, abre o modal da Didit.
    */
-  function openCreateWalletModal() {
+  async function openCreateWalletModal() {
+    if (creatingWallet) {
+      return;
+    }
+
     setError("");
+
+    const status = await buscarStatusVerificacao();
+
+    if (status === "aprovado") {
+      await createWallet();
+      return;
+    }
+
     setShowCreateWalletModal(true);
+
+    await iniciarVerificacao();
   }
 
   /*
@@ -333,13 +472,17 @@ export default function MaylonServicosPage() {
     }
 
     setShowCreateWalletModal(false);
+    setVerificacaoUrl(null);
+    setVerificacaoLoading(false);
+    setVerificacaoFalhou(false);
+    setVerificacaoAviso(null);
   }
 
   /*
    * CRIA A CARTEIRA.
    *
-   * Essa função só é chamada pelo botão
-   * "Criar carteira" DENTRO do modal.
+   * Chamada quando o usuário já está verificado
+   * ou automaticamente após a aprovação da Didit.
    */
   async function createWallet() {
     if (creatingWallet) {
@@ -414,17 +557,22 @@ export default function MaylonServicosPage() {
        * que a API confirmou a criação.
        */
       setShowCreateWalletModal(false);
+      setVerificacaoUrl(null);
+      setVerificacaoFalhou(false);
+      setVerificacaoAviso(null);
 
       /*
        * Recarrega os dados da carteira.
        */
       await loadWallet();
     } catch (error) {
-      setError(
+      const mensagem =
         error instanceof Error
           ? error.message
-          : "Não foi possível criar sua carteira."
-      );
+          : "Não foi possível criar sua carteira.";
+
+      setError(mensagem);
+      setVerificacaoAviso(mensagem);
     } finally {
       setCreatingWallet(false);
     }
@@ -532,10 +680,10 @@ export default function MaylonServicosPage() {
 
   /*
    * =========================================================
-   * MODAL DE CRIAÇÃO
+   * MODAL DE VERIFICAÇÃO (DIDIT)
    *
-   * Ele é renderizado por cima da tela de carteira inexistente.
-   * A tela não avança até a confirmação.
+   * É renderizado por cima da tela de carteira inexistente.
+   * A tela não avança até a verificação ser aprovada.
    * =========================================================
    */
   function CreateWalletModal() {
@@ -545,36 +693,138 @@ export default function MaylonServicosPage() {
 
     return (
       <div
-        className="fixed inset-0 z-[9999] flex items-center justify-center bg-[#001b2f]/75 p-4 backdrop-blur-md"
+        className="fixed inset-0 z-[9999] flex items-end justify-center bg-[#001b2f]/75 backdrop-blur-md sm:items-center sm:p-4"
         role="dialog"
         aria-modal="true"
-        aria-labelledby="create-wallet-title"
+        aria-labelledby="verificacao-wallet-title"
       >
         <div
-          className="relative w-full max-w-lg overflow-hidden rounded-[28px] bg-white shadow-[0_30px_100px_rgba(0,0,0,0.35)]"
+          className="relative flex h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-t-[28px] bg-white shadow-[0_30px_100px_rgba(0,0,0,0.35)] sm:h-[85vh] sm:rounded-[28px]"
           onClick={(event) =>
             event.stopPropagation()
           }
         >
-          {/* Decoração */}
-          <div className="absolute -right-20 -top-20 h-48 w-48 rounded-full bg-[#08a89d]/10 blur-3xl" />
+          {/* CABEÇALHO */}
+          <div className="flex items-start gap-3.5 p-5 sm:p-6">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#EAF6F4] text-[#149C8B]">
+              <ShieldCheck size={22} />
+            </span>
 
-          <div className="relative p-6 sm:p-7">
-            {/* Fechar */}
+            <div className="min-w-0 flex-1">
+              <h2
+                id="verificacao-wallet-title"
+                className="text-lg font-semibold text-gray-900"
+              >
+                Verificação de identidade
+              </h2>
+
+              <p className="mt-0.5 text-sm text-gray-500">
+                Para criar sua carteira Maylon Pay,
+                conclua a verificação de identidade.
+              </p>
+            </div>
+
             <button
               type="button"
               onClick={
                 closeCreateWalletModal
               }
               disabled={creatingWallet}
-              className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-xl bg-[#f5f8f9] text-[#8194a4] transition hover:bg-[#edf1f3] disabled:cursor-not-allowed disabled:opacity-40"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-gray-400 transition hover:bg-gray-100 hover:text-gray-700 disabled:cursor-not-allowed disabled:opacity-40"
               aria-label="Fechar"
             >
-              <X size={18} />
+              <X size={19} />
             </button>
-            <p className="mt-3 text-sm leading-6 text-[#718494]">
-              Verificaçlão da didit
-            </p>
+          </div>
+
+          {/* CONTEÚDO */}
+          <div className="flex-1 overflow-hidden px-5 pb-5 sm:px-6 sm:pb-6">
+            {verificacaoAviso && (
+              <div
+                role="alert"
+                className="mb-3 flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-700"
+              >
+                <CircleAlert
+                  size={16}
+                  className="shrink-0"
+                />
+                {verificacaoAviso}
+              </div>
+            )}
+
+            {creatingWallet ? (
+              <div className="flex h-full items-center justify-center">
+                <div className="text-center">
+                  <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#0f766e]">
+                    <div className="h-6 w-6 animate-spin rounded-full border-[3px] border-white/30 border-t-white" />
+                  </div>
+
+                  <p className="mt-4 text-sm font-semibold text-[#062b4f]">
+                    Criando sua carteira...
+                  </p>
+                </div>
+              </div>
+            ) : verificacaoFalhou ? (
+              <div className="flex h-full flex-col items-center justify-center gap-4 rounded-2xl border border-red-100 bg-red-50/60 p-8 text-center">
+                <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-red-100 text-red-600">
+                  <CircleAlert size={24} />
+                </span>
+
+                <div>
+                  <h3 className="text-base font-semibold text-gray-900">
+                    Não foi possível verificar sua
+                    identidade
+                  </h3>
+
+                  <p className="mt-1 text-sm text-gray-500">
+                    Os dados não foram validados.
+                    Tente novamente.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={
+                    tentarNovamenteVerificacao
+                  }
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#149C8B] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#11897D]"
+                >
+                  <RefreshCw size={18} />
+                  Tentar novamente
+                </button>
+              </div>
+            ) : verificacaoLoading ? (
+              <div className="flex h-full items-center justify-center">
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#0f766e] shadow-xl shadow-[#0f766e]/20">
+                  <div className="h-6 w-6 animate-spin rounded-full border-[3px] border-white/30 border-t-white" />
+                </div>
+              </div>
+            ) : verificacaoUrl ? (
+              <iframe
+                src={verificacaoUrl}
+                title="Verificação de identidade"
+                className="h-full w-full rounded-2xl border border-gray-200 bg-white"
+                allow="camera; microphone; fullscreen; autoplay; encrypted-media"
+              />
+            ) : (
+              <div className="flex h-full flex-col items-center justify-center gap-4 text-center">
+                <p className="text-sm text-gray-500">
+                  Não foi possível carregar a
+                  verificação.
+                </p>
+
+                <button
+                  type="button"
+                  onClick={
+                    tentarNovamenteVerificacao
+                  }
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#149C8B] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#11897D]"
+                >
+                  <RefreshCw size={18} />
+                  Iniciar verificação
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -643,9 +893,9 @@ export default function MaylonServicosPage() {
                   )}
 
                   {/* 
-                    IMPORTANTE:
-                    Agora esse botão NÃO chama createWallet.
-                    Ele apenas abre o modal.
+                    Se já estiver verificado, cria a carteira
+                    automaticamente. Caso contrário, abre o
+                    modal de verificação da Didit.
                   */}
                   <button
                     type="button"

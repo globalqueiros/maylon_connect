@@ -1,6 +1,18 @@
 "use client";
 
-import { Eye, MapPin } from "lucide-react";
+import {
+    ArrowRight,
+    CheckCircle2,
+    ChevronLeft,
+    ChevronRight,
+    CircleDollarSign,
+    Clock3,
+    Eye,
+    MapPin,
+    ReceiptText,
+    Route,
+    XCircle,
+} from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
@@ -76,14 +88,17 @@ export default function Relatorio() {
             try {
                 setLoading(true);
 
-                const response = await fetch("/api/trips/drives", {
-                    method: "GET",
-                    credentials: "include",
-                    cache: "no-store",
-                    headers: {
-                        Accept: "application/json",
-                    },
-                });
+                const response = await fetch(
+                    "/api/trips/drives",
+                    {
+                        method: "GET",
+                        credentials: "include",
+                        cache: "no-store",
+                        headers: {
+                            Accept: "application/json",
+                        },
+                    }
+                );
 
                 let data: TripsResponse = {};
 
@@ -95,7 +110,8 @@ export default function Relatorio() {
 
                 if (!response.ok) {
                     throw new Error(
-                        data?.message || "Erro ao buscar viagens."
+                        data?.message ||
+                            "Erro ao buscar viagens."
                     );
                 }
 
@@ -145,20 +161,29 @@ export default function Relatorio() {
                         return {
                             trip_request_id: tripId,
                             pickup_address: String(pickup),
-                            destination_address: String(destination),
+                            destination_address: String(
+                                destination
+                            ),
                             valor,
-                            current_status: status || "pending",
+                            current_status:
+                                status || "pending",
                         };
                     })
                     .filter(
-                        (item) => item.trip_request_id.length > 0
+                        (item) =>
+                            item.trip_request_id.length > 0
                     );
 
                 if (ativo) {
                     setRows(viagensFormatadas);
                     setPaginaAtual(1);
                 }
-            } catch {
+            } catch (error) {
+                console.error(
+                    "ERRO AO CARREGAR VIAGENS:",
+                    error
+                );
+
                 if (ativo) {
                     setRows([]);
                     setPaginaAtual(1);
@@ -177,74 +202,6 @@ export default function Relatorio() {
         };
     }, []);
 
-    const totalViagens = rows.length;
-
-    const totalGasto = useMemo(() => {
-        return rows.reduce((total, viagem) => {
-            const status = viagem.current_status
-                .toLowerCase()
-                .trim();
-
-            const finalizada =
-                STATUS_FINALIZADOS.includes(status);
-
-            return finalizada
-                ? total + viagem.valor
-                : total;
-        }, 0);
-    }, [rows]);
-
-    const totalViagensFinalizadas = useMemo(() => {
-        return rows.filter((viagem) => {
-            const status = viagem.current_status
-                .toLowerCase()
-                .trim();
-
-            return STATUS_FINALIZADOS.includes(status);
-        }).length;
-    }, [rows]);
-
-    const totalPaginas = Math.max(
-        1,
-        Math.ceil(totalViagens / VIAGENS_POR_PAGINA)
-    );
-
-    const paginaSegura = Math.min(
-        paginaAtual,
-        totalPaginas
-    );
-
-    const indiceInicio =
-        (paginaSegura - 1) * VIAGENS_POR_PAGINA;
-
-    const indiceFim =
-        indiceInicio + VIAGENS_POR_PAGINA;
-
-    const viagensPaginadas = rows.slice(
-        indiceInicio,
-        indiceFim
-    );
-
-    const irParaPagina = (pagina: number) => {
-        if (pagina < 1 || pagina > totalPaginas) {
-            return;
-        }
-
-        setPaginaAtual(pagina);
-
-        window.scrollTo({
-            top: 0,
-            behavior: "smooth",
-        });
-    };
-
-    const formatCurrency = (value: number) => {
-        return new Intl.NumberFormat("pt-BR", {
-            style: "currency",
-            currency: "BRL",
-        }).format(value);
-    };
-
     const normalizarStatus = (status: string) => {
         return String(status || "")
             .toLowerCase()
@@ -252,7 +209,8 @@ export default function Relatorio() {
     };
 
     const traduzirStatus = (status: string) => {
-        const statusNormalizado = normalizarStatus(status);
+        const statusNormalizado =
+            normalizarStatus(status);
 
         switch (statusNormalizado) {
             case "completed":
@@ -294,36 +252,165 @@ export default function Relatorio() {
         }
     };
 
-    const statusClass = (status: string) => {
-        const statusNormalizado = normalizarStatus(status);
+    const statusConfig = (status: string) => {
+        const statusNormalizado =
+            normalizarStatus(status);
 
-        if (STATUS_FINALIZADOS.includes(statusNormalizado)) {
-            return "bg-green-100 text-green-600";
+        if (
+            STATUS_FINALIZADOS.includes(
+                statusNormalizado
+            )
+        ) {
+            return {
+                label: "Finalizada",
+                className:
+                    "bg-emerald-50 text-emerald-700 border-emerald-100",
+                icon: CheckCircle2,
+            };
         }
 
-        if (STATUS_CANCELADOS.includes(statusNormalizado)) {
-            return "bg-red-100 text-red-600";
+        if (
+            STATUS_CANCELADOS.includes(
+                statusNormalizado
+            )
+        ) {
+            return {
+                label: "Cancelada",
+                className:
+                    "bg-red-50 text-red-700 border-red-100",
+                icon: XCircle,
+            };
         }
 
-        if (STATUS_EM_ANDAMENTO.includes(statusNormalizado)) {
-            return "bg-yellow-100 text-yellow-600";
+        if (
+            STATUS_EM_ANDAMENTO.includes(
+                statusNormalizado
+            )
+        ) {
+            return {
+                label: traduzirStatus(status),
+                className:
+                    "bg-amber-50 text-amber-700 border-amber-100",
+                icon: Clock3,
+            };
         }
 
-        if (statusNormalizado === "pending") {
-            return "bg-gray-100 text-gray-600";
+        if (
+            STATUS_RETORNADOS.includes(
+                statusNormalizado
+            )
+        ) {
+            return {
+                label: traduzirStatus(status),
+                className:
+                    "bg-blue-50 text-blue-700 border-blue-100",
+                icon: Route,
+            };
         }
 
-        if (STATUS_RETORNADOS.includes(statusNormalizado)) {
-            return "bg-blue-100 text-blue-600";
+        return {
+            label: traduzirStatus(status),
+            className:
+                "bg-slate-50 text-slate-600 border-slate-200",
+            icon: Clock3,
+        };
+    };
+
+    const totalViagens = rows.length;
+
+    const totalViagensFinalizadas = useMemo(() => {
+        return rows.filter((viagem) => {
+            const status = normalizarStatus(
+                viagem.current_status
+            );
+
+            return STATUS_FINALIZADOS.includes(status);
+        }).length;
+    }, [rows]);
+
+    const totalEmAndamento = useMemo(() => {
+        return rows.filter((viagem) => {
+            const status = normalizarStatus(
+                viagem.current_status
+            );
+
+            return STATUS_EM_ANDAMENTO.includes(status);
+        }).length;
+    }, [rows]);
+
+    const totalCanceladas = useMemo(() => {
+        return rows.filter((viagem) => {
+            const status = normalizarStatus(
+                viagem.current_status
+            );
+
+            return STATUS_CANCELADOS.includes(status);
+        }).length;
+    }, [rows]);
+
+    const totalGasto = useMemo(() => {
+        return rows.reduce((total, viagem) => {
+            const status = normalizarStatus(
+                viagem.current_status
+            );
+
+            if (
+                STATUS_FINALIZADOS.includes(status)
+            ) {
+                return total + viagem.valor;
+            }
+
+            return total;
+        }, 0);
+    }, [rows]);
+
+    const totalPaginas = Math.max(
+        1,
+        Math.ceil(
+            totalViagens / VIAGENS_POR_PAGINA
+        )
+    );
+
+    const paginaSegura = Math.min(
+        paginaAtual,
+        totalPaginas
+    );
+
+    const indiceInicio =
+        (paginaSegura - 1) *
+        VIAGENS_POR_PAGINA;
+
+    const indiceFim =
+        indiceInicio +
+        VIAGENS_POR_PAGINA;
+
+    const viagensPaginadas = rows.slice(
+        indiceInicio,
+        indiceFim
+    );
+
+    const irParaPagina = (pagina: number) => {
+        if (
+            pagina < 1 ||
+            pagina > totalPaginas
+        ) {
+            return;
         }
 
-        return "bg-gray-100 text-gray-600";
+        setPaginaAtual(pagina);
+
+        window.scrollTo({
+            top: 0,
+            behavior: "smooth",
+        });
     };
 
     const gerarPaginas = () => {
         if (totalPaginas <= 5) {
             return Array.from(
-                { length: totalPaginas },
+                {
+                    length: totalPaginas,
+                },
                 (_, index) => index + 1
             );
         }
@@ -338,7 +425,10 @@ export default function Relatorio() {
             paginas.add(paginaSegura - 1);
         }
 
-        if (paginaSegura + 1 < totalPaginas) {
+        if (
+            paginaSegura + 1 <
+            totalPaginas
+        ) {
             paginas.add(paginaSegura + 1);
         }
 
@@ -349,474 +439,610 @@ export default function Relatorio() {
 
     const paginas = gerarPaginas();
 
-    return (
-        <div className="mx-auto w-full max-w-8xl">
-            <div className="w-full overflow-hidden rounded-2xl bg-white p-4 shadow-sm sm:rounded-3xl">
-                <div className="mb-3 flex flex-col gap-4 sm:mb-6 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="min-w-0">
-                        <h5 className="text-lg font-bold text-black sm:text-xl md:text-2xl 2xl:text-3xl">
-                            Últimas Viagens
-                        </h5>
+    const formatCurrency = (value: number) => {
+        return new Intl.NumberFormat("pt-BR", {
+            style: "currency",
+            currency: "BRL",
+        }).format(value);
+    };
 
-                        <p className="mt-0 text-xs text-gray-500 sm:text-sm 2xl:text-base">
-                            Confira suas viagens realizadas
+    function StatCard({
+        title,
+        value,
+        icon: Icon,
+        iconClass,
+    }: {
+        title: string;
+        value: string | number;
+        icon: typeof Route;
+        iconClass: string;
+    }) {
+        return (
+            <div className="group rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_4px_20px_rgba(15,23,42,0.04)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_10px_30px_rgba(15,23,42,0.07)]">
+                <div className="flex items-start justify-between gap-4">
+                    <div>
+                        <p className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-400">
+                            {title}
+                        </p>
+
+                        <p className="mt-2 text-2xl font-extrabold tracking-tight text-slate-900">
+                            {value}
                         </p>
                     </div>
 
-                    <Link
-                        href="/motorista/impostos"
-                        className="inline-flex w-full shrink-0 items-center justify-center rounded-xl bg-[#05b8aa] px-4 py-3 text-sm font-bold text-white shadow-sm transition-all duration-200 hover:bg-[#04a99c] hover:shadow-md active:scale-[0.98] sm:w-auto sm:rounded-2xl sm:px-5 sm:py-2.5 2xl:px-6 2xl:py-3 2xl:text-base"
+                    <div
+                        className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${iconClass}`}
                     >
-                        Imposto de Renda
-                    </Link>
+                        <Icon size={20} />
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <main className="w-full pb-10">
+            <div className="mb-6 flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+                <div>
+                    <h1 className="text-2xl font-extrabold tracking-tight text-white sm:text-3xl">
+                        Minhas viagens
+                    </h1>
+
+                    <p className="mt-0 max-w-2xl text-sm leading-6 text-white">
+                        Acompanhe suas corridas,
+                        valores recebidos e o status
+                        de cada viagem.
+                    </p>
                 </div>
 
-                {totalViagensFinalizadas > 0 && (
-                    <div className="mb-5 rounded-xl border border-teal-100 bg-teal-50 px-4 py-3 sm:mb-6 sm:rounded-2xl">
-                        <div className="flex items-center justify-between gap-4">
-                            <div>
-                                <p className="text-xs font-medium text-teal-600">
-                                    Viagens concluídas
-                                </p>
+                <Link
+                    href="/motorista/impostos"
+                    className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#05b8aa] px-5 text-sm font-bold text-white shadow-[0_5px_15px_rgba(5,184,170,0.18)] transition-all hover:-translate-y-0.5 hover:bg-[#04a99c] hover:shadow-[0_8px_20px_rgba(5,184,170,0.25)] active:translate-y-0"
+                >
+                    <ReceiptText size={17} />
+                    Imposto de Renda
+                </Link>
+            </div>
 
-                                <p className="mt-1 text-2xl font-bold text-teal-700">
-                                    {totalViagensFinalizadas}
-                                </p>
+            <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                <StatCard
+                    title="Total de viagens"
+                    value={totalViagens}
+                    icon={Route}
+                    iconClass="bg-teal-50 text-teal-600"
+                />
+
+                <StatCard
+                    title="Finalizadas"
+                    value={totalViagensFinalizadas}
+                    icon={CheckCircle2}
+                    iconClass="bg-emerald-50 text-emerald-600"
+                />
+
+                <StatCard
+                    title="Em andamento"
+                    value={totalEmAndamento}
+                    icon={Clock3}
+                    iconClass="bg-amber-50 text-amber-600"
+                />
+
+                <StatCard
+                    title="Total recebido"
+                    value={formatCurrency(totalGasto)}
+                    icon={CircleDollarSign}
+                    iconClass="bg-blue-50 text-blue-600"
+                />
+            </div>
+
+            <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_4px_25px_rgba(15,23,42,0.04)]">
+                <div className="flex flex-col gap-4 border-b border-slate-100 px-5 py-5 sm:px-6 lg:flex-row lg:items-center lg:justify-between">
+                    <div>
+                        <div className="flex items-center gap-2">
+                            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-teal-50 text-teal-600">
+                                <Route size={17} />
                             </div>
 
-                            <div className="text-right">
-                                <p className="text-xs font-medium text-teal-600">
-                                    Total recebido
-                                </p>
+                            <h2 className="text-base font-extrabold text-slate-900 sm:text-lg">
+                                Histórico de viagens
+                            </h2>
+                        </div>
 
-                                <p className="mt-1 text-lg font-bold text-teal-700 sm:text-xl">
-                                    {formatCurrency(totalGasto)}
-                                </p>
-                            </div>
+                        <p className="mt-2 text-xs text-slate-400 sm:text-sm">
+                            Confira suas viagens realizadas
+                            e seus respectivos valores.
+                        </p>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                        <div className="rounded-lg bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-500">
+                            {totalViagens}{" "}
+                            {totalViagens === 1
+                                ? "viagem"
+                                : "viagens"}
                         </div>
                     </div>
-                )}
+                </div>
 
                 {loading ? (
-                    <div className="flex min-h-[220px] items-center justify-center">
-                        <div className="flex items-center justify-center gap-3 text-sm text-gray-500 2xl:text-base">
-                            <div className="h-5 w-5 animate-spin rounded-full border-2 border-gray-200 border-t-teal-500" />
+                    <div className="flex min-h-[360px] items-center justify-center">
+                        <div className="flex flex-col items-center gap-4">
+                            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-teal-50">
+                                <div className="h-5 w-5 animate-spin rounded-full border-2 border-teal-100 border-t-teal-500" />
+                            </div>
 
-                            <span>
-                                Carregando viagens...
-                            </span>
+                            <div className="text-center">
+                                <p className="text-sm font-semibold text-slate-700">
+                                    Carregando viagens
+                                </p>
+
+                                <p className="mt-1 text-xs text-slate-400">
+                                    Aguarde enquanto buscamos
+                                    seu histórico.
+                                </p>
+                            </div>
                         </div>
                     </div>
                 ) : rows.length === 0 ? (
-                    <div className="flex min-h-[220px] flex-col items-center justify-center px-4 py-10 text-center sm:min-h-[260px]">
-                        <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-gray-100">
+                    <div className="flex min-h-[360px] flex-col items-center justify-center px-6 py-12 text-center">
+                        <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-50">
                             <MapPin
-                                size={21}
-                                className="text-gray-400"
+                                size={28}
+                                className="text-slate-300"
                             />
                         </div>
 
-                        <p className="text-sm font-medium text-gray-700 sm:text-base 2xl:text-lg">
-                            Nenhuma corrida encontrada
-                        </p>
+                        <h3 className="text-base font-bold text-slate-800 sm:text-lg">
+                            Nenhuma viagem encontrada
+                        </h3>
 
-                        <p className="mt-1 text-xs text-gray-400 sm:text-sm 2xl:text-base">
-                            Suas viagens aparecerão aqui.
+                        <p className="mt-1.5 max-w-sm text-sm leading-6 text-slate-400">
+                            Suas viagens aparecerão aqui
+                            assim que você realizar uma
+                            corrida.
                         </p>
                     </div>
                 ) : (
                     <>
                         <div className="hidden overflow-x-auto md:block">
-                            <table className="w-full min-w-[760px] text-left text-sm 2xl:text-base">
-                                <thead className="border-b border-gray-200 bg-gray-50">
-                                    <tr className="text-xs uppercase tracking-wide text-gray-600 2xl:text-[13px]">
-                                        <th className="px-4 py-3 lg:px-6 2xl:px-7 2xl:py-4">
-                                            ID
+                            <table className="w-full min-w-[900px] border-collapse">
+                                <thead>
+                                    <tr className="border-b border-slate-100 bg-slate-50/70">
+                                        <th className="px-6 py-4 text-left text-[11px] font-bold uppercase tracking-[0.08em] text-slate-400">
+                                            Viagem
                                         </th>
 
-                                        <th className="px-4 py-3 lg:px-6 2xl:px-7 2xl:py-4">
-                                            Origem x Destino
+                                        <th className="px-6 py-4 text-left text-[11px] font-bold uppercase tracking-[0.08em] text-slate-400">
+                                            Rota
                                         </th>
 
-                                        <th className="px-4 py-3 lg:px-6 2xl:px-7 2xl:py-4">
+                                        <th className="px-6 py-4 text-left text-[11px] font-bold uppercase tracking-[0.08em] text-slate-400">
                                             Valor
                                         </th>
 
-                                        <th className="px-4 py-3 lg:px-6 2xl:px-7 2xl:py-4">
+                                        <th className="px-6 py-4 text-left text-[11px] font-bold uppercase tracking-[0.08em] text-slate-400">
                                             Status
                                         </th>
 
-                                        <th className="px-4 py-3 text-center lg:px-6 2xl:px-7 2xl:py-4">
+                                        <th className="px-6 py-4 text-right text-[11px] font-bold uppercase tracking-[0.08em] text-slate-400">
                                             Ação
                                         </th>
                                     </tr>
                                 </thead>
 
-                                <tbody className="divide-y divide-gray-100">
+                                <tbody>
                                     {viagensPaginadas.map(
-                                        (item) => (
-                                            <tr
-                                                key={
-                                                    item.trip_request_id
-                                                }
-                                                className="transition-colors hover:bg-gray-50"
-                                            >
-                                                <td className="max-w-[190px] px-4 py-4 font-medium text-gray-700 lg:px-6 2xl:px-7 2xl:py-5">
-                                                    <span
-                                                        className="block truncate"
-                                                        title={
-                                                            item.trip_request_id
-                                                        }
-                                                    >
-                                                        #
-                                                        {
-                                                            item.trip_request_id
-                                                        }
-                                                    </span>
-                                                </td>
+                                        (item) => {
+                                            const status =
+                                                statusConfig(
+                                                    item.current_status
+                                                );
 
-                                                <td className="px-4 py-4 lg:px-6 2xl:px-7 2xl:py-5">
-                                                    <div className="flex min-w-[360px] max-w-[650px] items-center gap-3 lg:min-w-[400px] 2xl:min-w-[480px]">
-                                                        <div className="flex min-w-0 flex-1 items-center gap-1.5">
-                                                            <MapPin
-                                                                size={
-                                                                    14
+                                            const StatusIcon =
+                                                status.icon;
+
+                                            return (
+                                                <tr
+                                                    key={
+                                                        item.trip_request_id
+                                                    }
+                                                    className="group border-b border-slate-100 last:border-0 hover:bg-slate-50/50"
+                                                >
+                                                    <td className="px-6 py-5">
+                                                        <div>
+                                                            <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-slate-400">
+                                                                ID
+                                                            </span>
+
+                                                            <p className="mt-1 font-bold text-slate-700">
+                                                                #
+                                                                {
+                                                                    item.trip_request_id
                                                                 }
-                                                                className="shrink-0 text-green-500"
+                                                            </p>
+                                                        </div>
+                                                    </td>
+
+                                                    <td className="px-6 py-5">
+                                                        <div className="flex min-w-[430px] max-w-[650px] items-center gap-3">
+                                                            <div className="flex min-w-0 flex-1 items-center gap-2">
+                                                                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-50">
+                                                                    <MapPin
+                                                                        size={
+                                                                            14
+                                                                        }
+                                                                        className="text-emerald-500"
+                                                                    />
+                                                                </div>
+
+                                                                <div className="min-w-0">
+                                                                    <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                                                                        Origem
+                                                                    </p>
+
+                                                                    <p
+                                                                        className="mt-0.5 truncate text-sm font-medium text-slate-700"
+                                                                        title={
+                                                                            item.pickup_address
+                                                                        }
+                                                                    >
+                                                                        {
+                                                                            item.pickup_address
+                                                                        }
+                                                                    </p>
+                                                                </div>
+                                                            </div>
+
+                                                            <ArrowRight
+                                                                size={
+                                                                    16
+                                                                }
+                                                                className="shrink-0 text-slate-300"
                                                             />
 
-                                                            <span
-                                                                className="truncate text-gray-700"
-                                                                title={
-                                                                    item.pickup_address
-                                                                }
-                                                            >
-                                                                {
-                                                                    item.pickup_address
-                                                                }
-                                                            </span>
+                                                            <div className="flex min-w-0 flex-1 items-center gap-2">
+                                                                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-red-50">
+                                                                    <MapPin
+                                                                        size={
+                                                                            14
+                                                                        }
+                                                                        className="text-red-500"
+                                                                    />
+                                                                </div>
+
+                                                                <div className="min-w-0">
+                                                                    <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                                                                        Destino
+                                                                    </p>
+
+                                                                    <p
+                                                                        className="mt-0.5 truncate text-sm font-medium text-slate-700"
+                                                                        title={
+                                                                            item.destination_address
+                                                                        }
+                                                                    >
+                                                                        {
+                                                                            item.destination_address
+                                                                        }
+                                                                    </p>
+                                                                </div>
+                                                            </div>
                                                         </div>
+                                                    </td>
 
-                                                        <span className="shrink-0 text-gray-400">
-                                                            →
-                                                        </span>
+                                                    <td className="whitespace-nowrap px-6 py-5">
+                                                        {item.valor <=
+                                                        0 ? (
+                                                            <div>
+                                                                <p className="text-xs font-medium text-slate-400">
+                                                                    Valor
+                                                                </p>
 
-                                                        <div className="flex min-w-0 flex-1 items-center gap-1.5">
-                                                            <MapPin
-                                                                size={
-                                                                    14
-                                                                }
-                                                                className="shrink-0 text-red-500"
-                                                            />
+                                                                <p className="mt-1 text-sm font-medium text-slate-400">
+                                                                    Aguardando
+                                                                </p>
+                                                            </div>
+                                                        ) : (
+                                                            <div>
+                                                                <p className="text-xs font-medium text-slate-400">
+                                                                    Recebido
+                                                                </p>
 
-                                                            <span
-                                                                className="truncate text-gray-700"
-                                                                title={
-                                                                    item.destination_address
-                                                                }
-                                                            >
-                                                                {
-                                                                    item.destination_address
-                                                                }
-                                                            </span>
-                                                        </div>
-                                                    </div>
-                                                </td>
-
-                                                <td className="whitespace-nowrap px-4 py-4 lg:px-6 2xl:px-7 2xl:py-5">
-                                                    {item.valor <=
-                                                    0 ? (
-                                                        <span className="text-gray-400">
-                                                            Aguardando
-                                                        </span>
-                                                    ) : (
-                                                        <span className="font-semibold text-gray-700">
-                                                            {formatCurrency(
-                                                                item.valor
-                                                            )}
-                                                        </span>
-                                                    )}
-                                                </td>
-
-                                                <td className="px-4 py-4 lg:px-6 2xl:px-7 2xl:py-5">
-                                                    <span
-                                                        className={`inline-flex whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold 2xl:px-3 2xl:text-sm ${statusClass(
-                                                            item.current_status
-                                                        )}`}
-                                                    >
-                                                        {traduzirStatus(
-                                                            item.current_status
+                                                                <p className="mt-1 text-sm font-extrabold text-slate-800">
+                                                                    {formatCurrency(
+                                                                        item.valor
+                                                                    )}
+                                                                </p>
+                                                            </div>
                                                         )}
-                                                    </span>
-                                                </td>
+                                                    </td>
 
-                                                <td className="px-4 py-4 text-center lg:px-6 2xl:px-7 2xl:py-5">
-                                                    <Link
-                                                        href={`/motorista/viagens/${item.trip_request_id}`}
-                                                        className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-teal-500 transition-colors hover:bg-teal-50 hover:text-teal-700 2xl:h-10 2xl:w-10"
-                                                        title="Ver viagem"
-                                                        aria-label={`Ver viagem ${item.trip_request_id}`}
-                                                    >
-                                                        <Eye
-                                                            size={
-                                                                18
+                                                    <td className="px-6 py-5">
+                                                        <span
+                                                            className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-bold ${status.className}`}
+                                                        >
+                                                            <StatusIcon
+                                                                size={
+                                                                    13
+                                                                }
+                                                            />
+
+                                                            {
+                                                                status.label
                                                             }
-                                                        />
-                                                    </Link>
-                                                </td>
-                                            </tr>
-                                        )
+                                                        </span>
+                                                    </td>
+
+                                                    <td className="px-6 py-5 text-right">
+                                                        <Link
+                                                            href={`/motorista/viagens/${item.trip_request_id}`}
+                                                            className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-xs font-bold text-slate-600 transition-all hover:border-teal-200 hover:bg-teal-50 hover:text-teal-700"
+                                                        >
+                                                            <Eye
+                                                                size={
+                                                                    15
+                                                                }
+                                                            />
+
+                                                            Ver detalhes
+                                                        </Link>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        }
                                     )}
                                 </tbody>
                             </table>
                         </div>
 
-                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:hidden">
+                        <div className="grid grid-cols-1 gap-3 p-4 md:hidden">
                             {viagensPaginadas.map(
-                                (item) => (
-                                    <div
-                                        key={
-                                            item.trip_request_id
-                                        }
-                                        className="overflow-hidden rounded-2xl border border-gray-100 bg-white p-4 shadow-sm"
-                                    >
-                                        <div className="mb-4 flex items-start justify-between gap-3">
-                                            <div className="min-w-0">
-                                                <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
-                                                    ID da viagem
-                                                </p>
+                                (item) => {
+                                    const status =
+                                        statusConfig(
+                                            item.current_status
+                                        );
 
-                                                <p
-                                                    className="mt-1 truncate text-xs font-semibold text-gray-700"
-                                                    title={
-                                                        item.trip_request_id
-                                                    }
-                                                >
-                                                    #
-                                                    {
-                                                        item.trip_request_id
-                                                    }
-                                                </p>
-                                            </div>
+                                    const StatusIcon =
+                                        status.icon;
 
-                                            <Link
-                                                href={`/motorista/viagens/${item.trip_request_id}`}
-                                                className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-teal-50 text-teal-600 transition-colors hover:bg-teal-100"
-                                                title="Ver viagem"
-                                                aria-label={`Ver viagem ${item.trip_request_id}`}
-                                            >
-                                                <Eye
-                                                    size={18}
-                                                />
-                                            </Link>
-                                        </div>
+                                    return (
+                                        <article
+                                            key={
+                                                item.trip_request_id
+                                            }
+                                            className="rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_3px_15px_rgba(15,23,42,0.04)]"
+                                        >
+                                            <div className="flex items-start justify-between gap-3">
+                                                <div>
+                                                    <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-slate-400">
+                                                        ID da viagem
+                                                    </p>
 
-                                        <div className="flex items-start gap-3">
-                                            <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-green-50">
-                                                <MapPin
-                                                    size={15}
-                                                    className="text-green-500"
-                                                />
-                                            </div>
-
-                                            <div className="min-w-0 flex-1">
-                                                <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
-                                                    Origem
-                                                </p>
-
-                                                <p className="mt-1 break-words text-sm leading-5 text-gray-700">
-                                                    {
-                                                        item.pickup_address
-                                                    }
-                                                </p>
-                                            </div>
-                                        </div>
-
-                                        <div className="ml-4 h-5 border-l border-dashed border-gray-300" />
-
-                                        <div className="flex items-start gap-3">
-                                            <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-red-50">
-                                                <MapPin
-                                                    size={15}
-                                                    className="text-red-500"
-                                                />
-                                            </div>
-
-                                            <div className="min-w-0 flex-1">
-                                                <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
-                                                    Destino
-                                                </p>
-
-                                                <p className="mt-1 break-words text-sm leading-5 text-gray-700">
-                                                    {
-                                                        item.destination_address
-                                                    }
-                                                </p>
-                                            </div>
-                                        </div>
-
-                                        <div className="mt-4 grid grid-cols-2 gap-3 border-t border-gray-100 pt-4">
-                                            <div>
-                                                <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
-                                                    Valor
-                                                </p>
-
-                                                <p className="mt-1 text-sm font-semibold text-gray-700">
-                                                    {item.valor <=
-                                                    0
-                                                        ? "Aguardando"
-                                                        : formatCurrency(
-                                                              item.valor
-                                                          )}
-                                                </p>
-                                            </div>
-
-                                            <div className="text-right">
-                                                <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
-                                                    Status
-                                                </p>
+                                                    <p className="mt-1 text-sm font-extrabold text-slate-800">
+                                                        #
+                                                        {
+                                                            item.trip_request_id
+                                                        }
+                                                    </p>
+                                                </div>
 
                                                 <span
-                                                    className={`mt-1 inline-flex whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-semibold ${statusClass(
-                                                        item.current_status
-                                                    )}`}
+                                                    className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[10px] font-bold ${status.className}`}
                                                 >
-                                                    {traduzirStatus(
-                                                        item.current_status
-                                                    )}
+                                                    <StatusIcon
+                                                        size={
+                                                            12
+                                                        }
+                                                    />
+
+                                                    {
+                                                        status.label
+                                                    }
                                                 </span>
                                             </div>
-                                        </div>
-                                    </div>
-                                )
+
+                                            <div className="mt-5">
+                                                <div className="flex items-start gap-3">
+                                                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-50">
+                                                        <MapPin
+                                                            size={
+                                                                14
+                                                            }
+                                                            className="text-emerald-500"
+                                                        />
+                                                    </div>
+
+                                                    <div className="min-w-0 flex-1">
+                                                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                                                            Origem
+                                                        </p>
+
+                                                        <p className="mt-1 text-sm leading-5 text-slate-700">
+                                                            {
+                                                                item.pickup_address
+                                                            }
+                                                        </p>
+                                                    </div>
+                                                </div>
+
+                                                <div className="ml-4 h-6 border-l border-dashed border-slate-200" />
+
+                                                <div className="flex items-start gap-3">
+                                                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-red-50">
+                                                        <MapPin
+                                                            size={
+                                                                14
+                                                            }
+                                                            className="text-red-500"
+                                                        />
+                                                    </div>
+
+                                                    <div className="min-w-0 flex-1">
+                                                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                                                            Destino
+                                                        </p>
+
+                                                        <p className="mt-1 text-sm leading-5 text-slate-700">
+                                                            {
+                                                                item.destination_address
+                                                            }
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div className="mt-5 grid grid-cols-2 gap-3 border-t border-slate-100 pt-4">
+                                                <div>
+                                                    <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                                                        Valor
+                                                    </p>
+
+                                                    <p className="mt-1 text-sm font-extrabold text-slate-800">
+                                                        {item.valor <=
+                                                        0
+                                                            ? "Aguardando"
+                                                            : formatCurrency(
+                                                                  item.valor
+                                                              )}
+                                                    </p>
+                                                </div>
+
+                                                <div className="flex justify-end">
+                                                    <Link
+                                                        href={`/motorista/viagens/${item.trip_request_id}`}
+                                                        className="inline-flex h-9 items-center gap-2 rounded-lg bg-teal-50 px-3 text-xs font-bold text-teal-700 transition hover:bg-teal-100"
+                                                    >
+                                                        <Eye
+                                                            size={
+                                                                14
+                                                            }
+                                                        />
+
+                                                        Detalhes
+                                                    </Link>
+                                                </div>
+                                            </div>
+                                        </article>
+                                    );
+                                }
                             )}
                         </div>
                     </>
                 )}
 
                 {!loading && totalViagens > 0 && (
-                    <div className="mt-5 border-t border-gray-100 pt-4 sm:mt-6 2xl:pt-5">
-                        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                            <p className="text-center text-xs text-gray-400 sm:text-left 2xl:text-sm">
-                                Mostrando{" "}
-                                <span className="font-semibold text-gray-600">
-                                    {indiceInicio + 1}
-                                </span>{" "}
-                                a{" "}
-                                <span className="font-semibold text-gray-600">
-                                    {Math.min(
-                                        indiceFim,
-                                        totalViagens
-                                    )}
-                                </span>{" "}
-                                de{" "}
-                                <span className="font-semibold text-gray-600">
-                                    {totalViagens}
-                                </span>{" "}
-                                {totalViagens === 1
-                                    ? "viagem"
-                                    : "viagens"}
-                            </p>
+                    <div className="flex flex-col gap-4 border-t border-slate-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+                        <p className="text-xs text-slate-400">
+                            Mostrando{" "}
+                            <strong className="text-slate-600">
+                                {indiceInicio + 1}
+                            </strong>{" "}
+                            até{" "}
+                            <strong className="text-slate-600">
+                                {Math.min(
+                                    indiceFim,
+                                    totalViagens
+                                )}
+                            </strong>{" "}
+                            de{" "}
+                            <strong className="text-slate-600">
+                                {totalViagens}
+                            </strong>{" "}
+                            viagens
+                        </p>
 
-                            {totalPaginas > 1 && (
-                                <div className="flex flex-wrap items-center justify-center gap-1.5">
-                                    <button
-                                        type="button"
-                                        onClick={() =>
-                                            irParaPagina(
-                                                paginaSegura - 1
-                                            )
-                                        }
-                                        disabled={
-                                            paginaSegura === 1
-                                        }
-                                        className="inline-flex h-9 min-w-9 cursor-pointer items-center justify-center rounded-lg border border-gray-200 px-2 text-sm font-semibold text-gray-600 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40 2xl:h-10 2xl:min-w-10 2xl:text-base"
-                                        aria-label="Página anterior"
-                                    >
-                                        ←
-                                    </button>
+                        {totalPaginas > 1 && (
+                            <div className="flex items-center justify-center gap-1.5">
+                                <button
+                                    type="button"
+                                    onClick={() =>
+                                        irParaPagina(
+                                            paginaSegura - 1
+                                        )
+                                    }
+                                    disabled={
+                                        paginaSegura === 1
+                                    }
+                                    className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                                >
+                                    <ChevronLeft size={16} />
+                                </button>
 
-                                    {paginas.map(
-                                        (
-                                            pagina,
-                                            index
-                                        ) => {
-                                            const paginaAnterior =
-                                                paginas[
-                                                    index - 1
-                                                ];
+                                {paginas.map(
+                                    (
+                                        pagina,
+                                        index
+                                    ) => {
+                                        const paginaAnterior =
+                                            paginas[
+                                                index - 1
+                                            ];
 
-                                            const mostrarReticencias =
-                                                paginaAnterior !==
-                                                    undefined &&
-                                                pagina -
-                                                    paginaAnterior >
-                                                    1;
+                                        const mostrarReticencias =
+                                            paginaAnterior !==
+                                                undefined &&
+                                            pagina -
+                                                paginaAnterior >
+                                                1;
 
-                                            return (
-                                                <span
-                                                    key={
+                                        return (
+                                            <div
+                                                key={
+                                                    pagina
+                                                }
+                                                className="flex items-center gap-1.5"
+                                            >
+                                                {mostrarReticencias && (
+                                                    <span className="px-1 text-xs text-slate-400">
+                                                        ...
+                                                    </span>
+                                                )}
+
+                                                <button
+                                                    type="button"
+                                                    onClick={() =>
+                                                        irParaPagina(
+                                                            pagina
+                                                        )
+                                                    }
+                                                    className={`flex h-9 min-w-9 items-center justify-center rounded-lg border px-2 text-xs font-bold transition ${
+                                                        pagina ===
+                                                        paginaSegura
+                                                            ? "border-teal-500 bg-teal-500 text-white shadow-sm"
+                                                            : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                                                    }`}
+                                                >
+                                                    {
                                                         pagina
                                                     }
-                                                    className="contents"
-                                                >
-                                                    {mostrarReticencias && (
-                                                        <span className="inline-flex h-9 min-w-7 items-center justify-center text-xs text-gray-400">
-                                                            ...
-                                                        </span>
-                                                    )}
+                                                </button>
+                                            </div>
+                                        );
+                                    }
+                                )}
 
-                                                    <button
-                                                        type="button"
-                                                        onClick={() =>
-                                                            irParaPagina(
-                                                                pagina
-                                                            )
-                                                        }
-                                                        className={`inline-flex h-9 min-w-9 cursor-pointer items-center justify-center rounded-lg border px-2 text-sm font-semibold transition 2xl:h-10 2xl:min-w-10 2xl:text-base ${
-                                                            pagina ===
-                                                            paginaSegura
-                                                                ? "border-[#05b8aa] bg-[#05b8aa] text-white"
-                                                                : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
-                                                        }`}
-                                                        aria-current={
-                                                            pagina ===
-                                                            paginaSegura
-                                                                ? "page"
-                                                                : undefined
-                                                        }
-                                                    >
-                                                        {
-                                                            pagina
-                                                        }
-                                                    </button>
-                                                </span>
-                                            );
-                                        }
-                                    )}
-
-                                    <button
-                                        type="button"
-                                        onClick={() =>
-                                            irParaPagina(
-                                                paginaSegura + 1
-                                            )
-                                        }
-                                        disabled={
-                                            paginaSegura ===
-                                            totalPaginas
-                                        }
-                                        className="inline-flex h-9 min-w-9 cursor-pointer items-center justify-center rounded-lg border border-gray-200 px-2 text-sm font-semibold text-gray-600 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40 2xl:h-10 2xl:min-w-10 2xl:text-base"
-                                        aria-label="Próxima página"
-                                    >
-                                        →
-                                    </button>
-                                </div>
-                            )}
-                        </div>
+                                <button
+                                    type="button"
+                                    onClick={() =>
+                                        irParaPagina(
+                                            paginaSegura + 1
+                                        )
+                                    }
+                                    disabled={
+                                        paginaSegura ===
+                                        totalPaginas
+                                    }
+                                    className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                                >
+                                    <ChevronRight
+                                        size={16}
+                                    />
+                                </button>
+                            </div>
+                        )}
                     </div>
                 )}
-            </div>
-        </div>
+            </section>
+        </main>
     );
 }

@@ -337,6 +337,48 @@ export async function GET() {
           dbError
         );
       }
+    } else if (
+      userType === "customer" ||
+      userType === "passageiro" ||
+      userType === "passenger" ||
+      userType === "2"
+    ) {
+      try {
+        const [verificacoes] = (await db.query(
+          `
+          SELECT current_status
+          FROM driver_identity_verifications
+          WHERE driver_id = ?
+          ORDER BY updated_at DESC
+          LIMIT 1
+          `,
+          [resolvedId]
+        )) as unknown as [Array<{ current_status?: string | null }>];
+
+        const diditStatus =
+          typeof verificacoes[0]?.current_status === "string"
+            ? verificacoes[0].current_status
+            : null;
+
+        const status = mapearStatusDidit(diditStatus, false);
+
+        verificacaoDocumento = {
+          status,
+          didit_status: diditStatus,
+          is_verified: status === "aprovado",
+          identity_match: null,
+        };
+
+        provaVida = {
+          devida: false,
+          last_liveness_at: null,
+        };
+      } catch (dbError) {
+        console.error(
+          "GET /api/me: erro ao consultar verificação do passageiro:",
+          dbError
+        );
+      }
     }
 
     const newToken = jwt.sign(

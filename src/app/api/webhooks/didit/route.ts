@@ -206,16 +206,41 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (status === "Approved") {
-      await db.query(
-        "UPDATE driver_details SET is_verified = 1, updated_at = NOW() WHERE user_id = ?",
+    let userType: string | null = null;
+    try {
+      const [tipoRows] = (await db.query(
+        "SELECT user_type FROM users WHERE id = ? LIMIT 1",
         [driverId]
+      )) as unknown as [Array<{ user_type?: unknown }>];
+      userType =
+        tipoRows[0]?.user_type != null
+          ? String(tipoRows[0].user_type).trim().toLowerCase()
+          : null;
+    } catch (tipoError) {
+      console.error(
+        "webhook didit: erro ao consultar user_type:",
+        tipoError
       );
-    } else if (status === "Kyc Expired" || status === "Declined") {
-      await db.query(
-        "UPDATE driver_details SET is_verified = 0, updated_at = NOW() WHERE user_id = ?",
-        [driverId]
-      );
+    }
+
+    const ehPassageiro =
+      userType === "customer" ||
+      userType === "passageiro" ||
+      userType === "passenger" ||
+      userType === "2";
+
+    if (!ehPassageiro) {
+      if (status === "Approved") {
+        await db.query(
+          "UPDATE driver_details SET is_verified = 1, updated_at = NOW() WHERE user_id = ?",
+          [driverId]
+        );
+      } else if (status === "Kyc Expired" || status === "Declined") {
+        await db.query(
+          "UPDATE driver_details SET is_verified = 0, updated_at = NOW() WHERE user_id = ?",
+          [driverId]
+        );
+      }
     }
 
     return new Response("ok");
