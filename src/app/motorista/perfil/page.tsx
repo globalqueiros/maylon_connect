@@ -1,5 +1,6 @@
 "use client";
-import { useEffect, useState } from "react";
+
+import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import type { LucideIcon } from "lucide-react";
 import {
@@ -28,8 +29,18 @@ import {
   UserRound,
   UserRoundCheck,
   X,
+  Trophy,
+  ArrowUp,
 } from "lucide-react";
-import { documentacaoBloqueia, verifDocPendente } from "../../lib/didit";
+
+import {
+  documentacaoBloqueia,
+  verifDocPendente,
+} from "../../lib/didit";
+
+/* =========================================================
+   TIPOS
+========================================================= */
 
 type Gerente = {
   id?: number;
@@ -37,6 +48,57 @@ type Gerente = {
   email?: string | null;
   phone?: string | null;
   profile_image?: string | null;
+};
+
+/**
+ * Estrutura baseada na tabela user_levels.
+ */
+type UserLevel = {
+  id: number;
+  sequence: number;
+  name: string;
+  reward_type?: string | null;
+  reward_amount?: number | null;
+  image?: string | null;
+
+  targeted_ride?: number | null;
+  targeted_ride_point?: number | null;
+
+  targeted_amount?: number | null;
+  targeted_amount_point?: number | null;
+
+  targeted_cancel?: number | null;
+  targeted_cancel_point?: number | null;
+
+  targeted_review?: number | null;
+  targeted_review_point?: number | null;
+
+  user_type?: "driver" | "customer" | string | null;
+  is_active?: boolean | number | null;
+
+  deleted_at?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+};
+
+/**
+ * Resposta do endpoint GET /api/user-levels
+ */
+type UserLevelsResponse = {
+  success: boolean;
+  user_type?: string;
+  total?: number;
+  data?: unknown[];
+  message?: string;
+};
+
+/**
+ * Progresso retornado pelo /api/me (opcional).
+ */
+type LevelProgress = {
+  percentage?: number | null;
+  current_value?: number | null;
+  target_value?: number | null;
 };
 
 type Usuario = {
@@ -50,13 +112,43 @@ type Usuario = {
   phone_verified_at: string | null;
   email_verified_at: string | null;
   user_type: "driver" | "customer";
+
   data_aquisicao?: string | null;
+
   nome_plano?: string | null;
   plano_nome?: string | null;
   plano?: string | null;
+
   gerente?: Gerente | null;
+
   pcd?: boolean | null;
   autista?: boolean | null;
+
+  /**
+   * Nível atual.
+   *
+   * O /api/me pode retornar:
+   * - user_level_id / level_id  (apenas o id; o objeto vem de /api/user-levels)
+   * - user_level / current_level / level  (objeto completo)
+   */
+  user_level_id?: number | null;
+  level_id?: number | null;
+
+  user_level?: UserLevel | null;
+  current_level?: UserLevel | null;
+  level?: UserLevel | null;
+
+  next_user_level?: UserLevel | null;
+  next_level?: UserLevel | null;
+
+  level_progress?: LevelProgress | null;
+  level_progress_percentage?: number | null;
+  level_current_value?: number | null;
+  level_target_value?: number | null;
+
+  /** Usado como valor atual do progresso quando não há level_progress */
+  total_rides?: number | null;
+
   verification?: {
     documento?: VerificacaoDocumento | null;
   };
@@ -86,6 +178,10 @@ type AccessibilityStatus = {
   mensagem?: string;
 };
 
+/* =========================================================
+   ESTILOS
+========================================================= */
+
 const foco = `focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#149C8B]/30`;
 
 const botaoPrimario = `inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-[#149C8B] px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#11897D] disabled:cursor-not-allowed disabled:opacity-60 ${foco}`;
@@ -99,12 +195,22 @@ const cartao =
 
 const inputSenha = `h-12 w-full rounded-xl border border-gray-200 bg-gray-50 pl-11 pr-12 text-sm outline-none transition placeholder:text-gray-400 focus:border-[#149C8B] focus:bg-white focus:ring-4 focus:ring-[#149C8B]/10`;
 
+/* =========================================================
+   HELPERS
+========================================================= */
+
 function formatarCPF(valor?: string | null) {
   if (!valor) return "Não informado";
+
   const digitos = valor.replace(/\D/g, "");
+
   if (digitos.length === 11) {
-    return digitos.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, "$1.$2.$3-$4");
+    return digitos.replace(
+      /^(\d{3})(\d{3})(\d{3})(\d{2})$/,
+      "$1.$2.$3-$4",
+    );
   }
+
   return valor;
 }
 
@@ -146,12 +252,14 @@ function statusClasses(status: VerificacaoStatus) {
         box: "border-emerald-100 bg-emerald-50/60",
         icon: "bg-emerald-100 text-emerald-600",
       };
+
     case "reprovado":
       return {
         badge: "border-red-200 bg-red-50 text-red-700",
         box: "border-red-100 bg-red-50/60",
         icon: "bg-red-100 text-red-600",
       };
+
     case "pendente":
     case "em_analise":
       return {
@@ -159,6 +267,7 @@ function statusClasses(status: VerificacaoStatus) {
         box: "border-amber-100 bg-amber-50/60",
         icon: "bg-amber-100 text-amber-600",
       };
+
     default:
       return {
         badge: "border-slate-200 bg-slate-50 text-slate-600",
@@ -167,6 +276,156 @@ function statusClasses(status: VerificacaoStatus) {
       };
   }
 }
+
+/**
+ * O MySQL pode devolver números como string (principalmente DECIMAL),
+ * então normalizamos tudo ao receber da API.
+ */
+function normalizarNivel(n: any): UserLevel {
+  const num = (v: unknown) =>
+    v === null || v === undefined || v === "" ? null : Number(v);
+
+  return {
+    ...n,
+    id: Number(n.id),
+    sequence: Number(n.sequence),
+    reward_amount: num(n.reward_amount),
+    targeted_ride: num(n.targeted_ride),
+    targeted_ride_point: num(n.targeted_ride_point),
+    targeted_amount: num(n.targeted_amount),
+    targeted_amount_point: num(n.targeted_amount_point),
+    targeted_cancel: num(n.targeted_cancel),
+    targeted_cancel_point: num(n.targeted_cancel_point),
+    targeted_review: num(n.targeted_review),
+    targeted_review_point: num(n.targeted_review_point),
+    is_active: Boolean(n.is_active),
+  };
+}
+
+/**
+ * Nível atual:
+ * 1) id vindo do /api/me -> busca na lista oficial (/api/user-levels)
+ * 2) objeto vindo do /api/me
+ * 3) primeiro nível da lista (Blue)
+ */
+function obterNivelAtual(
+  usuario: Usuario | null,
+  niveis: UserLevel[],
+): UserLevel | null {
+  if (!usuario) return null;
+
+  const doUsuario =
+    usuario.user_level ??
+    usuario.current_level ??
+    usuario.level ??
+    null;
+
+  const id =
+    doUsuario?.id ??
+    usuario.user_level_id ??
+    usuario.level_id ??
+    null;
+
+  if (id != null) {
+    const encontrado = niveis.find((n) => n.id === Number(id));
+    if (encontrado) return encontrado;
+  }
+
+  return doUsuario ?? niveis[0] ?? null;
+}
+
+/**
+ * Próximo nível:
+ * 1) enviado pelo /api/me
+ * 2) primeiro nível da lista com sequence maior que o atual
+ */
+function obterProximoNivel(
+  usuario: Usuario | null,
+  nivelAtual: UserLevel | null,
+  niveis: UserLevel[],
+): UserLevel | null {
+  if (!usuario || !nivelAtual) return null;
+
+  const informado =
+    usuario.next_user_level ?? usuario.next_level ?? null;
+
+  if (informado) return informado;
+
+  return (
+    [...niveis]
+      .sort((a, b) => a.sequence - b.sequence)
+      .find((n) => n.sequence > nivelAtual.sequence) ?? null
+  );
+}
+
+/**
+ * Blue = primeiro nível ativo do motorista (menor sequence).
+ */
+function ehNivelBlue(
+  nivel: UserLevel | null,
+  todosOsNiveis: UserLevel[],
+) {
+  if (!nivel) return true;
+
+  const niveisMotorista = todosOsNiveis
+    .filter(
+      (item) =>
+        item.user_type === "driver" &&
+        Boolean(item.is_active) &&
+        item.deleted_at == null,
+    )
+    .sort((a, b) => a.sequence - b.sequence);
+
+  if (!niveisMotorista.length) {
+    return nivel.sequence <= 1;
+  }
+
+  return nivel.sequence === niveisMotorista[0].sequence;
+}
+
+/**
+ * Calcula a porcentagem caso o backend não envie.
+ * Usa targeted_ride do próximo nível como meta.
+ */
+function calcularProgressoNivel(
+  nivelAtual: UserLevel | null,
+  proximoNivel: UserLevel | null,
+  usuario: Usuario | null,
+) {
+  if (!nivelAtual || !proximoNivel) {
+    return 100;
+  }
+
+  const informado =
+    usuario?.level_progress?.percentage ??
+    usuario?.level_progress_percentage;
+
+  if (typeof informado === "number" && Number.isFinite(informado)) {
+    return Math.max(0, Math.min(100, Math.round(informado)));
+  }
+
+  const atual =
+    usuario?.level_progress?.current_value ??
+    usuario?.level_current_value ??
+    usuario?.total_rides ??
+    0;
+
+  const alvo =
+    usuario?.level_progress?.target_value ??
+    usuario?.level_target_value ??
+    proximoNivel.targeted_ride ??
+    0;
+
+  if (alvo <= 0) {
+    return 0;
+  }
+
+  return Math.max(0, Math.min(100, Math.round((atual / alvo) * 100)));
+}
+
+/* =========================================================
+   COMPONENTES
+========================================================= */
 
 function CabecalhoSecao({
   icon: Icon,
@@ -182,10 +441,12 @@ function CabecalhoSecao({
       <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#EAF6F4] text-[#149C8B] sm:h-11 sm:w-11">
         <Icon size={20} />
       </span>
+
       <div className="min-w-0">
         <h2 className="text-base font-semibold text-gray-900 sm:text-lg">
           {titulo}
         </h2>
+
         <p className="text-xs text-gray-500 sm:text-sm">{descricao}</p>
       </div>
     </div>
@@ -222,13 +483,16 @@ function Campo({
       <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#EAF6F4] text-[#149C8B] sm:h-10 sm:w-10">
         <Icon size={18} />
       </span>
+
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
           <dt className="text-xs font-medium text-gray-500 sm:text-sm">
             {label}
           </dt>
+
           {selo}
         </div>
+
         <dd className="mt-0.5 text-sm font-semibold text-gray-900 [overflow-wrap:anywhere] sm:text-base">
           {children}
         </dd>
@@ -264,11 +528,13 @@ function CampoSenha({
       >
         {label}
       </label>
+
       <div className="relative">
         <LockKeyhole
           size={18}
           className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
         />
+
         <input
           id={id}
           type={visivel ? "text" : "password"}
@@ -278,6 +544,7 @@ function CampoSenha({
           autoComplete="new-password"
           className={inputSenha}
         />
+
         <button
           type="button"
           onClick={(event) => {
@@ -292,10 +559,137 @@ function CampoSenha({
           {visivel ? <EyeOff size={19} /> : <Eye size={19} />}
         </button>
       </div>
+
       {dica && <p className="mt-1.5 text-xs text-gray-500">{dica}</p>}
     </div>
   );
 }
+
+/* =========================================================
+   CARD DE NÍVEL
+========================================================= */
+
+function NivelCard({
+  nivelAtual,
+  proximoNivel,
+  progresso,
+  ehBlue,
+}: {
+  nivelAtual: UserLevel | null;
+  proximoNivel: UserLevel | null;
+  progresso: number;
+  ehBlue: boolean;
+}) {
+  if (!nivelAtual) {
+    return null;
+  }
+
+  return (
+    <div className="mb-6 overflow-hidden rounded-2xl border border-[#149C8B]/15 bg-gradient-to-br from-[#F1F9F8] via-white to-white">
+      <div className="p-4 sm:p-5">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#149C8B] text-white shadow-sm">
+              <Trophy size={21} />
+            </div>
+
+            <div className="min-w-0">
+              <p className="text-xs font-medium uppercase tracking-wide text-[#0B6F68]">
+                Seu nível
+              </p>
+
+              <div className="mt-0.5 flex flex-wrap items-center gap-2">
+                <h3 className="text-base font-bold text-gray-900 sm:text-lg">
+                  {nivelAtual.name}
+                </h3>
+
+                {ehBlue ? (
+                  <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-600">
+                    Nível inicial
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700">
+                    <CheckCircle2 size={12} />
+                    Atendimento personalizado
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {proximoNivel && (
+            <div className="sm:text-right">
+              <p className="text-xs text-gray-400">Próximo nível</p>
+
+              <p className="mt-0.5 text-sm font-semibold text-gray-800">
+                {proximoNivel.name}
+              </p>
+            </div>
+          )}
+        </div>
+
+        {proximoNivel ? (
+          <>
+            <div className="mt-5">
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <span className="text-xs font-medium text-gray-500">
+                  Progresso
+                </span>
+
+                <span className="text-xs font-bold text-[#0B6F68]">
+                  {progresso}%
+                </span>
+              </div>
+
+              <div
+                className="h-3 overflow-hidden rounded-full bg-white shadow-inner ring-1 ring-gray-900/5"
+                aria-label={`Progresso para ${proximoNivel.name}: ${progresso}%`}
+                role="progressbar"
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={progresso}
+              >
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-[#149C8B] to-[#35A989] transition-all duration-700"
+                  style={{ width: `${progresso}%` }}
+                />
+              </div>
+            </div>
+
+            <div className="mt-3 flex items-start gap-2">
+              <ArrowUp
+                size={15}
+                className="mt-0.5 shrink-0 text-[#149C8B]"
+              />
+
+              <p className="text-xs leading-5 text-gray-500">
+                Continue evoluindo para alcançar o nível{" "}
+                <strong className="font-semibold text-gray-700">
+                  {proximoNivel.name}
+                </strong>
+                .
+              </p>
+            </div>
+          </>
+        ) : (
+          <div className="mt-5 rounded-xl bg-white px-4 py-3 ring-1 ring-[#149C8B]/10">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 size={17} className="text-[#149C8B]" />
+
+              <p className="text-sm font-semibold text-gray-800">
+                Você está no nível máximo.
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* =========================================================
+   VERIFICAÇÕES
+========================================================= */
 
 function VerificacaoCard({
   icon: Icon,
@@ -313,6 +707,7 @@ function VerificacaoCard({
   refreshing: boolean;
 }) {
   const classes = statusClasses(verification.status);
+
   return (
     <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm transition hover:shadow-md sm:p-6">
       <div className="flex flex-col gap-4">
@@ -321,15 +716,18 @@ function VerificacaoCard({
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#EAF6F4] text-[#149C8B]">
               <Icon size={23} />
             </div>
+
             <div className="min-w-0">
               <h3 className="text-base font-bold text-slate-900 sm:text-lg">
                 {titulo}
               </h3>
+
               <p className="mt-1 text-sm leading-5 text-slate-500">
                 {descricao}
               </p>
             </div>
           </div>
+
           <span
             className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold ${classes.badge}`}
           >
@@ -337,6 +735,7 @@ function VerificacaoCard({
             {formatarStatus(verification.status)}
           </span>
         </div>
+
         <div
           className={`flex items-center justify-between gap-3 rounded-2xl border p-4 ${classes.box}`}
         >
@@ -344,6 +743,7 @@ function VerificacaoCard({
             <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
               Situação
             </p>
+
             <p className="mt-1 text-sm font-bold text-slate-900">
               {verification.mensagem ||
                 (verification.status === "nao_iniciado"
@@ -351,6 +751,7 @@ function VerificacaoCard({
                   : formatarStatus(verification.status))}
             </p>
           </div>
+
           <button
             type="button"
             onClick={(event) => {
@@ -363,13 +764,20 @@ function VerificacaoCard({
             title={`Atualizar ${titulo}`}
             className={`flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 shadow-sm transition hover:bg-slate-50 hover:text-[#149C8B] disabled:cursor-not-allowed disabled:opacity-50 ${foco}`}
           >
-            <RefreshCw size={18} className={refreshing ? "animate-spin" : ""} />
+            <RefreshCw
+              size={18}
+              className={refreshing ? "animate-spin" : ""}
+            />
           </button>
         </div>
       </div>
     </div>
   );
 }
+
+/* =========================================================
+   ACESSIBILIDADE
+========================================================= */
 
 function AccessibilityOption({
   title,
@@ -402,18 +810,27 @@ function AccessibilityOption({
       }`}
     >
       <div
-        className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${selected ? "bg-[#35a989] text-white" : "bg-[#EAF6F4] text-[#35a989]"}`}
+        className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${
+          selected
+            ? "bg-[#35a989] text-white"
+            : "bg-[#EAF6F4] text-[#35a989]"
+        }`}
       >
         <Icon size={21} />
       </div>
+
       <div className="min-w-0 flex-1">
         <div className="flex items-center justify-between gap-3">
           <h3 className="font-semibold text-slate-900">{title}</h3>
+
           {selected && (
             <CheckCircle2 size={19} className="shrink-0 text-[#35a989]" />
           )}
         </div>
-        <p className="mt-1 text-sm leading-5 text-slate-500">{description}</p>
+
+        <p className="mt-1 text-sm leading-5 text-slate-500">
+          {description}
+        </p>
       </div>
     </button>
   );
@@ -429,18 +846,22 @@ function AccessibilityStatusCard({
   icon: LucideIcon;
 }) {
   const classes = statusClasses(verification.status);
+
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-4">
       <div className="flex items-center gap-3">
         <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#EAF6F4] text-[#35a989]">
           <Icon size={19} />
         </div>
+
         <div className="min-w-0 flex-1">
           <h4 className="text-sm font-bold text-slate-900">{title}</h4>
+
           <p className="mt-1 text-xs text-slate-500">
             {verification.mensagem || formatarStatus(verification.status)}
           </p>
         </div>
+
         <span
           className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${classes.badge}`}
         >
@@ -461,19 +882,27 @@ function LaudoUploadForm({
   onSubmit: (file: File) => Promise<void>;
 }) {
   const [file, setFile] = useState<File | null>(null);
+
   return (
     <div className="rounded-2xl border border-dashed border-[#35a989]/30 bg-[#35a989]/5 p-5">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h4 className="font-semibold text-slate-900">Enviar documentação</h4>
+          <h4 className="font-semibold text-slate-900">
+            Enviar documentação
+          </h4>
+
           <p className="mt-1 text-sm text-slate-500">
             Envie o laudo ou documento necessário para análise.
           </p>
         </div>
+
         <label
-          className={`inline-flex cursor-pointer items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 ${disabled ? "pointer-events-none opacity-50" : ""}`}
+          className={`inline-flex cursor-pointer items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 ${
+            disabled ? "pointer-events-none opacity-50" : ""
+          }`}
         >
           {file ? file.name : "Selecionar arquivo"}
+
           <input
             type="file"
             className="hidden"
@@ -481,23 +910,30 @@ function LaudoUploadForm({
             disabled={disabled}
             onChange={(event) => {
               const selected = event.target.files?.[0];
-              if (selected) setFile(selected);
+
+              if (selected) {
+                setFile(selected);
+              }
             }}
           />
         </label>
       </div>
+
       {file && (
         <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-xs text-slate-500">
             Arquivo selecionado: <strong>{file.name}</strong>
           </p>
+
           <button
             type="button"
             disabled={disabled || uploading}
             onClick={async (event) => {
               event.preventDefault();
               event.stopPropagation();
+
               await onSubmit(file);
+
               setFile(null);
             }}
             className={botaoPrimario}
@@ -510,61 +946,107 @@ function LaudoUploadForm({
   );
 }
 
+/* =========================================================
+   LAYOUT
+========================================================= */
+
 export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
   const [usuario, setUsuario] = useState<Usuario | null>(null);
+
+  /** Lista de níveis de motorista vinda de /api/user-levels */
+  const [niveis, setNiveis] = useState<UserLevel[]>([]);
+
   const [loading, setLoading] = useState(true);
+
   const [imgSrc, setImgSrc] = useState("/favicon.ico");
+
   const [previewSrc, setPreviewSrc] = useState<string | null>(null);
+
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+
   const [showModal, setShowModal] = useState(false);
+
   const [uploading, setUploading] = useState(false);
+
   const [alert, setAlert] = useState<{
     type: "success" | "error";
     message: string;
   } | null>(null);
+
   const [open, setOpen] = useState(false);
+
   const [saving, setSaving] = useState(false);
+
   const [senha, setSenha] = useState("");
+
   const [confirmar, setConfirmar] = useState("");
+
   const [erro, setErro] = useState("");
+
   const [showSenha, setShowSenha] = useState(false);
+
   const [showConfirmar, setShowConfirmar] = useState(false);
+
   const [pcdSelected, setPcdSelected] = useState(false);
+
   const [autistaSelected, setAutistaSelected] = useState(false);
-  const [salvandoAcessibilidade, setSalvandoAcessibilidade] = useState(false);
+
+  const [salvandoAcessibilidade, setSalvandoAcessibilidade] =
+    useState(false);
+
   const [contaBloqueada] = useState(false);
+
   const [uploadingLaudo, setUploadingLaudo] = useState(false);
-  const [verificationPcd, setVerificationPcd] = useState<AccessibilityStatus>({
+
+  const [verificationPcd] = useState<AccessibilityStatus>({
     status: "nao_iniciado",
     mensagem: "Essa verificação ainda não foi realizada.",
   });
-  const [verificationAutista, setVerificationAutista] =
-    useState<AccessibilityStatus>({
-      status: "nao_iniciado",
-      mensagem: "Essa verificação ainda não foi realizada.",
-    });
+
+  const [verificationAutista] = useState<AccessibilityStatus>({
+    status: "nao_iniciado",
+    mensagem: "Essa verificação ainda não foi realizada.",
+  });
+
   const [justificativa, setJustificativa] = useState<Verificacao>({
     status: "nao_iniciado",
     mensagem: "Essa verificação ainda não foi realizada.",
   });
+
   const [liveness, setLiveness] = useState<Verificacao>({
     status: "nao_iniciado",
     mensagem: "Essa verificação ainda não foi realizada.",
   });
-  const [processosJudiciais, setProcessosJudiciais] = useState<Verificacao>({
-    status: "nao_iniciado",
-    mensagem: "Essa consulta ainda não foi realizada.",
-  });
-  const [refreshJustificativa, setRefreshJustificativa] = useState(false);
+
+  const [processosJudiciais, setProcessosJudiciais] =
+    useState<Verificacao>({
+      status: "nao_iniciado",
+      mensagem: "Essa consulta ainda não foi realizada.",
+    });
+
+  const [refreshJustificativa, setRefreshJustificativa] =
+    useState(false);
+
   const [refreshLiveness, setRefreshLiveness] = useState(false);
+
   const [refreshProcessosJudiciais, setRefreshProcessosJudiciais] =
     useState(false);
-  const [verificacaoUrl, setVerificacaoUrl] = useState<string | null>(null);
-  const [iniciandoVerificacao, setIniciandoVerificacao] = useState(false);
+
+  const [verificacaoUrl, setVerificacaoUrl] = useState<string | null>(
+    null,
+  );
+
+  const [iniciandoVerificacao, setIniciandoVerificacao] =
+    useState(false);
+
+  /* =========================================================
+     CARREGAR USUÁRIO
+     (os níveis NÃO vêm mais daqui; veja o effect de /api/user-levels)
+  ========================================================= */
 
   useEffect(() => {
     async function carregarUsuario() {
@@ -573,129 +1055,356 @@ export default function DashboardLayout({
           credentials: "include",
           cache: "no-store",
         });
+
         if (!res.ok) {
           window.location.href = "/";
           return;
         }
+
         const data = await res.json();
+
         if (!data?.id) {
           window.location.href = "/";
           return;
         }
+
         setUsuario(data);
-        if (data.profile_image) setImgSrc(data.profile_image);
+
+        if (data.profile_image) {
+          setImgSrc(data.profile_image);
+        }
+
         setPcdSelected(Boolean(data.pcd));
         setAutistaSelected(Boolean(data.autista));
+
         const statusDoc: VerificacaoStatus =
           data.verification?.documento?.status ?? "nao_iniciado";
+
         setJustificativa({
           status: statusDoc,
           mensagem: mensagemVerificacaoDocumento(statusDoc),
         });
+
         setLiveness({
           status: statusDoc,
           mensagem: mensagemVerificacaoDocumento(statusDoc),
         });
       } catch (error) {
         console.error("Erro ao carregar usuário:", error);
+
         window.location.href = "/";
       } finally {
         setLoading(false);
       }
     }
+
     carregarUsuario();
   }, []);
 
+  /* =========================================================
+     CARREGAR NÍVEIS DOS MOTORISTAS
+
+     Busca a lista oficial em /api/user-levels uma única vez
+     (e novamente apenas se o tipo de usuário mudar).
+  ========================================================= */
+
+  useEffect(() => {
+    if (usuario?.user_type !== "driver") return;
+
+    let ativo = true;
+
+    (async () => {
+      try {
+        const res = await fetch("/api/user-levels", {
+          credentials: "include",
+          cache: "no-store",
+        });
+
+        if (!res.ok) return;
+
+        const json: UserLevelsResponse = await res.json();
+
+        if (!ativo || !json?.success || !Array.isArray(json.data)) {
+          return;
+        }
+
+        setNiveis(
+          json.data
+            .map(normalizarNivel)
+            .sort((a, b) => a.sequence - b.sequence),
+        );
+      } catch (error) {
+        console.error("Erro ao carregar níveis:", error);
+      }
+    })();
+
+    return () => {
+      ativo = false;
+    };
+  }, [usuario?.user_type]);
+
+  /* =========================================================
+     ATUALIZAÇÃO AUTOMÁTICA DA VERIFICAÇÃO
+
+     Mantém e-mail, telefone e CPF sincronizados com /api/me.
+     Assim, quando uma verificação for concluída em outra tela
+     ou pelo backend, a barra de progresso é atualizada sem
+     precisar recarregar a página manualmente.
+  ========================================================= */
+
+  useEffect(() => {
+    if (loading) return;
+
+    let ativo = true;
+
+    const atualizarDadosVerificacao = async () => {
+      try {
+        const res = await fetch("/api/me", {
+          credentials: "include",
+          cache: "no-store",
+        });
+
+        if (!res.ok || !ativo) return;
+
+        const data = await res.json();
+
+        if (!data?.id || !ativo) return;
+
+        setUsuario(data);
+
+        if (data.profile_image) {
+          setImgSrc(data.profile_image);
+        }
+
+        setPcdSelected(Boolean(data.pcd));
+        setAutistaSelected(Boolean(data.autista));
+
+        const statusDoc: VerificacaoStatus =
+          data.verification?.documento?.status ?? "nao_iniciado";
+
+        setJustificativa({
+          status: statusDoc,
+          mensagem: mensagemVerificacaoDocumento(statusDoc),
+        });
+
+        setLiveness({
+          status: statusDoc,
+          mensagem: mensagemVerificacaoDocumento(statusDoc),
+        });
+      } catch (error) {
+        console.error(
+          "Erro ao atualizar dados da verificação:",
+          error,
+        );
+      }
+    };
+
+    const intervalo = window.setInterval(
+      atualizarDadosVerificacao,
+      5000,
+    );
+
+    return () => {
+      ativo = false;
+      window.clearInterval(intervalo);
+    };
+  }, [loading]);
+
+  /* =========================================================
+     ALERTA
+  ========================================================= */
+
   useEffect(() => {
     if (!alert) return;
+
     const timer = setTimeout(() => setAlert(null), 3500);
+
     return () => clearTimeout(timer);
   }, [alert]);
 
+  /* =========================================================
+     PREVIEW
+  ========================================================= */
+
   useEffect(() => {
     return () => {
-      if (previewSrc) URL.revokeObjectURL(previewSrc);
+      if (previewSrc) {
+        URL.revokeObjectURL(previewSrc);
+      }
     };
   }, [previewSrc]);
 
+  /* =========================================================
+     NÍVEIS
+  ========================================================= */
+
+  const nivelAtual = useMemo(
+    () => obterNivelAtual(usuario, niveis),
+    [usuario, niveis],
+  );
+
+  const proximoNivel = useMemo(
+    () => obterProximoNivel(usuario, nivelAtual, niveis),
+    [usuario, nivelAtual, niveis],
+  );
+
+  const nivelBlue = useMemo(
+    () => ehNivelBlue(nivelAtual, niveis),
+    [nivelAtual, niveis],
+  );
+
+  const progressoNivel = useMemo(
+    () => calcularProgressoNivel(nivelAtual, proximoNivel, usuario),
+    [nivelAtual, proximoNivel, usuario],
+  );
+
+  /*
+   * O gerente só deve aparecer para níveis acima
+   * do nível Blue.
+   */
+  const gerentePermitido = !nivelBlue && Boolean(usuario?.gerente);
+
+  /* =========================================================
+     TELEFONE
+  ========================================================= */
+
   const formatPhoneBR = (phone?: string | null) => {
     if (!phone) return "Não informado";
+
     let digits = phone.replace(/\D/g, "");
-    if (digits.startsWith("55")) digits = digits.slice(2);
-    if (digits.length === 11)
+
+    if (digits.startsWith("55")) {
+      digits = digits.slice(2);
+    }
+
+    if (digits.length === 11) {
       return digits.replace(/^(\d{2})(\d{5})(\d{4})$/, "($1) $2-$3");
-    if (digits.length === 10)
+    }
+
+    if (digits.length === 10) {
       return digits.replace(/^(\d{2})(\d{4})(\d{4})$/, "($1) $2-$3");
+    }
+
     return phone;
   };
 
+  /* =========================================================
+     SENHA
+  ========================================================= */
+
   const handleSalvarSenha = async () => {
     setErro("");
+
     if (!senha || !confirmar) {
       setErro("Preencha todos os campos.");
       return;
     }
+
     if (senha.length < 8) {
       setErro("A senha deve possuir no mínimo 8 caracteres.");
       return;
     }
+
     if (senha !== confirmar) {
       setErro("As senhas não coincidem.");
       return;
     }
+
     try {
       setSaving(true);
+
       const res = await fetch("/api/change-password", {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password: senha }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          password: senha,
+        }),
       });
+
       const data = await res.json();
+
       if (!res.ok) {
         setErro(data.error || "Erro ao alterar senha.");
+
         return;
       }
-      setAlert({ type: "success", message: "Senha alterada com sucesso." });
+
+      setAlert({
+        type: "success",
+        message: "Senha alterada com sucesso.",
+      });
+
       fecharModalSenha();
     } catch (error) {
       console.error(error);
+
       setErro("Erro interno do servidor.");
     } finally {
       setSaving(false);
     }
   };
 
+  /* =========================================================
+     UPLOAD FOTO
+  ========================================================= */
+
   const handleUpload = async () => {
     if (!selectedFile) {
-      setAlert({ type: "error", message: "Selecione uma imagem." });
+      setAlert({
+        type: "error",
+        message: "Selecione uma imagem.",
+      });
+
       return;
     }
+
     const formData = new FormData();
+
     formData.append("file", selectedFile);
+
     try {
       setUploading(true);
+
       const res = await fetch("/api/upload-photo", {
         method: "POST",
         body: formData,
       });
+
       const data = await res.json();
+
       if (!res.ok) {
         setAlert({
           type: "error",
           message: data.error || "Erro ao atualizar foto.",
         });
+
         return;
       }
+
       setImgSrc(data.url);
+
       setUsuario((prev) =>
-        prev ? { ...prev, profile_image: data.url } : prev,
+        prev
+          ? {
+              ...prev,
+              profile_image: data.url,
+            }
+          : prev,
       );
+
       setShowModal(false);
       setPreviewSrc(null);
       setSelectedFile(null);
-      setAlert({ type: "success", message: "Foto atualizada com sucesso." });
+
+      setAlert({
+        type: "success",
+        message: "Foto atualizada com sucesso.",
+      });
     } catch (error) {
       console.error(error);
+
       setAlert({
         type: "error",
         message: "Erro inesperado ao atualizar foto.",
@@ -704,6 +1413,10 @@ export default function DashboardLayout({
       setUploading(false);
     }
   };
+
+  /* =========================================================
+     MODAIS
+  ========================================================= */
 
   const fecharModalSenha = () => {
     setOpen(false);
@@ -720,31 +1433,46 @@ export default function DashboardLayout({
     setSelectedFile(null);
   };
 
+  /* =========================================================
+     ATUALIZAR DOCUMENTO
+  ========================================================= */
+
   const atualizarStatusDocumento = async (
     setRefresh: (value: boolean) => void,
   ) => {
     try {
       setRefresh(true);
+
       const res = await fetch("/api/me", {
         credentials: "include",
         cache: "no-store",
       });
+
       if (!res.ok) return;
+
       const data = await res.json();
+
       if (!data?.id) return;
+
       setUsuario(data);
+
       const statusDoc: VerificacaoStatus =
         data.verification?.documento?.status ?? "nao_iniciado";
+
       setJustificativa({
         status: statusDoc,
         mensagem: mensagemVerificacaoDocumento(statusDoc),
       });
+
       setLiveness({
         status: statusDoc,
         mensagem: mensagemVerificacaoDocumento(statusDoc),
       });
     } catch (error) {
-      console.error("Erro ao atualizar status da verificação:", error);
+      console.error(
+        "Erro ao atualizar status da verificação:",
+        error,
+      );
     } finally {
       setRefresh(false);
     }
@@ -753,37 +1481,53 @@ export default function DashboardLayout({
   const atualizarJustificativa = () =>
     atualizarStatusDocumento(setRefreshJustificativa);
 
-  const atualizarLiveness = () => atualizarStatusDocumento(setRefreshLiveness);
+  const atualizarLiveness = () =>
+    atualizarStatusDocumento(setRefreshLiveness);
 
   const atualizarProcessosJudiciais = async () => {
     try {
       setRefreshProcessosJudiciais(true);
+
       await new Promise((resolve) => setTimeout(resolve, 700));
+
       setProcessosJudiciais({
         status: "em_analise",
-        mensagem: "A consulta de processos judiciais está em análise.",
+        mensagem:
+          "A consulta de processos judiciais está em análise.",
       });
     } catch (error) {
-      console.error("Erro ao atualizar processos judiciais:", error);
+      console.error(
+        "Erro ao atualizar processos judiciais:",
+        error,
+      );
+
       setProcessosJudiciais({
         status: "reprovado",
-        mensagem: "Não foi possível consultar os processos judiciais.",
+        mensagem:
+          "Não foi possível consultar os processos judiciais.",
       });
     } finally {
       setRefreshProcessosJudiciais(false);
     }
   };
 
+  /* =========================================================
+     ACESSIBILIDADE
+  ========================================================= */
+
   const salvarAcessibilidade = async () => {
     try {
       setSalvandoAcessibilidade(true);
+
       await new Promise((resolve) => setTimeout(resolve, 600));
+
       setAlert({
         type: "success",
         message: "Informações de acessibilidade atualizadas.",
       });
     } catch (error) {
       console.error(error);
+
       setAlert({
         type: "error",
         message: "Erro ao salvar acessibilidade.",
@@ -796,15 +1540,20 @@ export default function DashboardLayout({
   const enviarLaudo = async (file: File) => {
     try {
       setUploadingLaudo(true);
+
       const formData = new FormData();
+
       formData.append("file", file);
+
       await new Promise((resolve) => setTimeout(resolve, 700));
+
       setAlert({
         type: "success",
         message: "Documentação enviada com sucesso.",
       });
     } catch (error) {
       console.error(error);
+
       setAlert({
         type: "error",
         message: "Erro ao enviar documentação.",
@@ -814,24 +1563,36 @@ export default function DashboardLayout({
     }
   };
 
+  /* =========================================================
+     DIDIT
+  ========================================================= */
+
   const iniciarVerificacao = async () => {
     try {
       setIniciandoVerificacao(true);
+
       const res = await fetch("/api/motorista/verificacao", {
         method: "POST",
         credentials: "include",
       });
+
       const data = await res.json();
+
       if (!res.ok) {
         setAlert({
           type: "error",
           message: data.message || "Erro ao iniciar a verificação.",
         });
+
         return;
       }
-      if (data.url) setVerificacaoUrl(data.url);
+
+      if (data.url) {
+        setVerificacaoUrl(data.url);
+      }
     } catch (error) {
       console.error("Erro ao iniciar verificação:", error);
+
       setAlert({
         type: "error",
         message: "Erro ao iniciar a verificação.",
@@ -843,19 +1604,31 @@ export default function DashboardLayout({
 
   const fecharVerificacao = async () => {
     setVerificacaoUrl(null);
+
     try {
       const res = await fetch("/api/me", {
         credentials: "include",
         cache: "no-store",
       });
+
       if (res.ok) {
         const data = await res.json();
-        if (data?.id) setUsuario(data);
+
+        if (data?.id) {
+          setUsuario(data);
+        }
       }
     } catch (error) {
-      console.error("Erro ao atualizar status da verificação:", error);
+      console.error(
+        "Erro ao atualizar status da verificação:",
+        error,
+      );
     }
   };
+
+  /* =========================================================
+     LOADING
+  ========================================================= */
 
   if (loading || !usuario) {
     return (
@@ -864,9 +1637,11 @@ export default function DashboardLayout({
           <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#0f766e] shadow-xl shadow-[#0f766e]/20 sm:h-16 sm:w-16 sm:rounded-[20px]">
             <div className="h-6 w-6 animate-spin rounded-full border-[3px] border-white/30 border-t-white sm:h-7 sm:w-7" />
           </div>
+
           <h2 className="mt-5 text-base font-black tracking-tight text-[#0f766e] sm:mt-6 sm:text-lg">
             Preparando área do perfil
           </h2>
+
           <p className="mt-2 text-xs text-gray-400 sm:text-sm">
             Estamos carregando suas informações.
           </p>
@@ -875,9 +1650,16 @@ export default function DashboardLayout({
     );
   }
 
+  /* =========================================================
+     DADOS
+  ========================================================= */
+
   const ehMotorista = usuario.user_type === "driver";
+
   const isPassageiro = usuario.user_type === "customer";
+
   const gerente = usuario.gerente;
+
   const verificacoes: {
     label: string;
     ok: boolean;
@@ -903,18 +1685,37 @@ export default function DashboardLayout({
       icon: IdCard,
     },
   ];
+
   const verificados = verificacoes.filter((item) => item.ok).length;
-  const progresso = Math.round((verificados / verificacoes.length) * 100);
+
+  const progresso =
+    verificacoes.length > 0
+      ? Math.max(
+          0,
+          Math.min(
+            100,
+            Math.round((verificados / verificacoes.length) * 100),
+          ),
+        )
+      : 0;
+
   const possuiMaylonPassAtivo = Boolean(
     usuario.nome_plano || usuario.plano_nome || usuario.plano,
   );
+
   const statusDocumento =
     usuario.verification?.documento?.status ?? "nao_iniciado";
+
   const documentacaoPendente = verifDocPendente(statusDocumento);
+
   const documentacaoAprovada = statusDocumento === "aprovado";
 
   return (
     <div className="min-h-screen min-w-0">
+      {/* =====================================================
+          ALERTA
+      ===================================================== */}
+
       {alert && (
         <div
           role="status"
@@ -929,12 +1730,17 @@ export default function DashboardLayout({
           ) : (
             <CircleAlert size={20} className="shrink-0" />
           )}
+
           <span>{alert.message}</span>
         </div>
       )}
 
       <main>
         <div className="mx-auto w-full min-w-0 max-w-8xl 2xl:max-w-[1500px]">
+          {/* =================================================
+              HEADER
+          ================================================= */}
+
           <section className="relative overflow-hidden rounded-2xl sm:rounded-3xl">
             <div className="relative">
               <Image
@@ -945,16 +1751,20 @@ export default function DashboardLayout({
                 sizes="(max-width: 1536px) 100vw, 1500px"
                 className="object-cover"
               />
+
               <div className="absolute inset-0 bg-gradient-to-r from-[#063F3B]/95 via-[#0B6F68]/75 to-[#0B6F68]/30" />
+
               <div className="relative flex items-start justify-between gap-4 px-5 py-5 sm:px-8 sm:py-7 lg:pl-[324px] lg:pr-8 xl:pl-[344px] 2xl:pl-[364px]">
                 <div className="min-w-0 text-white">
                   <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
                     Meu perfil
                   </h1>
+
                   <p className="mt-1.5 hidden max-w-md text-sm text-white/75 sm:block">
                     Gerencie seus dados e a segurança da conta.
                   </p>
                 </div>
+
                 <span className="inline-flex shrink-0 items-center gap-2 rounded-full bg-white/15 px-3 py-1.5 text-xs font-medium text-white ring-1 ring-white/25 backdrop-blur">
                   <span className="h-2 w-2 rounded-full bg-emerald-400" />
                   Conta ativa
@@ -964,6 +1774,10 @@ export default function DashboardLayout({
           </section>
 
           <div className="grid items-start gap-5 sm:gap-6 lg:grid-cols-[300px_minmax(0,1fr)] xl:grid-cols-[320px_minmax(0,1fr)] 2xl:grid-cols-[340px_minmax(0,1fr)]">
+            {/* =================================================
+                SIDEBAR
+            ================================================= */}
+
             <aside className="relative z-10 -mt-2 sm:-mt-4 lg:sticky lg:top-6 lg:mt-6">
               <div
                 className={`${cartao} p-5 shadow-xl shadow-teal-950/10 sm:p-6`}
@@ -984,6 +1798,7 @@ export default function DashboardLayout({
                           strokeWidth="4"
                           className="stroke-gray-200"
                         />
+
                         <circle
                           cx="50"
                           cy="50"
@@ -993,9 +1808,12 @@ export default function DashboardLayout({
                           strokeLinecap="round"
                           pathLength={100}
                           strokeDasharray={`${progresso} 100`}
-                          className={`stroke-[#149C8B] transition-[stroke-dasharray] duration-700 motion-reduce:transition-none ${progresso === 0 ? "opacity-0" : ""}`}
+                          className={`stroke-[#149C8B] transition-[stroke-dasharray] duration-700 motion-reduce:transition-none ${
+                            progresso === 0 ? "opacity-0" : ""
+                          }`}
                         />
                       </svg>
+
                       <div className="absolute inset-[9px] overflow-hidden rounded-full bg-gray-100 sm:inset-[10px]">
                         <Image
                           src={imgSrc}
@@ -1006,6 +1824,7 @@ export default function DashboardLayout({
                           className="object-cover"
                         />
                       </div>
+
                       <button
                         type="button"
                         aria-label="Alterar foto do perfil"
@@ -1013,12 +1832,14 @@ export default function DashboardLayout({
                         onClick={(event) => {
                           event.preventDefault();
                           event.stopPropagation();
+
                           document.getElementById("uploadFoto")?.click();
                         }}
                         className={`absolute bottom-0.5 right-0.5 flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-[#149C8B] text-white shadow-lg ring-4 ring-white transition hover:bg-[#11897D] sm:h-10 sm:w-10 ${foco}`}
                       >
                         <Pencil size={16} />
                       </button>
+
                       <input
                         id="uploadFoto"
                         type="file"
@@ -1026,11 +1847,16 @@ export default function DashboardLayout({
                         className="hidden"
                         onChange={(e) => {
                           const file = e.target.files?.[0];
+
                           if (!file) return;
+
                           setSelectedFile(file);
+
                           const preview = URL.createObjectURL(file);
+
                           setPreviewSrc(preview);
                           setShowModal(true);
+
                           e.target.value = "";
                         }}
                       />
@@ -1040,14 +1866,17 @@ export default function DashboardLayout({
                       <h2 className="text-lg font-semibold text-gray-900 [overflow-wrap:anywhere] sm:text-xl">
                         {usuario.full_name}
                       </h2>
+
                       <span className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-[#EAF6F4] px-3 py-1 text-xs font-medium text-[#0B6F68]">
                         {ehMotorista ? (
                           <Car size={14} />
                         ) : (
                           <UserRound size={14} />
                         )}
+
                         {ehMotorista ? "Motorista" : "Passageiro"}
                       </span>
+
                       <p className="mt-2 text-sm text-gray-500 [overflow-wrap:anywhere]">
                         {usuario.email}
                       </p>
@@ -1059,11 +1888,66 @@ export default function DashboardLayout({
                       <h2 className="text-sm font-semibold text-gray-900">
                         Verificação da conta
                       </h2>
-                      <span className="text-xs font-medium text-gray-500">
-                        {verificados} de {verificacoes.length}
-                      </span>
+
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-[#149C8B]">
+                          {progresso}%
+                        </span>
+
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            atualizarJustificativa();
+                          }}
+                          disabled={refreshJustificativa}
+                          aria-label="Atualizar progresso das verificações"
+                          title="Atualizar verificações"
+                          className={`flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-500 shadow-sm transition hover:border-[#149C8B]/30 hover:text-[#149C8B] disabled:cursor-not-allowed disabled:opacity-50 ${foco}`}
+                        >
+                          <RefreshCw
+                            size={14}
+                            className={
+                              refreshJustificativa ? "animate-spin" : ""
+                            }
+                          />
+                        </button>
+                      </div>
                     </div>
-                    <ul className="mt-3 space-y-2.5">
+
+                    {/* BARRA DE PROGRESSO */}
+                    <div className="mt-3 rounded-xl bg-[#F1F9F8] p-3 ring-1 ring-[#149C8B]/10">
+                      <div
+                        className="h-3 w-full overflow-hidden rounded-full bg-white shadow-inner ring-1 ring-gray-900/5"
+                        role="progressbar"
+                        aria-valuenow={progresso}
+                        aria-valuemin={0}
+                        aria-valuemax={100}
+                        aria-valuetext={`${progresso}% concluído`}
+                        aria-label="Progresso da verificação da conta"
+                      >
+                        <div
+                          className="h-full rounded-full bg-gradient-to-r from-[#149C8B] to-[#35A989] transition-[width] duration-700 ease-out motion-reduce:transition-none"
+                          style={{ width: `${progresso}%` }}
+                        />
+                      </div>
+
+                      <div className="mt-2.5 flex items-center justify-between gap-3">
+                        <span className="text-xs font-medium text-gray-500">
+                          {verificados} de {verificacoes.length} verificações
+                          concluídas
+                        </span>
+
+                        <span className="shrink-0 text-xs font-bold text-[#149C8B]">
+                          {progresso === 100
+                            ? "Conta verificada"
+                            : "Em andamento"}
+                        </span>
+                      </div>
+                    </div>
+
+                    <ul className="mt-4 space-y-2.5">
                       {verificacoes.map(
                         ({ label, ok, textoOk, icon: Icone }) => (
                           <li
@@ -1071,21 +1955,30 @@ export default function DashboardLayout({
                             className="flex items-center gap-3 text-sm"
                           >
                             <span
-                              className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${ok ? "bg-emerald-50 text-emerald-600" : "bg-amber-50 text-amber-600"}`}
+                              className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
+                                ok
+                                  ? "bg-emerald-50 text-emerald-600"
+                                  : "bg-amber-50 text-amber-600"
+                              }`}
                             >
                               <Icone size={16} />
                             </span>
+
                             <span className="flex-1 font-medium text-gray-700">
                               {label}
                             </span>
+
                             <span
-                              className={`inline-flex items-center gap-1 text-xs font-medium ${ok ? "text-emerald-700" : "text-amber-700"}`}
+                              className={`inline-flex items-center gap-1 text-xs font-medium ${
+                                ok ? "text-emerald-700" : "text-amber-700"
+                              }`}
                             >
                               {ok ? (
                                 <CheckCircle2 size={14} />
                               ) : (
                                 <CircleAlert size={14} />
                               )}
+
                               {ok ? textoOk : "Pendente"}
                             </span>
                           </li>
@@ -1097,7 +1990,15 @@ export default function DashboardLayout({
               </div>
             </aside>
 
+            {/* =================================================
+                CONTEÚDO
+            ================================================= */}
+
             <div className="min-w-0 space-y-5 sm:space-y-6 lg:mt-6">
+              {/* ===============================================
+                  DOCUMENTAÇÃO
+              =============================================== */}
+
               {(documentacaoPendente || documentacaoAprovada) && (
                 <section
                   role="alert"
@@ -1122,12 +2023,14 @@ export default function DashboardLayout({
                           <CircleAlert size={22} />
                         )}
                       </span>
+
                       <div className="min-w-0">
                         <h2 className="text-sm font-semibold text-gray-900 sm:text-base">
                           {documentacaoAprovada
                             ? "Conta aprovada"
                             : "Documentação pendente de verificação"}
                         </h2>
+
                         <p className="mt-0.5 text-xs leading-5 text-gray-600 sm:text-sm">
                           {documentacaoAprovada
                             ? "Sua documentação foi aprovada e sua conta está ativa."
@@ -1135,6 +2038,7 @@ export default function DashboardLayout({
                         </p>
                       </div>
                     </div>
+
                     {!documentacaoAprovada &&
                       documentacaoBloqueia(statusDocumento) && (
                         <button
@@ -1149,7 +2053,10 @@ export default function DashboardLayout({
                         >
                           {iniciandoVerificacao ? (
                             <>
-                              <RefreshCw size={18} className="animate-spin" />
+                              <RefreshCw
+                                size={18}
+                                className="animate-spin"
+                              />
                               Iniciando...
                             </>
                           ) : (
@@ -1164,20 +2071,27 @@ export default function DashboardLayout({
                 </section>
               )}
 
+              {/* ===============================================
+                  VERIFICAÇÃO
+              =============================================== */}
+
               <section className="overflow-hidden rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
                 <div className="flex items-start gap-3 border-b border-slate-100 pb-5">
                   <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#35a989]/10 text-[#35a989]">
                     <ShieldCheck size={22} />
                   </div>
+
                   <div className="min-w-0">
                     <h2 className="text-lg font-bold text-slate-900">
                       Verificação da conta
                     </h2>
+
                     <p className="mt-0.5 text-sm text-slate-500">
                       Acompanhe o status das suas verificações e consultas.
                     </p>
                   </div>
                 </div>
+
                 <div className="mt-5 grid grid-cols-1 gap-4 xl:grid-cols-2">
                   <VerificacaoCard
                     icon={FileCheck2}
@@ -1213,20 +2127,28 @@ export default function DashboardLayout({
                 </div>
               </section>
 
+              {/* ===============================================
+                  DADOS
+              =============================================== */}
+
               <section className={`${cartao} overflow-hidden`}>
                 <CabecalhoSecao
                   icon={ehMotorista ? Car : User}
                   titulo={
-                    ehMotorista ? "Dados do motorista" : "Dados do passageiro"
+                    ehMotorista
+                      ? "Dados do motorista"
+                      : "Dados do passageiro"
                   }
                   descricao="Informações cadastradas na sua conta."
                 />
+
                 <dl className="grid px-5 text-sm sm:grid-cols-2 sm:gap-x-10 sm:px-6 lg:px-7">
                   <Campo icon={User} label="Nome completo">
                     <span className="text-xs font-semibold text-gray-900 [overflow-wrap:anywhere] sm:text-sm">
                       {usuario.full_name}
                     </span>
                   </Campo>
+
                   <Campo
                     icon={IdCard}
                     label="CPF"
@@ -1240,6 +2162,7 @@ export default function DashboardLayout({
                       {formatarCPF(usuario.identification_number)}
                     </span>
                   </Campo>
+
                   <Campo
                     icon={Phone}
                     label="Telefone"
@@ -1253,6 +2176,7 @@ export default function DashboardLayout({
                       {formatPhoneBR(usuario.phone)}
                     </span>
                   </Campo>
+
                   <Campo
                     icon={Mail}
                     label="E-mail"
@@ -1269,18 +2193,62 @@ export default function DashboardLayout({
                 </dl>
               </section>
 
+              {/* =================================================
+                  NÍVEL + GERENTE
+              ================================================= */}
+
               <section className={`${cartao} overflow-hidden`}>
                 <CabecalhoSecao
                   icon={UserRoundCheck}
                   titulo="Responsável pelo atendimento"
                   descricao="Quem cuida da sua conta na Maylon."
                 />
+
                 <div className="p-5 sm:p-6 lg:p-7">
-                  {gerente &&
-                  (gerente.full_name || gerente.email || gerente.phone) ? (
+                  {/* =============================================
+                      NÍVEL
+                  ============================================= */}
+
+                  {ehMotorista && nivelAtual && (
+                    <NivelCard
+                      nivelAtual={nivelAtual}
+                      proximoNivel={proximoNivel}
+                      progresso={progressoNivel}
+                      ehBlue={nivelBlue}
+                    />
+                  )}
+
+                  {ehMotorista && nivelBlue ? (
+                    <>
+                      <div className="flex items-start gap-4 rounded-2xl bg-[#F1F9F8] p-4 sm:items-center sm:p-5">
+                        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white text-[#149C8B] shadow-sm sm:h-14 sm:w-14 sm:rounded-2xl">
+                          <Headset size={24} />
+                        </span>
+
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <h3 className="text-base font-semibold text-gray-900 sm:text-lg">
+                              Gerente Digital
+                            </h3>
+
+                            <span className="inline-flex items-center gap-1.5 rounded-full bg-white px-2.5 py-1 text-xs font-medium text-[#0B6F68] ring-1 ring-[#149C8B]/20">
+                              <BadgeCheck size={13} />
+                              Atendimento digital
+                            </span>
+                          </div>
+
+                          <p className="mt-1.5 max-w-2xl text-sm leading-6 text-gray-600">
+                            Sua conta está no nível inicial. Ao alcançar o
+                            próximo nível, um gerente será atribuído
+                            automaticamente à sua conta.
+                          </p>
+                        </div>
+                      </div>
+                    </>
+                  ) : gerentePermitido ? (
                     <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-5">
                       <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-2xl bg-[#EAF6F4] sm:h-[72px] sm:w-[72px]">
-                        {gerente.profile_image ? (
+                        {gerente?.profile_image ? (
                           <Image
                             src={gerente.profile_image}
                             alt={gerente.full_name || "Gerente"}
@@ -1294,18 +2262,21 @@ export default function DashboardLayout({
                           </span>
                         )}
                       </div>
+
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
                           <h3 className="text-base font-semibold text-gray-900 [overflow-wrap:anywhere] sm:text-lg">
-                            {gerente.full_name || "Gerente responsável"}
+                            {gerente?.full_name || "Gerente responsável"}
                           </h3>
+
                           <span className="inline-flex items-center gap-1.5 rounded-full bg-[#EAF6F4] px-2.5 py-1 text-xs font-medium text-[#0B6F68]">
                             <ShieldCheck size={13} />
                             Gerente
                           </span>
                         </div>
+
                         <div className="mt-2 flex flex-col gap-1.5 text-sm text-gray-600 sm:flex-row sm:flex-wrap sm:gap-x-6">
-                          {gerente.email && (
+                          {gerente?.email && (
                             <a
                               href={`mailto:${gerente.email}`}
                               className={`inline-flex items-center gap-2 rounded-md transition hover:text-[#0B6F68] ${foco}`}
@@ -1314,12 +2285,14 @@ export default function DashboardLayout({
                                 size={15}
                                 className="shrink-0 text-gray-400"
                               />
+
                               <span className="[overflow-wrap:anywhere]">
                                 {gerente.email}
                               </span>
                             </a>
                           )}
-                          {gerente.phone && (
+
+                          {gerente?.phone && (
                             <a
                               href={`tel:${gerente.phone.replace(/\s+/g, "")}`}
                               className={`inline-flex items-center gap-2 rounded-md transition hover:text-[#0B6F68] ${foco}`}
@@ -1328,10 +2301,36 @@ export default function DashboardLayout({
                                 size={15}
                                 className="shrink-0 text-gray-400"
                               />
+
                               {formatPhoneBR(gerente.phone)}
                             </a>
                           )}
                         </div>
+                      </div>
+                    </div>
+                  ) : ehMotorista && !nivelBlue && !gerente ? (
+                    <div className="flex items-start gap-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 sm:items-center sm:p-5">
+                      <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white text-amber-600 shadow-sm sm:h-14 sm:w-14 sm:rounded-2xl">
+                        <Headset size={24} />
+                      </span>
+
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h3 className="text-base font-semibold text-gray-900 sm:text-lg">
+                            Atribuindo gerente
+                          </h3>
+
+                          <span className="inline-flex items-center gap-1.5 rounded-full bg-white px-2.5 py-1 text-xs font-medium text-amber-700 ring-1 ring-amber-200">
+                            <RefreshCw size={13} />
+                            Em processamento
+                          </span>
+                        </div>
+
+                        <p className="mt-1.5 max-w-2xl text-sm leading-6 text-gray-600">
+                          Você já alcançou um nível que possui atendimento
+                          personalizado. Seu gerente será vinculado
+                          automaticamente.
+                        </p>
                       </div>
                     </div>
                   ) : (
@@ -1339,16 +2338,19 @@ export default function DashboardLayout({
                       <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white text-[#149C8B] shadow-sm sm:h-14 sm:w-14 sm:rounded-2xl">
                         <Headset size={24} />
                       </span>
+
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
                           <h3 className="text-base font-semibold text-gray-900 sm:text-lg">
                             Gerente Digital
                           </h3>
+
                           <span className="inline-flex items-center gap-1.5 rounded-full bg-white px-2.5 py-1 text-xs font-medium text-[#0B6F68] ring-1 ring-[#149C8B]/20">
                             <BadgeCheck size={13} />
                             Atendimento digital
                           </span>
                         </div>
+
                         <p className="mt-1.5 max-w-2xl text-sm leading-6 text-gray-600">
                           Sua conta ainda não tem um gerente responsável. O
                           Gerente Digital ajuda você sempre que precisar.
@@ -1359,6 +2361,10 @@ export default function DashboardLayout({
                 </div>
               </section>
 
+              {/* =================================================
+                  ACESSIBILIDADE
+              ================================================= */}
+
               {isPassageiro && (
                 <section className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
                   <div className="flex flex-col gap-4 border-b border-slate-100 pb-5">
@@ -1366,10 +2372,12 @@ export default function DashboardLayout({
                       <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#35a989]/10 text-[#35a989]">
                         <Accessibility size={22} />
                       </div>
+
                       <div>
                         <h2 className="text-lg font-bold text-slate-900">
                           Acessibilidade
                         </h2>
+
                         <p className="mt-0.5 max-w-2xl text-sm leading-5 text-slate-500">
                           Informe se você possui alguma condição que exige
                           recursos de acessibilidade durante suas viagens.
@@ -1377,6 +2385,7 @@ export default function DashboardLayout({
                       </div>
                     </div>
                   </div>
+
                   <div className="mt-6 grid gap-3 md:grid-cols-2">
                     <AccessibilityOption
                       title="Pessoa com deficiência"
@@ -1386,25 +2395,31 @@ export default function DashboardLayout({
                       onClick={() => setPcdSelected((value) => !value)}
                       icon={Accessibility}
                     />
+
                     <AccessibilityOption
                       title="Pessoa com autismo"
                       description="Informe esta condição para receber suporte adequado."
                       selected={autistaSelected}
                       disabled={salvandoAcessibilidade || contaBloqueada}
-                      onClick={() => setAutistaSelected((value) => !value)}
+                      onClick={() =>
+                        setAutistaSelected((value) => !value)
+                      }
                       icon={Brain}
                     />
                   </div>
+
                   <div className="mt-4 flex flex-col gap-3 rounded-2xl border border-[#35a989]/15 bg-[#35a989]/5 p-4 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                       <p className="text-sm font-semibold text-slate-900">
                         Atualizar informações
                       </p>
+
                       <p className="mt-1 text-xs leading-5 text-slate-500">
-                        Após salvar, algumas alterações podem exigir análise e
-                        envio de documentação.
+                        Após salvar, algumas alterações podem exigir análise
+                        e envio de documentação.
                       </p>
                     </div>
+
                     <button
                       type="button"
                       onClick={(event) => {
@@ -1428,16 +2443,20 @@ export default function DashboardLayout({
                       )}
                     </button>
                   </div>
+
                   {(pcdSelected || autistaSelected) && (
                     <div className="mt-6 space-y-3">
                       <div>
                         <h3 className="font-bold text-slate-900">
                           Status das solicitações
                         </h3>
+
                         <p className="mt-1 text-sm text-slate-500">
-                          Acompanhe a análise das informações de acessibilidade.
+                          Acompanhe a análise das informações de
+                          acessibilidade.
                         </p>
                       </div>
+
                       <div className="grid gap-3 md:grid-cols-2">
                         {pcdSelected && (
                           <AccessibilityStatusCard
@@ -1446,6 +2465,7 @@ export default function DashboardLayout({
                             icon={Accessibility}
                           />
                         )}
+
                         {autistaSelected && (
                           <AccessibilityStatusCard
                             title="Pessoa com autismo"
@@ -1456,6 +2476,7 @@ export default function DashboardLayout({
                       </div>
                     </div>
                   )}
+
                   {(pcdSelected || autistaSelected) && (
                     <div className="mt-6">
                       <LaudoUploadForm
@@ -1467,6 +2488,10 @@ export default function DashboardLayout({
                   )}
                 </section>
               )}
+
+              {/* =================================================
+                  MAYLON PASS
+              ================================================= */}
 
               {possuiMaylonPassAtivo && (
                 <section className="overflow-hidden rounded-[30px]">
@@ -1480,19 +2505,23 @@ export default function DashboardLayout({
                         sizes="(max-width: 1024px) 100vw, 1024px"
                         className="object-cover"
                       />
+
                       <div className="absolute left-[4%] top-[56%] flex w-[100%] items-end gap-[8%]">
                         <div className="min-w-0 flex-1">
                           <p className="text-[clamp(6px,0.65vw,9px)] font-medium uppercase tracking-[0.12em] text-white/70">
                             Titular
                           </p>
+
                           <p className="mt-1 truncate text-[clamp(9px,1.05vw,15px)] font-bold uppercase leading-none text-white">
                             {usuario.full_name || "NOME COMPLETO"}
                           </p>
                         </div>
+
                         <div className="shrink-0">
                           <p className="text-[clamp(6px,0.65vw,9px)] font-medium uppercase tracking-[0.12em] text-white/70">
                             Data da aquisição
                           </p>
+
                           <p className="mt-1 text-[clamp(9px,1vw,14px)] font-semibold leading-none text-white">
                             {usuario.data_aquisicao
                               ? new Date(
@@ -1502,10 +2531,12 @@ export default function DashboardLayout({
                           </p>
                         </div>
                       </div>
+
                       <div className="absolute left-[4%] top-[75%]">
                         <p className="text-[clamp(6px,0.65vw,9px)] font-medium uppercase tracking-[0.12em] text-white/70">
                           Plano
                         </p>
+
                         <p className="mt-1 text-[clamp(10px,1.1vw,16px)] font-bold leading-none text-white">
                           {usuario.nome_plano ||
                             usuario.plano_nome ||
@@ -1518,22 +2549,29 @@ export default function DashboardLayout({
                 </section>
               )}
 
+              {/* =================================================
+                  SEGURANÇA
+              ================================================= */}
+
               <section className={`${cartao} overflow-hidden`}>
                 <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between sm:gap-6 sm:p-6 lg:p-7">
                   <div className="flex items-start gap-3.5 sm:gap-4">
                     <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#EAF6F4] text-[#149C8B] sm:h-11 sm:w-11">
                       <Lock size={20} />
                     </span>
+
                     <div>
                       <h2 className="text-base font-semibold text-gray-900 sm:text-lg">
                         Senha e segurança
                       </h2>
+
                       <p className="mt-0.5 max-w-xl text-sm leading-6 text-gray-500">
                         Troque a senha com frequência para manter sua conta
                         protegida.
                       </p>
                     </div>
                   </div>
+
                   <button
                     type="button"
                     onClick={(event) => {
@@ -1555,6 +2593,10 @@ export default function DashboardLayout({
         </div>
       </main>
 
+      {/* =======================================================
+          MODAL FOTO
+      ======================================================= */}
+
       {showModal && (
         <div
           className="fixed inset-0 z-50 flex items-end justify-center bg-gray-950/60 backdrop-blur-sm sm:items-center sm:p-4"
@@ -1571,6 +2613,7 @@ export default function DashboardLayout({
               <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#EAF6F4] text-[#149C8B]">
                 <Camera size={22} />
               </span>
+
               <div className="min-w-0 flex-1">
                 <h2
                   id="titulo-modal-foto"
@@ -1578,10 +2621,12 @@ export default function DashboardLayout({
                 >
                   Alterar foto
                 </h2>
+
                 <p className="mt-0.5 text-sm text-gray-500">
                   Confira a prévia antes de salvar.
                 </p>
               </div>
+
               <button
                 type="button"
                 onClick={fecharModalFoto}
@@ -1591,6 +2636,7 @@ export default function DashboardLayout({
                 <X size={19} />
               </button>
             </div>
+
             <div className="px-5 pb-5 sm:px-6 sm:pb-6">
               {previewSrc && (
                 <div className="mb-6 flex justify-center">
@@ -1606,6 +2652,7 @@ export default function DashboardLayout({
                   </div>
                 </div>
               )}
+
               <div className="flex flex-col-reverse gap-2.5 sm:flex-row">
                 <button
                   type="button"
@@ -1614,6 +2661,7 @@ export default function DashboardLayout({
                 >
                   Cancelar
                 </button>
+
                 <button
                   type="button"
                   disabled={uploading}
@@ -1632,6 +2680,10 @@ export default function DashboardLayout({
         </div>
       )}
 
+      {/* =======================================================
+          MODAL SENHA
+      ======================================================= */}
+
       {open && (
         <div
           className="fixed inset-0 z-50 flex items-end justify-center bg-gray-950/60 backdrop-blur-sm sm:items-center sm:p-4"
@@ -1648,6 +2700,7 @@ export default function DashboardLayout({
               <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#EAF6F4] text-[#149C8B]">
                 <LockKeyhole size={22} />
               </span>
+
               <div className="min-w-0 flex-1">
                 <h2
                   id="titulo-modal-senha"
@@ -1655,10 +2708,12 @@ export default function DashboardLayout({
                 >
                   Alterar senha
                 </h2>
+
                 <p className="mt-0.5 text-sm text-gray-500">
                   Crie uma senha forte para proteger sua conta.
                 </p>
               </div>
+
               <button
                 type="button"
                 onClick={fecharModalSenha}
@@ -1668,6 +2723,7 @@ export default function DashboardLayout({
                 <X size={19} />
               </button>
             </div>
+
             <div className="space-y-5 px-5 pb-5 sm:px-6 sm:pb-6">
               <CampoSenha
                 id="nova-senha"
@@ -1679,6 +2735,7 @@ export default function DashboardLayout({
                 onToggle={() => setShowSenha((value) => !value)}
                 dica="Use pelo menos 8 caracteres."
               />
+
               <CampoSenha
                 id="confirmar-senha"
                 label="Confirmar senha"
@@ -1688,15 +2745,18 @@ export default function DashboardLayout({
                 visivel={showConfirmar}
                 onToggle={() => setShowConfirmar((value) => !value)}
               />
+
               {erro && (
                 <div
                   role="alert"
                   className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-600"
                 >
                   <CircleAlert size={18} className="mt-0.5 shrink-0" />
+
                   <span>{erro}</span>
                 </div>
               )}
+
               <div className="flex flex-col-reverse gap-2.5 pt-1 sm:flex-row">
                 <button
                   type="button"
@@ -1705,6 +2765,7 @@ export default function DashboardLayout({
                 >
                   Cancelar
                 </button>
+
                 <button
                   type="button"
                   disabled={saving}
@@ -1723,6 +2784,10 @@ export default function DashboardLayout({
         </div>
       )}
 
+      {/* =======================================================
+          MODAL DIDIT
+      ======================================================= */}
+
       {verificacaoUrl && (
         <div
           className="fixed inset-0 z-50 flex items-end justify-center bg-gray-950/60 backdrop-blur-sm sm:items-center sm:p-4"
@@ -1739,6 +2804,7 @@ export default function DashboardLayout({
               <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#EAF6F4] text-[#149C8B]">
                 <ShieldCheck size={22} />
               </span>
+
               <div className="min-w-0 flex-1">
                 <h2
                   id="titulo-modal-verificacao"
@@ -1746,10 +2812,12 @@ export default function DashboardLayout({
                 >
                   Verificação de documentos
                 </h2>
+
                 <p className="mt-0.5 text-sm text-gray-500">
                   Conclua a verificação para ativar sua conta.
                 </p>
               </div>
+
               <button
                 type="button"
                 onClick={fecharVerificacao}
@@ -1759,6 +2827,7 @@ export default function DashboardLayout({
                 <X size={19} />
               </button>
             </div>
+
             <div className="flex-1 overflow-hidden px-5 pb-5 sm:px-6 sm:pb-6">
               <iframe
                 src={verificacaoUrl}
