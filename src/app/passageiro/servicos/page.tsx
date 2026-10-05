@@ -92,7 +92,7 @@ type ApiTransaction = {
 type UserData = {
   name: string;
   cpf: string;
-  birth_date: string;
+  phone: string;
 };
 
 type VerificationStep = "dados" | "didit";
@@ -154,44 +154,40 @@ function formatCpf(value: string) {
   );
 }
 
-function formatBirthDate(value: string) {
-  if (!value) {
+function formatPhone(value: string) {
+  const numbers = String(value ?? "").replace(
+    /\D/g,
+    ""
+  );
+
+  if (!numbers) {
     return "";
   }
 
-  const cleanValue = String(value).trim();
+  const limited = numbers.slice(0, 11);
 
-  if (
-    /^\d{4}-\d{2}-\d{2}$/.test(
-      cleanValue
-    )
-  ) {
-    const [
-      year,
-      month,
-      day,
-    ] = cleanValue.split("-");
-
-    return `${day}/${month}/${year}`;
+  if (limited.length <= 2) {
+    return limited;
   }
 
-  if (
-    /^\d{2}\/\d{2}\/\d{4}$/.test(
-      cleanValue
-    )
-  ) {
-    return cleanValue;
-  }
-
-  const date = new Date(cleanValue);
-
-  if (!Number.isNaN(date.getTime())) {
-    return date.toLocaleDateString(
-      "pt-BR"
+  if (limited.length <= 6) {
+    return limited.replace(
+      /(\d{2})(\d+)/,
+      "($1) $2"
     );
   }
 
-  return cleanValue;
+  if (limited.length <= 10) {
+    return limited.replace(
+      /(\d{2})(\d{4})(\d+)/,
+      "($1) $2-$3"
+    );
+  }
+
+  return limited.replace(
+    /(\d{2})(\d{5})(\d{1,4})/,
+    "($1) $2-$3"
+  );
 }
 
 export default function MaylonServicosPage() {
@@ -299,15 +295,15 @@ export default function MaylonServicosPage() {
           user?.document ??
           user?.documento ??
           user?.tax_id ??
+          user?.identification_number ??
           "";
 
-        const birthDate =
-          user?.birth_date ??
-          user?.birthDate ??
-          user?.data_nascimento ??
-          user?.dataNascimento ??
-          user?.date_of_birth ??
-          user?.dateOfBirth ??
+        const phone =
+          user?.phone ??
+          user?.telefone ??
+          user?.cellphone ??
+          user?.celular ??
+          user?.phone_number ??
           "";
 
         setUserData({
@@ -315,9 +311,9 @@ export default function MaylonServicosPage() {
           cpf: String(cpf ?? "")
             .replace(/\D/g, "")
             .slice(0, 11),
-          birth_date: String(
-            birthDate ?? ""
-          ),
+          phone: String(phone ?? "")
+            .replace(/\D/g, "")
+            .slice(0, 11),
         });
       } catch (err) {
         console.error(
@@ -917,34 +913,6 @@ export default function MaylonServicosPage() {
 
   /*
    * =========================================================
-   * ALTERAR CPF
-   * =========================================================
-   */
-
-  function handleCpfChange(
-    value: string
-  ) {
-    const cpf =
-      value
-        .replace(/\D/g, "")
-        .slice(0, 11);
-
-    setUserData(
-      (current) => {
-        if (!current) {
-          return current;
-        }
-
-        return {
-          ...current,
-          cpf,
-        };
-      }
-    );
-  }
-
-  /*
-   * =========================================================
    * FORMATAÇÕES
    * =========================================================
    */
@@ -1328,7 +1296,7 @@ export default function MaylonServicosPage() {
 
                         </div>
 
-                        {/* CPF - CORRIGIDO */}
+                        {/* CPF */}
 
                         <div className="rounded-xl border border-gray-200 bg-white p-4">
 
@@ -1336,54 +1304,28 @@ export default function MaylonServicosPage() {
                             CPF
                           </p>
 
-                          <input
-                            type="text"
-                            inputMode="numeric"
-                            autoComplete="off"
-                            value={
-                              userData?.cpf
-                                ? formatCpf(
-                                    userData.cpf
-                                  )
-                                : ""
-                            }
-                            onChange={(
-                              event
-                            ) =>
-                              handleCpfChange(
-                                event
-                                  .target
-                                  .value
-                              )
-                            }
-                            placeholder="Digite seu CPF"
-                            maxLength={14}
-                            className="
-                              mt-1
-                              w-full
-                              bg-transparent
-                              text-sm
-                              font-bold
-                              text-[#062b4f]
-                              outline-none
-                              placeholder:text-gray-300
-                            "
-                          />
+                          <p className="mt-1 text-sm font-bold text-[#062b4f]">
+                            {userData?.cpf
+                              ? formatCpf(
+                                  userData.cpf
+                                )
+                              : "Não informado"}
+                          </p>
 
                         </div>
 
-                        {/* DATA */}
+                        {/* TELEFONE */}
 
                         <div className="rounded-xl border border-gray-200 bg-white p-4">
 
                           <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
-                            Data de nascimento
+                            Telefone
                           </p>
 
                           <p className="mt-1 text-sm font-bold text-[#062b4f]">
-                            {userData?.birth_date
-                              ? formatBirthDate(
-                                  userData.birth_date
+                            {userData?.phone
+                              ? formatPhone(
+                                  userData.phone
                                 )
                               : "Não informado"}
                           </p>
