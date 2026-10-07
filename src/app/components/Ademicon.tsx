@@ -1,7 +1,6 @@
 "use client";
-
-import { useState } from "react";
 import type { FormEvent } from "react";
+import { useEffect, useState } from "react";
 
 import {
     CalendarDays,
@@ -30,6 +29,16 @@ type AlertState = {
     message: string;
 } | null;
 
+type Usuario = {
+    id?: string | number;
+    full_name?: string;
+    fullName?: string;
+    name?: string;
+    email?: string;
+    phone?: string;
+    telefone?: string;
+};
+
 const WHATSAPP = "5513991857777";
 
 export default function Ademicon({
@@ -39,12 +48,96 @@ export default function Ademicon({
     const [nome, setNome] = useState("");
     const [telefone, setTelefone] = useState("");
     const [email, setEmail] = useState("");
+
     const [data, setData] = useState("");
     const [horario, setHorario] = useState("");
     const [tipoCarta, setTipoCarta] = useState<TipoCarta>("");
     const [valor, setValor] = useState("");
+
+    const [usuarioId, setUsuarioId] = useState<
+        string | number | null
+    >(null);
+
+    const [carregandoUsuario, setCarregandoUsuario] =
+        useState(true);
+
     const [enviando, setEnviando] = useState(false);
     const [alert, setAlert] = useState<AlertState>(null);
+
+    useEffect(() => {
+        let ativo = true;
+
+        async function carregarUsuario() {
+            try {
+                setCarregandoUsuario(true);
+
+                const resposta = await fetch("/api/me", {
+                    method: "GET",
+                    credentials: "include",
+                    cache: "no-store",
+                });
+
+                if (!resposta.ok) {
+                    if (ativo) {
+                        setAlert({
+                            type: "error",
+                            message:
+                                "Não foi possível carregar seus dados.",
+                        });
+                    }
+
+                    return;
+                }
+
+                const data: Usuario = await resposta.json();
+
+                if (!ativo) {
+                    return;
+                }
+
+                setUsuarioId(data.id ?? null);
+
+                setNome((anterior) =>
+                    data.full_name ||
+                    data.fullName ||
+                    data.name ||
+                    anterior
+                );
+
+                setEmail((anterior) =>
+                    data.email || anterior
+                );
+
+                setTelefone((anterior) =>
+                    data.phone || data.telefone
+                        ? formatarTelefone(
+                              data.phone ||
+                                  data.telefone ||
+                                  ""
+                          )
+                        : anterior
+                );
+            } catch {
+                if (ativo) {
+                    setAlert({
+                        type: "error",
+                        message:
+                            "Não foi possível carregar seus dados.",
+                    });
+                }
+            } finally {
+                if (ativo) {
+                    setCarregandoUsuario(false);
+                }
+            }
+        }
+
+        void carregarUsuario();
+
+        return () => {
+            ativo = false;
+        };
+    }, []);
 
     function mostrarAlert(
         message: string,
@@ -57,10 +150,20 @@ export default function Ademicon({
     }
 
     function formatarTelefone(value: string) {
-        const numeros = value.replace(/\D/g, "").slice(0, 11);
+        let numeros = value.replace(/\D/g, "");
+
+        if (numeros.startsWith("55") && numeros.length > 11) {
+            numeros = numeros.slice(2);
+        }
+
+        numeros = numeros.slice(0, 11);
+
+        if (!numeros) {
+            return "";
+        }
 
         if (numeros.length <= 2) {
-            return numeros;
+            return `(${numeros}`;
         }
 
         if (numeros.length <= 7) {
@@ -102,18 +205,31 @@ export default function Ademicon({
             return "";
         }
 
-        const [ano, mes, dia] = dataSelecionada.split("-");
+        const [ano, mes, dia] =
+            dataSelecionada.split("-");
 
         return `${dia}/${mes}/${ano}`;
     }
 
-    function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    function handleSubmit(
+        event: FormEvent<HTMLFormElement>
+    ) {
         event.preventDefault();
 
         setAlert(null);
 
-        const telefoneNumeros = telefone.replace(/\D/g, "");
-        const valorNumerico = obterValorNumerico();
+        if (!usuarioId) {
+            mostrarAlert(
+                "Não foi possível identificar seu usuário."
+            );
+            return;
+        }
+
+        const telefoneNumeros =
+            telefone.replace(/\D/g, "");
+
+        const valorNumerico =
+            obterValorNumerico();
 
         if (!nome.trim()) {
             mostrarAlert("Informe seu nome completo.");
@@ -131,12 +247,16 @@ export default function Ademicon({
         }
 
         if (!data) {
-            mostrarAlert("Selecione a data da reunião.");
+            mostrarAlert(
+                "Selecione a data da reunião."
+            );
             return;
         }
 
         if (!horario) {
-            mostrarAlert("Selecione o horário da reunião.");
+            mostrarAlert(
+                "Selecione o horário da reunião."
+            );
             return;
         }
 
@@ -171,25 +291,29 @@ export default function Ademicon({
         const mensagem = [
             "Olá! Gostaria de agendar uma reunião sobre carta de crédito Ademicon.",
             "",
-            "📋 *Dados do cliente*",
+            "*📋 Dados do cliente*",
             `👤 Nome: ${nome}`,
             `📱 Telefone: ${telefone}`,
             `📧 E-mail: ${email}`,
             "",
-            "📅 *Dados da reunião*",
+            "*📅 Dados da reunião*",
             `Data: ${formatarData(data)}`,
             `Horário: ${horario}`,
             "",
-            "💳 *Carta de crédito*",
+            "*💳 Carta de crédito*",
             `Tipo: ${tipoFormatado}`,
             `Valor: ${valor}`,
+            "",
+            `ID do usuário: ${usuarioId}`,
+            `ID do benefício: ${beneficioId}`,
             "",
             "Gostaria de receber o contato para confirmar a reunião.",
         ].join("\n");
 
-        const whatsappUrl = `https://wa.me/${WHATSAPP}?text=${encodeURIComponent(
-            mensagem
-        )}`;
+        const whatsappUrl =
+            `https://wa.me/${WHATSAPP}?text=${encodeURIComponent(
+                mensagem
+            )}`;
 
         window.open(
             whatsappUrl,
@@ -217,7 +341,10 @@ export default function Ademicon({
         <div
             className="fixed inset-0 z-[10000] flex items-center justify-center overflow-y-auto bg-black/70 p-4 backdrop-blur-sm"
             onClick={(event) => {
-                if (event.target === event.currentTarget) {
+                if (
+                    event.target ===
+                    event.currentTarget
+                ) {
                     onClose();
                 }
             }}
@@ -241,20 +368,18 @@ export default function Ademicon({
                     </button>
 
                     <div className="relative">
-                        <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-white/15">
-                            <WalletCards size={25} />
-                        </div>
-
                         <h2
                             id="ademicon-modal-title"
-                            className="text-2xl font-black tracking-tight sm:text-3xl"
+                            className="text-2xl font-black tracking-tight sm:text-2xl"
                         >
                             Carta de Crédito Ademicon
                         </h2>
 
-                        <p className="mt-1 max-w-xl text-sm leading-6 text-white/75">
-                            Preencha seus dados para solicitar uma reunião
-                            sobre carta de crédito para automóvel ou imóvel.
+                        <p className="mt-1 max-w-2xl text-sm leading-6 text-white/75">
+                            Preencha seus dados para
+                            solicitar uma reunião sobre
+                            carta de crédito para automóvel
+                            ou imóvel.
                         </p>
                     </div>
                 </div>
@@ -263,6 +388,13 @@ export default function Ademicon({
                     onSubmit={handleSubmit}
                     className="space-y-5 p-5 sm:p-8"
                 >
+                    {carregandoUsuario && (
+                        <div className="flex items-center gap-2 rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+                            <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
+                            Carregando seus dados...
+                        </div>
+                    )}
+
                     {alert && (
                         <div
                             className={`flex items-start gap-3 rounded-2xl border p-4 ${
@@ -272,16 +404,14 @@ export default function Ademicon({
                             }`}
                             role="alert"
                         >
-                            <div className="mt-0.5 shrink-0">
-                                <CheckCircle2
-                                    size={20}
-                                    className={
-                                        alert.type === "error"
-                                            ? "text-red-600"
-                                            : "text-emerald-600"
-                                    }
-                                />
-                            </div>
+                            <CheckCircle2
+                                size={20}
+                                className={
+                                    alert.type === "error"
+                                        ? "text-red-600"
+                                        : "text-emerald-600"
+                                }
+                            />
 
                             <div className="flex-1">
                                 <p className="text-sm font-semibold leading-5">
@@ -291,7 +421,9 @@ export default function Ademicon({
 
                             <button
                                 type="button"
-                                onClick={() => setAlert(null)}
+                                onClick={() =>
+                                    setAlert(null)
+                                }
                                 className="shrink-0 cursor-pointer rounded-lg p-1 transition hover:bg-black/5"
                                 aria-label="Fechar mensagem"
                             >
@@ -316,11 +448,14 @@ export default function Ademicon({
                                 type="text"
                                 value={nome}
                                 onChange={(event) => {
-                                    setNome(event.target.value);
+                                    setNome(
+                                        event.target.value
+                                    );
                                     setAlert(null);
                                 }}
                                 placeholder="Digite seu nome completo"
                                 required
+                                autoComplete="name"
                                 className="h-13 w-full rounded-2xl border border-slate-200 bg-slate-50 pl-12 pr-4 text-sm capitalize outline-none transition focus:border-teal-500 focus:bg-white focus:ring-4 focus:ring-teal-500/10"
                             />
                         </div>
@@ -349,6 +484,7 @@ export default function Ademicon({
                                 }}
                                 placeholder="(11) 99999-9999"
                                 required
+                                autoComplete="tel"
                                 className="h-13 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm outline-none transition focus:border-teal-500 focus:bg-white focus:ring-4 focus:ring-teal-500/10"
                             />
                         </div>
@@ -369,11 +505,14 @@ export default function Ademicon({
                                     type="email"
                                     value={email}
                                     onChange={(event) => {
-                                        setEmail(event.target.value);
+                                        setEmail(
+                                            event.target.value
+                                        );
                                         setAlert(null);
                                     }}
                                     placeholder="seu@email.com"
                                     required
+                                    autoComplete="email"
                                     className="h-13 w-full rounded-2xl border border-slate-200 bg-slate-50 pl-12 pr-4 text-sm outline-none transition focus:border-teal-500 focus:bg-white focus:ring-4 focus:ring-teal-500/10"
                                 />
                             </div>
@@ -389,18 +528,22 @@ export default function Ademicon({
                             <button
                                 type="button"
                                 onClick={() => {
-                                    setTipoCarta("automovel");
+                                    setTipoCarta(
+                                        "automovel"
+                                    );
                                     setAlert(null);
                                 }}
                                 className={`flex cursor-pointer items-center gap-3 rounded-2xl border p-4 text-left transition ${
-                                    tipoCarta === "automovel"
+                                    tipoCarta ===
+                                    "automovel"
                                         ? "border-teal-500 bg-teal-50 ring-2 ring-teal-500/10"
                                         : "border-slate-200 bg-slate-50 hover:border-teal-300 hover:bg-white"
                                 }`}
                             >
                                 <span
                                     className={`flex h-11 w-11 items-center justify-center rounded-xl ${
-                                        tipoCarta === "automovel"
+                                        tipoCarta ===
+                                        "automovel"
                                             ? "bg-teal-600 text-white"
                                             : "bg-white text-slate-500"
                                     }`}
@@ -447,7 +590,8 @@ export default function Ademicon({
                                     </span>
 
                                     <span className="mt-1 block text-xs text-slate-500">
-                                        Casa, apartamento ou terreno
+                                        Casa, apartamento ou
+                                        terreno
                                     </span>
                                 </span>
                             </button>
@@ -485,8 +629,8 @@ export default function Ademicon({
                         </div>
 
                         <p className="mt-2 text-xs text-slate-400">
-                            Informe um valor entre R$ 1.000,00 e
-                            R$ 750.000,00.
+                            Informe um valor entre R$
+                            1.000,00 e R$ 750.000,00.
                         </p>
                     </div>
 
@@ -508,7 +652,9 @@ export default function Ademicon({
                                     min={dataMinima}
                                     value={data}
                                     onChange={(event) => {
-                                        setData(event.target.value);
+                                        setData(
+                                            event.target.value
+                                        );
                                         setAlert(null);
                                     }}
                                     required
@@ -533,7 +679,9 @@ export default function Ademicon({
                                     type="time"
                                     value={horario}
                                     onChange={(event) => {
-                                        setHorario(event.target.value);
+                                        setHorario(
+                                            event.target.value
+                                        );
                                         setAlert(null);
                                     }}
                                     required
@@ -547,8 +695,10 @@ export default function Ademicon({
                         <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-teal-600" />
 
                         <p className="text-xs leading-5 text-teal-800">
-                            Após enviar, o WhatsApp será aberto com todos os
-                            dados preenchidos para solicitar a reunião.
+                            Após enviar, o WhatsApp será
+                            aberto com todos os dados
+                            preenchidos para solicitar a
+                            reunião.
                         </p>
                     </div>
 
@@ -563,7 +713,11 @@ export default function Ademicon({
 
                         <button
                             type="submit"
-                            disabled={enviando}
+                            disabled={
+                                enviando ||
+                                carregandoUsuario ||
+                                !usuarioId
+                            }
                             className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-2xl bg-teal-600 px-5 py-3 text-sm font-black text-white shadow-lg shadow-teal-600/20 transition hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-60"
                         >
                             <MessageCircle size={18} />

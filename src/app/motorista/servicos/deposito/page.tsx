@@ -18,8 +18,6 @@ export default function DepositoPage() {
   const [copied, setCopied] = useState(false);
   const [selectedValue, setSelectedValue] = useState(100);
 
-  const balance = 1248.75;
-
   const values = [20, 50, 100, 200, 500];
 
   const pixCode =
@@ -68,10 +66,7 @@ export default function DepositoPage() {
               </div>
 
               <p className="mt-2 text-3xl font-black text-white sm:text-4xl">
-                {balance.toLocaleString("pt-BR", {
-                  style: "currency",
-                  currency: "BRL",
-                })}
+                R$ 0,00
               </p>
 
               <p className="mt-2 text-xs text-white/50">

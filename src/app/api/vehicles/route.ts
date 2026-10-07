@@ -1,36 +1,28 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import { db } from "../../lib/db";
-import type {
-  ResultSetHeader,
-  RowDataPacket,
-} from "mysql2";
+import type { ResultSetHeader, RowDataPacket } from "mysql2";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/*
-|--------------------------------------------------------------------------
-| TIPOS
-|--------------------------------------------------------------------------
-*/
+// Ajuste aqui se os nomes das tabelas forem diferentes no seu banco
+const TABLE_BRANDS = "vehicle_brands";
+const TABLE_MODELS = "vehicle_models";
+const TABLE_CATEGORIES = "vehicle_categories";
 
 type CreateVehicleBody = {
   brand_id: string;
   model_id: string;
   category_id: string;
-
-  license_plate_number: string;
-  license_expire_date: string;
-
+  // o front envia "licence_*"; "license_*" continua aceito por compatibilidade
+  licence_plate_number?: string;
+  license_plate_number?: string;
+  licence_expire_date?: string;
+  license_expire_date?: string;
   vin_number: string;
-
   transmission: string;
-
   parcel_weight_capacity: number;
-
   fuel_type: string;
-
   ownership: string;
 };
 
@@ -40,428 +32,235 @@ type ColumnRow = RowDataPacket & {
 
 type VehicleRow = RowDataPacket;
 
-/*
-|--------------------------------------------------------------------------
-| FUNÇÕES AUXILIARES
-|--------------------------------------------------------------------------
-*/
+const PLATE_COLUMNS = [
+  "licence_plate_number",
+  "license_plate_number",
+  "license_plate",
+  "plate",
+  "placa",
+];
 
-/**
- * Retorna todas as colunas existentes na tabela vehicles.
- *
- * Isso evita que a API quebre caso o banco use um nome
- * diferente para placa, VIN, aprovação etc.
- */
+const EXPIRE_COLUMNS = [
+  "licence_expire_date",
+  "license_expire_date",
+  "license_expiration_date",
+  "licence_expiration_date",
+];
+
+const VIN_COLUMNS = ["vin_number", "vin", "chassis", "chassi"];
+
+const WEIGHT_COLUMNS = ["parcel_weight_capacity", "weight_capacity"];
+
+const FUEL_COLUMNS = ["fuel_type", "fuel"];
+
 async function getVehicleColumns(): Promise<Set<string>> {
-  const [rows] = await db.query<ColumnRow[]>(
-    `
-      SHOW COLUMNS FROM vehicles
-    `
-  );
-
-  return new Set(
-    rows.map((row) => row.Field)
-  );
+  const [rows] = await db.query<ColumnRow[]>("SHOW COLUMNS FROM vehicles");
+  return new Set(rows.map((row) => row.Field));
 }
 
-/**
- * Procura a primeira coluna disponível.
- */
-function findColumn(
-  columns: Set<string>,
-  names: string[]
-): string | null {
-  for (const name of names) {
-    if (columns.has(name)) {
-      return name;
-    }
+async function tableHasColumn(table: string, column: string): Promise<boolean> {
+  try {
+    const [rows] = await db.query<ColumnRow[]>(
+      `SHOW COLUMNS FROM ${columnName(table)}`
+    );
+    return rows.some((row) => row.Field === column);
+  } catch {
+    return false;
   }
+}
 
+function findColumn(columns: Set<string>, names: string[]): string | null {
+  for (const name of names) {
+    if (columns.has(name)) return name;
+  }
   return null;
 }
 
-/**
- * Escapa nome de coluna.
- *
- * Os nomes usados aqui vêm exclusivamente do SHOW COLUMNS,
- * portanto não vêm diretamente do usuário.
- */
 function columnName(name: string): string {
   return `\`${name.replace(/`/g, "``")}\``;
 }
 
-/*
-|--------------------------------------------------------------------------
-| GET
-|--------------------------------------------------------------------------
-|
-| Busca os veículos do motorista logado.
-|
-|--------------------------------------------------------------------------
-*/
-
-export async function GET() {
+async function getAuthenticatedDriverId(request: NextRequest): Promise<string | null> {
   try {
-    console.log("======================================");
-    console.log("GET /api/vehicles");
+    const cookieHeader = request.headers.get("cookie");
+    if (!cookieHeader) return null;
 
-    /*
-    |--------------------------------------------------------------------------
-    | COOKIE
-    |--------------------------------------------------------------------------
-    */
+    const meUrl = new URL("/api/me", request.url);
+    const response = await fetch(meUrl, {
+      method: "GET",
+      headers: { cookie: cookieHeader },
+      cache: "no-store",
+    });
 
-    const cookieStore = await cookies();
+    if (!response.ok) return null;
 
+    const data = await response.json();
+    const usuario = data?.usuario ?? data?.user ?? data?.data ?? data;
     const driverId =
-      cookieStore.get("driver_id")?.value;
+      usuario?.id ??
+      usuario?.user_id ??
+      usuario?.usuario_id ??
+      data?.driver_id ??
+      data?.user_id;
 
-    console.log(
-      "Motorista:",
-      driverId || "não encontrado"
-    );
+    return driverId ? String(driverId) : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function GET(request: NextRequest) {
+  try {
+    const driverId = await getAuthenticatedDriverId(request);
 
     if (!driverId) {
       return NextResponse.json(
-        {
-          success: false,
-          message:
-            "Motorista não autenticado.",
-        },
-        {
-          status: 401,
-        }
+        { success: false, message: "Motorista não autenticado." },
+        { status: 401 }
       );
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | DESCOBRIR COLUNAS
-    |--------------------------------------------------------------------------
-    */
-
-    const columns =
-      await getVehicleColumns();
-
-    /*
-    |--------------------------------------------------------------------------
-    | COLUNAS PRINCIPAIS
-    |--------------------------------------------------------------------------
-    */
-
-    const driverColumn =
-      findColumn(columns, [
-        "driver_id",
-        "motorista_id",
-      ]);
+    const columns = await getVehicleColumns();
+    const driverColumn = findColumn(columns, ["driver_id", "motorista_id"]);
 
     if (!driverColumn) {
-      throw new Error(
-        "A tabela vehicles não possui coluna driver_id/motorista_id."
+      throw new Error("A tabela vehicles não possui coluna driver_id/motorista_id.");
+    }
+
+    if (!columns.has("id")) {
+      throw new Error("A tabela vehicles não possui coluna id.");
+    }
+
+    const deletedColumn = findColumn(columns, ["deleted_at"]);
+    const plateColumn = findColumn(columns, PLATE_COLUMNS);
+    const expireColumn = findColumn(columns, EXPIRE_COLUMNS);
+    const vinColumn = findColumn(columns, VIN_COLUMNS);
+    const weightColumn = findColumn(columns, WEIGHT_COLUMNS);
+    const fuelColumn = findColumn(columns, FUEL_COLUMNS);
+    const denyColumn = findColumn(columns, ["deny_note", "denied_note"]);
+
+    const hasBrand = columns.has("brand_id");
+    const hasModel = columns.has("model_id");
+    const hasCategory = columns.has("category_id");
+
+    const selectParts: string[] = ["v.*"];
+    const joinParts: string[] = [];
+
+    if (hasBrand) {
+      selectParts.push("b.name AS brand_name");
+      joinParts.push(
+        `LEFT JOIN ${columnName(TABLE_BRANDS)} b ON b.id = v.brand_id`
       );
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | COLUNA DELETE
-    |--------------------------------------------------------------------------
-    */
+    // só seleciona a coluna image se ela existir na tabela
+    const hasModelImage = hasModel
+      ? await tableHasColumn(TABLE_MODELS, "image")
+      : false;
 
-    const deletedColumn =
-      findColumn(columns, [
-        "deleted_at",
-      ]);
-
-    /*
-    |--------------------------------------------------------------------------
-    | SELECT
-    |--------------------------------------------------------------------------
-    */
-
-    const possibleColumns = [
-      "id",
-      "ref_id",
-
-      "brand_id",
-      "model_id",
-      "category_id",
-
-      "license_plate_number",
-      "license_plate",
-      "plate",
-      "placa",
-
-      "license_expire_date",
-      "license_expiration_date",
-
-      "vin_number",
-      "vin",
-      "chassis",
-      "chassi",
-
-      "transmission",
-
-      "parcel_weight_capacity",
-      "weight_capacity",
-
-      "fuel_type",
-      "fuel",
-
-      "ownership",
-
-      "driver_id",
-      "motorista_id",
-
-      "is_active",
-
-      "draft",
-
-      "vehicle_request_status",
-
-      "approved",
-
-      "approved_at",
-
-      "deny_note",
-
-      "denied_note",
-
-      "deleted_at",
-
-      "created_at",
-      "updated_at",
-    ];
-
-    const selectColumns =
-      possibleColumns.filter(
-        (column) =>
-          columns.has(column)
-      );
-
-    if (
-      !selectColumns.includes("id")
-    ) {
-      throw new Error(
-        "A tabela vehicles não possui coluna id."
+    if (hasModel) {
+      selectParts.push("m.name AS model_name");
+      if (hasModelImage) selectParts.push("m.image AS model_image");
+      joinParts.push(
+        `LEFT JOIN ${columnName(TABLE_MODELS)} m ON m.id = v.model_id`
       );
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | SQL
-    |--------------------------------------------------------------------------
-    */
+    if (hasCategory) {
+      selectParts.push("c.name AS category_name", "c.image AS category_image");
+      joinParts.push(
+        `LEFT JOIN ${columnName(TABLE_CATEGORIES)} c ON c.id = v.category_id`
+      );
+    }
 
     let sql = `
-      SELECT
-        ${selectColumns
-          .map(columnName)
-          .join(",\n        ")}
-      FROM vehicles
-      WHERE ${columnName(driverColumn)} = ?
+      SELECT ${selectParts.join(", ")}
+      FROM vehicles v
+      ${joinParts.join("\n      ")}
+      WHERE v.${columnName(driverColumn)} = ?
     `;
 
-    const params: unknown[] = [
-      driverId,
-    ];
+    const params: unknown[] = [driverId];
 
     if (deletedColumn) {
-      sql += `
-        AND ${columnName(
-          deletedColumn
-        )} IS NULL
-      `;
+      sql += ` AND v.${columnName(deletedColumn)} IS NULL`;
     }
-
-    /*
-    |--------------------------------------------------------------------------
-    | ORDEM
-    |--------------------------------------------------------------------------
-    */
 
     if (columns.has("created_at")) {
-      sql += `
-        ORDER BY created_at DESC
-      `;
-    } else if (columns.has("id")) {
-      sql += `
-        ORDER BY id DESC
-      `;
+      sql += ` ORDER BY v.${columnName("created_at")} DESC`;
+    } else {
+      sql += ` ORDER BY v.${columnName("id")} DESC`;
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | EXECUTAR
-    |--------------------------------------------------------------------------
-    */
+    const [rows] = await db.execute<VehicleRow[]>(sql, params);
 
-    const [rows] =
-      await db.execute<VehicleRow[]>(
-        sql,
-        params
-      );
+    // Normaliza os nomes das colunas para o que o front espera,
+    // independente de como estão no banco (licence/license, vin/chassi, etc.)
+    const vehicles = rows.map((row) => ({
+      ...row,
+      licence_plate_number: plateColumn ? row[plateColumn] : null,
+      licence_expire_date: expireColumn ? row[expireColumn] : null,
+      vin_number: vinColumn ? row[vinColumn] : null,
+      parcel_weight_capacity: weightColumn ? row[weightColumn] : null,
+      fuel_type: fuelColumn ? row[fuelColumn] : null,
+      deny_note: denyColumn ? row[denyColumn] : null,
+      brand_name: row.brand_name ?? null,
+      model_name: row.model_name ?? null,
+      category_name: row.category_name ?? null,
+      category_image: row.category_image ?? null,
+      model_image: row.model_image ?? null,
+    }));
 
-    /*
-    |--------------------------------------------------------------------------
-    | RESPOSTA
-    |--------------------------------------------------------------------------
-    */
-
-    return NextResponse.json(
-      {
-        success: true,
-
-        vehicles: rows,
-
-        total: rows.length,
-      },
-      {
-        status: 200,
-      }
-    );
+    return NextResponse.json({
+      success: true,
+      vehicles,
+      total: vehicles.length,
+    });
   } catch (error: any) {
-    console.error(
-      "======================================"
-    );
-
-    console.error(
-      "ERRO GET /api/vehicles:"
-    );
-
-    console.error(error);
-
-    console.error(
-      "Mensagem:",
-      error?.message
-    );
-
-    console.error(
-      "======================================"
-    );
+    console.error("ERRO GET /api/vehicles:", error);
 
     return NextResponse.json(
       {
         success: false,
-
         message:
-          error?.message ||
-          "Não foi possível carregar os veículos.",
+          error?.message || "Não foi possível carregar os veículos.",
       },
-      {
-        status: 500,
-      }
+      { status: 500 }
     );
   }
 }
 
-/*
-|--------------------------------------------------------------------------
-| POST
-|--------------------------------------------------------------------------
-|
-| Cadastra veículo.
-|
-| IMPORTANTE:
-|
-| O veículo NÃO fica aprovado automaticamente.
-|
-| Se existir:
-|
-| approved
-|
-| será criado com:
-|
-| approved = 0
-|
-| Se existir:
-|
-| vehicle_request_status
-|
-| será:
-|
-| pending
-|
-|--------------------------------------------------------------------------
-*/
-
-export async function POST(
-  request: NextRequest
-) {
+export async function POST(request: NextRequest) {
   try {
-    console.log(
-      "======================================"
-    );
-
-    console.log(
-      "POST /api/vehicles"
-    );
-
-    /*
-    |--------------------------------------------------------------------------
-    | COOKIE
-    |--------------------------------------------------------------------------
-    */
-
-    const cookieStore =
-      await cookies();
-
-    const driverId =
-      cookieStore.get("driver_id")?.value;
-
-    console.log(
-      "Motorista:",
-      driverId || "não encontrado"
-    );
+    const driverId = await getAuthenticatedDriverId(request);
 
     if (!driverId) {
       return NextResponse.json(
-        {
-          success: false,
-          message:
-            "Motorista não autenticado.",
-        },
-        {
-          status: 401,
-        }
+        { success: false, message: "Motorista não autenticado." },
+        { status: 401 }
       );
     }
-
-    /*
-    |--------------------------------------------------------------------------
-    | BODY
-    |--------------------------------------------------------------------------
-    */
 
     let body: CreateVehicleBody;
 
     try {
-      body =
-        (await request.json()) as CreateVehicleBody;
+      body = (await request.json()) as CreateVehicleBody;
     } catch {
       return NextResponse.json(
-        {
-          success: false,
-          message:
-            "JSON inválido.",
-        },
-        {
-          status: 400,
-        }
+        { success: false, message: "JSON inválido." },
+        { status: 400 }
       );
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | VALIDAÇÃO
-    |--------------------------------------------------------------------------
-    */
+    const plateInput = body.licence_plate_number ?? body.license_plate_number;
+    const expireInput = body.licence_expire_date ?? body.license_expire_date;
 
     if (
       !body.brand_id ||
       !body.model_id ||
       !body.category_id ||
-      !body.license_plate_number ||
-      !body.license_expire_date ||
+      !plateInput ||
+      !expireInput ||
       !body.vin_number ||
       !body.transmission ||
       !body.fuel_type ||
@@ -470,741 +269,264 @@ export async function POST(
       return NextResponse.json(
         {
           success: false,
-          message:
-            "Preencha todos os campos obrigatórios.",
+          message: "Preencha todos os campos obrigatórios.",
         },
-        {
-          status: 400,
-        }
+        { status: 400 }
       );
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | NORMALIZAÇÃO
-    |--------------------------------------------------------------------------
-    */
+    const placa = String(plateInput).trim().toUpperCase();
 
-    const placa =
-      String(
-        body.license_plate_number
-      )
-        .trim()
-        .toUpperCase();
+    const vin = String(body.vin_number).trim().toUpperCase();
 
-    const vin =
-      String(body.vin_number)
-        .trim()
-        .toUpperCase();
+    const transmission = String(body.transmission).trim().toLowerCase();
 
-    const transmission =
-      String(body.transmission)
-        .trim()
-        .toLowerCase();
+    const fuelType = String(body.fuel_type).trim().toLowerCase();
 
-    const fuelType =
-      String(body.fuel_type)
-        .trim()
-        .toLowerCase();
+    const ownership = String(body.ownership).trim().toLowerCase();
 
-    const ownership =
-      String(body.ownership)
-        .trim()
-        .toLowerCase();
+    const peso = Number(body.parcel_weight_capacity);
 
-    const peso =
-      Number(
-        body.parcel_weight_capacity
-      );
-
-    if (
-      Number.isNaN(peso) ||
-      peso < 0
-    ) {
+    if (Number.isNaN(peso) || peso < 0) {
       return NextResponse.json(
         {
           success: false,
-          message:
-            "A capacidade de peso é inválida.",
+          message: "A capacidade de peso é inválida.",
         },
-        {
-          status: 400,
-        }
+        { status: 400 }
       );
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | COLUNAS DO BANCO
-    |--------------------------------------------------------------------------
-    */
-
-    const columns =
-      await getVehicleColumns();
-
-    /*
-    |--------------------------------------------------------------------------
-    | COLUNAS OBRIGATÓRIAS
-    |--------------------------------------------------------------------------
-    */
-
-    const driverColumn =
-      findColumn(columns, [
-        "driver_id",
-        "motorista_id",
-      ]);
+    const columns = await getVehicleColumns();
+    const driverColumn = findColumn(columns, ["driver_id", "motorista_id"]);
 
     if (!driverColumn) {
-      throw new Error(
-        "A tabela vehicles não possui driver_id/motorista_id."
-      );
+      throw new Error("A tabela vehicles não possui driver_id/motorista_id.");
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | PLACA
-    |--------------------------------------------------------------------------
-    */
-
-    const plateColumn =
-      findColumn(columns, [
-        "license_plate_number",
-        "license_plate",
-        "plate",
-        "placa",
-      ]);
-
-    /*
-    |--------------------------------------------------------------------------
-    | VIN
-    |--------------------------------------------------------------------------
-    */
-
-    const vinColumn =
-      findColumn(columns, [
-        "vin_number",
-        "vin",
-        "chassis",
-        "chassi",
-      ]);
-
-    /*
-    |--------------------------------------------------------------------------
-    | SE NÃO EXISTIR PLACA
-    |--------------------------------------------------------------------------
-    */
+    const plateColumn = findColumn(columns, PLATE_COLUMNS);
+    const vinColumn = findColumn(columns, VIN_COLUMNS);
 
     if (!plateColumn) {
-      throw new Error(
-        "Não encontrei a coluna da placa na tabela vehicles. Verifique a estrutura da tabela."
-      );
+      throw new Error("Não encontrei a coluna da placa na tabela vehicles.");
     }
-
-    /*
-    |--------------------------------------------------------------------------
-    | SE NÃO EXISTIR VIN
-    |--------------------------------------------------------------------------
-    */
 
     if (!vinColumn) {
-      throw new Error(
-        "Não encontrei a coluna do VIN/chassi na tabela vehicles. Verifique a estrutura da tabela."
-      );
+      throw new Error("Não encontrei a coluna do VIN/chassi na tabela vehicles.");
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | VERIFICAR PLACA
-    |--------------------------------------------------------------------------
-    */
-
-    const deletedColumn =
-      findColumn(columns, [
-        "deleted_at",
-      ]);
+    const deletedColumn = findColumn(columns, ["deleted_at"]);
 
     let checkPlateSql = `
       SELECT id
       FROM vehicles
-      WHERE ${columnName(
-        plateColumn
-      )} = ?
+      WHERE ${columnName(plateColumn)} = ?
     `;
 
-    const checkPlateParams: unknown[] =
-      [placa];
+    const checkPlateParams: unknown[] = [placa];
 
     if (deletedColumn) {
-      checkPlateSql += `
-        AND ${columnName(
-          deletedColumn
-        )} IS NULL
-      `;
+      checkPlateSql += ` AND ${columnName(deletedColumn)} IS NULL`;
     }
 
-    checkPlateSql += `
-      LIMIT 1
-    `;
+    checkPlateSql += " LIMIT 1";
 
-    const [plateRows] =
-      await db.execute<RowDataPacket[]>(
-        checkPlateSql,
-        checkPlateParams
-      );
+    const [plateRows] = await db.execute<RowDataPacket[]>(
+      checkPlateSql,
+      checkPlateParams
+    );
 
     if (plateRows.length > 0) {
       return NextResponse.json(
         {
           success: false,
-          message:
-            "Esta placa já está cadastrada.",
+          message: "Esta placa já está cadastrada.",
         },
-        {
-          status: 409,
-        }
+        { status: 409 }
       );
     }
-
-    /*
-    |--------------------------------------------------------------------------
-    | VERIFICAR VIN
-    |--------------------------------------------------------------------------
-    */
 
     let checkVinSql = `
       SELECT id
       FROM vehicles
-      WHERE ${columnName(
-        vinColumn
-      )} = ?
+      WHERE ${columnName(vinColumn)} = ?
     `;
 
-    const checkVinParams: unknown[] =
-      [vin];
+    const checkVinParams: unknown[] = [vin];
 
     if (deletedColumn) {
-      checkVinSql += `
-        AND ${columnName(
-          deletedColumn
-        )} IS NULL
-      `;
+      checkVinSql += ` AND ${columnName(deletedColumn)} IS NULL`;
     }
 
-    checkVinSql += `
-      LIMIT 1
-    `;
+    checkVinSql += " LIMIT 1";
 
-    const [vinRows] =
-      await db.execute<RowDataPacket[]>(
-        checkVinSql,
-        checkVinParams
-      );
+    const [vinRows] = await db.execute<RowDataPacket[]>(
+      checkVinSql,
+      checkVinParams
+    );
 
     if (vinRows.length > 0) {
       return NextResponse.json(
         {
           success: false,
-          message:
-            "Este chassi/VIN já está cadastrado.",
+          message: "Este chassi/VIN já está cadastrado.",
         },
-        {
-          status: 409,
-        }
+        { status: 409 }
       );
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | MONTAR INSERT
-    |--------------------------------------------------------------------------
-    */
-
-    const insertColumns: string[] =
-      [];
-
-    const insertValues: string[] =
-      [];
-
-    const insertParams: unknown[] =
-      [];
-
-    /*
-    |--------------------------------------------------------------------------
-    | REF ID
-    |--------------------------------------------------------------------------
-    */
+    const insertColumns: string[] = [];
+    const insertValues: string[] = [];
+    const insertParams: unknown[] = [];
 
     if (columns.has("ref_id")) {
-      insertColumns.push(
-        "ref_id"
-      );
-
-      insertValues.push(
-        "UUID()"
-      );
+      insertColumns.push("ref_id");
+      insertValues.push("UUID()");
     }
-
-    /*
-    |--------------------------------------------------------------------------
-    | BRAND
-    |--------------------------------------------------------------------------
-    */
 
     if (columns.has("brand_id")) {
-      insertColumns.push(
-        "brand_id"
-      );
-
+      insertColumns.push("brand_id");
       insertValues.push("?");
-
-      insertParams.push(
-        body.brand_id
-      );
+      insertParams.push(body.brand_id);
     }
-
-    /*
-    |--------------------------------------------------------------------------
-    | MODEL
-    |--------------------------------------------------------------------------
-    */
 
     if (columns.has("model_id")) {
-      insertColumns.push(
-        "model_id"
-      );
-
+      insertColumns.push("model_id");
       insertValues.push("?");
-
-      insertParams.push(
-        body.model_id
-      );
+      insertParams.push(body.model_id);
     }
-
-    /*
-    |--------------------------------------------------------------------------
-    | CATEGORY
-    |--------------------------------------------------------------------------
-    */
 
     if (columns.has("category_id")) {
-      insertColumns.push(
-        "category_id"
-      );
-
+      insertColumns.push("category_id");
       insertValues.push("?");
-
-      insertParams.push(
-        body.category_id
-      );
+      insertParams.push(body.category_id);
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | PLACA
-    |--------------------------------------------------------------------------
-    */
-
-    insertColumns.push(
-      plateColumn
-    );
-
+    insertColumns.push(plateColumn);
     insertValues.push("?");
+    insertParams.push(placa);
 
-    insertParams.push(
-      placa
-    );
-
-    /*
-    |--------------------------------------------------------------------------
-    | DATA VALIDADE
-    |--------------------------------------------------------------------------
-    */
-
-    const expireColumn =
-      findColumn(columns, [
-        "license_expire_date",
-        "license_expiration_date",
-      ]);
+    const expireColumn = findColumn(columns, EXPIRE_COLUMNS);
 
     if (expireColumn) {
-      insertColumns.push(
-        expireColumn
-      );
-
+      insertColumns.push(expireColumn);
       insertValues.push("?");
-
-      insertParams.push(
-        body.license_expire_date
-      );
+      insertParams.push(expireInput);
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | VIN
-    |--------------------------------------------------------------------------
-    */
-
-    insertColumns.push(
-      vinColumn
-    );
-
+    insertColumns.push(vinColumn);
     insertValues.push("?");
-
-    insertParams.push(
-      vin
-    );
-
-    /*
-    |--------------------------------------------------------------------------
-    | TRANSMISSÃO
-    |--------------------------------------------------------------------------
-    */
+    insertParams.push(vin);
 
     if (columns.has("transmission")) {
-      insertColumns.push(
-        "transmission"
-      );
-
+      insertColumns.push("transmission");
       insertValues.push("?");
-
-      insertParams.push(
-        transmission
-      );
+      insertParams.push(transmission);
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | PESO
-    |--------------------------------------------------------------------------
-    */
-
-    const weightColumn =
-      findColumn(columns, [
-        "parcel_weight_capacity",
-        "weight_capacity",
-      ]);
+    const weightColumn = findColumn(columns, WEIGHT_COLUMNS);
 
     if (weightColumn) {
-      insertColumns.push(
-        weightColumn
-      );
-
+      insertColumns.push(weightColumn);
       insertValues.push("?");
-
-      insertParams.push(
-        peso
-      );
+      insertParams.push(peso);
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | COMBUSTÍVEL
-    |--------------------------------------------------------------------------
-    */
-
-    const fuelColumn =
-      findColumn(columns, [
-        "fuel_type",
-        "fuel",
-      ]);
+    const fuelColumn = findColumn(columns, FUEL_COLUMNS);
 
     if (fuelColumn) {
-      insertColumns.push(
-        fuelColumn
-      );
-
+      insertColumns.push(fuelColumn);
       insertValues.push("?");
-
-      insertParams.push(
-        fuelType
-      );
+      insertParams.push(fuelType);
     }
-
-    /*
-    |--------------------------------------------------------------------------
-    | OWNERSHIP
-    |--------------------------------------------------------------------------
-    */
 
     if (columns.has("ownership")) {
-      insertColumns.push(
-        "ownership"
-      );
-
+      insertColumns.push("ownership");
       insertValues.push("?");
-
-      insertParams.push(
-        ownership
-      );
+      insertParams.push(ownership);
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | MOTORISTA
-    |--------------------------------------------------------------------------
-    */
-
-    insertColumns.push(
-      driverColumn
-    );
-
+    insertColumns.push(driverColumn);
     insertValues.push("?");
-
-    insertParams.push(
-      driverId
-    );
-
-    /*
-    |--------------------------------------------------------------------------
-    | ATIVO
-    |--------------------------------------------------------------------------
-    */
+    insertParams.push(driverId);
 
     if (columns.has("is_active")) {
-      insertColumns.push(
-        "is_active"
-      );
-
+      insertColumns.push("is_active");
       insertValues.push("0");
     }
-
-    /*
-    |--------------------------------------------------------------------------
-    | DRAFT
-    |--------------------------------------------------------------------------
-    */
 
     if (columns.has("draft")) {
-      insertColumns.push(
-        "draft"
-      );
-
+      insertColumns.push("draft");
       insertValues.push("0");
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | STATUS DA SOLICITAÇÃO
-    |--------------------------------------------------------------------------
-    */
-
-    if (
-      columns.has(
-        "vehicle_request_status"
-      )
-    ) {
-      insertColumns.push(
-        "vehicle_request_status"
-      );
-
-      insertValues.push(
-        "'pending'"
-      );
+    if (columns.has("vehicle_request_status")) {
+      insertColumns.push("vehicle_request_status");
+      insertValues.push("'pending'");
     }
-
-    /*
-    |--------------------------------------------------------------------------
-    | APPROVED
-    |--------------------------------------------------------------------------
-    |
-    | Se sua tabela tiver approved:
-    |
-    | 0 = aguardando aprovação
-    | 1 = aprovado
-    |
-    */
 
     if (columns.has("approved")) {
-      insertColumns.push(
-        "approved"
-      );
-
+      insertColumns.push("approved");
       insertValues.push("0");
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | DENY NOTE
-    |--------------------------------------------------------------------------
-    */
-
-    const denyColumn =
-      findColumn(columns, [
-        "deny_note",
-        "denied_note",
-      ]);
+    const denyColumn = findColumn(columns, ["deny_note", "denied_note"]);
 
     if (denyColumn) {
-      insertColumns.push(
-        denyColumn
-      );
-
-      insertValues.push(
-        "NULL"
-      );
+      insertColumns.push(denyColumn);
+      insertValues.push("NULL");
     }
-
-    /*
-    |--------------------------------------------------------------------------
-    | DELETED
-    |--------------------------------------------------------------------------
-    */
 
     if (deletedColumn) {
-      insertColumns.push(
-        deletedColumn
-      );
-
-      insertValues.push(
-        "NULL"
-      );
+      insertColumns.push(deletedColumn);
+      insertValues.push("NULL");
     }
-
-    /*
-    |--------------------------------------------------------------------------
-    | CREATED
-    |--------------------------------------------------------------------------
-    */
 
     if (columns.has("created_at")) {
-      insertColumns.push(
-        "created_at"
-      );
-
-      insertValues.push(
-        "NOW()"
-      );
+      insertColumns.push("created_at");
+      insertValues.push("NOW()");
     }
-
-    /*
-    |--------------------------------------------------------------------------
-    | UPDATED
-    |--------------------------------------------------------------------------
-    */
 
     if (columns.has("updated_at")) {
-      insertColumns.push(
-        "updated_at"
-      );
-
-      insertValues.push(
-        "NOW()"
-      );
+      insertColumns.push("updated_at");
+      insertValues.push("NOW()");
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | SQL INSERT
-    |--------------------------------------------------------------------------
-    */
-
     const insertSql = `
-      INSERT INTO vehicles (
-        ${insertColumns
-          .map(columnName)
-          .join(",\n        ")}
-      )
-      VALUES (
-        ${insertValues.join(",\n        ")}
-      )
+      INSERT INTO vehicles (${insertColumns.map(columnName).join(", ")})
+      VALUES (${insertValues.join(", ")})
     `;
 
-    console.log(
-      "INSERT VEHICLE:",
-      insertSql
-    );
-
-    /*
-    |--------------------------------------------------------------------------
-    | EXECUTAR
-    |--------------------------------------------------------------------------
-    */
-
-    const [result] =
-      await db.execute<ResultSetHeader>(
-        insertSql,
-        insertParams
-      );
-
-    /*
-    |--------------------------------------------------------------------------
-    | RESPOSTA
-    |--------------------------------------------------------------------------
-    */
-
-    console.log(
-      "Veículo cadastrado:",
-      result.insertId
-    );
-
-    console.log(
-      "======================================"
+    const [result] = await db.execute<ResultSetHeader>(
+      insertSql,
+      insertParams
     );
 
     return NextResponse.json(
       {
         success: true,
-
-        message:
-          "Veículo cadastrado e enviado para aprovação da equipe.",
-
+        message: "Veículo cadastrado e enviado para aprovação da equipe.",
         vehicle: {
           id: result.insertId,
-
-          license_plate_number:
-            placa,
-
-          vin_number:
-            vin,
-
+          licence_plate_number: placa,
+          vin_number: vin,
           approved: 0,
-
-          vehicle_request_status:
-            "pending",
-
+          vehicle_request_status: "pending",
           is_active: 0,
         },
       },
-      {
-        status: 201,
-      }
+      { status: 201 }
     );
   } catch (error: any) {
-    console.error(
-      "======================================"
-    );
-
-    console.error(
-      "ERRO POST /api/vehicles:"
-    );
-
-    console.error(error);
-
-    console.error(
-      "Mensagem:",
-      error?.message
-    );
-
-    console.error(
-      "Código:",
-      error?.code
-    );
-
-    console.error(
-      "======================================"
-    );
+    console.error("ERRO POST /api/vehicles:", error);
 
     return NextResponse.json(
       {
         success: false,
-
         message:
-          error?.message ||
-          "Não foi possível cadastrar o veículo.",
+          error?.message || "Não foi possível cadastrar o veículo.",
       },
-      {
-        status: 500,
-      }
+      { status: 500 }
     );
   }
 }

@@ -11,6 +11,8 @@ type ConectCarModalProps = {
 type Usuario = {
   id?: string | number;
   full_name?: string;
+  fullName?: string;
+  name?: string;
   email?: string;
   cpf?: string;
   phone?: string;
@@ -29,11 +31,9 @@ export default function ConectCarModal({
   beneficioId,
 }: ConectCarModalProps) {
   const [usuario, setUsuario] = useState<Usuario | null>(null);
-
   const [cpf, setCpf] = useState("");
   const [placa, setPlaca] = useState("");
   const [telefone, setTelefone] = useState("");
-
   const [cep, setCep] = useState("");
   const [endereco, setEndereco] = useState("");
   const [numero, setNumero] = useState("");
@@ -41,10 +41,8 @@ export default function ConectCarModal({
   const [bairro, setBairro] = useState("");
   const [cidade, setCidade] = useState("");
   const [estado, setEstado] = useState("");
-
   const [observacoes, setObservacoes] = useState("");
   const [aceitouTermos, setAceitouTermos] = useState(false);
-
   const [carregando, setCarregando] = useState(true);
   const [buscandoCep, setBuscandoCep] = useState(false);
   const [enviando, setEnviando] = useState(false);
@@ -66,70 +64,40 @@ export default function ConectCarModal({
           cache: "no-store",
         });
 
-        const data = await resposta.json();
-
         if (!resposta.ok) {
-          throw new Error(
-            data?.error || "Não foi possível carregar seus dados."
-          );
+          let mensagem = "Não foi possível carregar seus dados.";
+
+          try {
+            const data = await resposta.json();
+            mensagem = data?.error || data?.message || mensagem;
+          } catch {}
+
+          throw new Error(mensagem);
         }
 
-        const usuarioApi =
-          data?.motorista ??
-          data?.usuario ??
-          data?.user ??
-          data?.data?.motorista ??
-          data?.data?.usuario ??
-          data?.data?.user ??
-          data?.data ??
-          data;
+        const data: Usuario = await resposta.json();
 
-        if (!ativo) return;
+        if (!ativo) {
+          return;
+        }
 
-        const dadosUsuario: Usuario = {
-          id: usuarioApi?.id,
-          full_name:
-            usuarioApi?.full_name ??
-            usuarioApi?.fullName ??
-            usuarioApi?.name ??
-            "",
-          email: usuarioApi?.email ?? "",
-          cpf: usuarioApi?.cpf ?? usuarioApi?.documento ?? "",
-          phone: usuarioApi?.phone ?? usuarioApi?.telefone ?? "",
-          telefone: usuarioApi?.telefone ?? usuarioApi?.phone ?? "",
-          cep: usuarioApi?.cep ?? "",
-          endereco:
-            usuarioApi?.endereco ??
-            usuarioApi?.address ??
-            usuarioApi?.logradouro ??
-            "",
-          numero:
-            usuarioApi?.numero ??
-            usuarioApi?.number ??
-            "",
-          complemento: usuarioApi?.complemento ?? "",
-          bairro: usuarioApi?.bairro ?? "",
-          cidade:
-            usuarioApi?.cidade ??
-            usuarioApi?.city ??
-            "",
-          estado:
-            usuarioApi?.estado ??
-            usuarioApi?.state ??
-            "",
-        };
+        setUsuario(data);
 
-        setUsuario(dadosUsuario);
+        setCpf(data.cpf ? formatarCpf(data.cpf) : "");
 
-        setCpf(formatarCpf(dadosUsuario.cpf || ""));
-        setTelefone(formatarTelefone(dadosUsuario.phone || ""));
-        setCep(formatarCep(dadosUsuario.cep || ""));
-        setEndereco(dadosUsuario.endereco || "");
-        setNumero(dadosUsuario.numero || "");
-        setComplemento(dadosUsuario.complemento || "");
-        setBairro(dadosUsuario.bairro || "");
-        setCidade(dadosUsuario.cidade || "");
-        setEstado((dadosUsuario.estado || "").toUpperCase());
+        setTelefone(
+          data.phone || data.telefone
+            ? formatarTelefone(data.phone || data.telefone || "")
+            : ""
+        );
+
+        setCep(data.cep ? formatarCep(data.cep) : "");
+        setEndereco(data.endereco || "");
+        setNumero(data.numero || "");
+        setComplemento(data.complemento || "");
+        setBairro(data.bairro || "");
+        setCidade(data.cidade || "");
+        setEstado((data.estado || "").toUpperCase());
       } catch (error) {
         if (ativo) {
           setErro(
@@ -184,7 +152,7 @@ export default function ConectCarModal({
   function removerCodigoPais(valor: string) {
     let numeros = valor.replace(/\D/g, "");
 
-    if (numeros.startsWith("55")) {
+    if (numeros.startsWith("55") && numeros.length > 11) {
       numeros = numeros.slice(2);
     }
 
@@ -253,7 +221,9 @@ export default function ConectCarModal({
   }
 
   async function enviarSolicitacao() {
-    if (enviando) return;
+    if (enviando) {
+      return;
+    }
 
     setErro("");
 
@@ -262,17 +232,25 @@ export default function ConectCarModal({
       return;
     }
 
-    if (!beneficioId) {
+    if (beneficioId == null) {
       setErro("Benefício não identificado.");
       return;
     }
 
-    if (!usuario.full_name?.trim()) {
+    const nome =
+      usuario.full_name ||
+      usuario.fullName ||
+      usuario.name ||
+      "";
+
+    const email = usuario.email || "";
+
+    if (!nome.trim()) {
       setErro("Nome completo não informado.");
       return;
     }
 
-    if (!usuario.email?.trim()) {
+    if (!email.trim()) {
       setErro("E-mail não informado.");
       return;
     }
@@ -280,7 +258,9 @@ export default function ConectCarModal({
     const cpfLimpo = cpf.replace(/\D/g, "");
     const telefoneLimpo = removerCodigoPais(telefone);
     const cepLimpo = cep.replace(/\D/g, "");
-    const placaLimpa = placa.replace(/[^A-Z0-9]/gi, "").toUpperCase();
+    const placaLimpa = placa
+      .replace(/[^A-Z0-9]/gi, "")
+      .toUpperCase();
 
     if (cpfLimpo.length !== 11) {
       setErro("Informe um CPF válido.");
@@ -344,14 +324,11 @@ export default function ConectCarModal({
         body: JSON.stringify({
           usuario_id: usuario.id,
           beneficio_id: Number(beneficioId),
-
-          nome_completo: usuario.full_name.trim(),
-          email: usuario.email.trim(),
+          nome_completo: nome.trim(),
+          email: email.trim(),
           cpf: cpfLimpo,
-
           placa: placaLimpa,
           telefone: telefoneLimpo,
-
           cep: cepLimpo,
           endereco: endereco.trim(),
           numero: numero.trim(),
@@ -359,7 +336,6 @@ export default function ConectCarModal({
           bairro: bairro.trim(),
           cidade: cidade.trim(),
           estado: estado.trim().toUpperCase(),
-
           observacoes: observacoes.trim(),
         }),
       });
@@ -370,11 +346,18 @@ export default function ConectCarModal({
         throw new Error(
           data?.error ||
             data?.mensagem ||
+            data?.message ||
             "Não foi possível enviar a solicitação."
         );
       }
 
-      setProtocolo(data?.codigo || data?.protocolo || "");
+      setProtocolo(
+        data?.codigo ||
+          data?.protocolo ||
+          data?.numero_protocolo ||
+          ""
+      );
+
       setSucesso(true);
     } catch (error) {
       setErro(
@@ -507,7 +490,12 @@ export default function ConectCarModal({
 
                     <input
                       type="text"
-                      value={usuario?.full_name || ""}
+                      value={
+                        usuario?.full_name ||
+                        usuario?.fullName ||
+                        usuario?.name ||
+                        ""
+                      }
                       readOnly
                       className={readOnlyClass}
                     />
@@ -733,6 +721,7 @@ export default function ConectCarModal({
                         setEstado(
                           event.target.value
                             .toUpperCase()
+                            .replace(/[^A-Z]/g, "")
                             .slice(0, 2)
                         )
                       }
@@ -746,7 +735,10 @@ export default function ConectCarModal({
 
               <section>
                 <label className="mb-2 block text-sm font-bold text-slate-700">
-                  Observação <small>(Opcional)</small>
+                  Observação{" "}
+                  <small className="font-normal text-slate-400">
+                    (Opcional)
+                  </small>
                 </label>
 
                 <textarea

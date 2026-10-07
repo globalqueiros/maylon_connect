@@ -1,5 +1,4 @@
 "use client";
-
 import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import type { LucideIcon } from "lucide-react";
@@ -38,9 +37,8 @@ import {
   verifDocPendente,
 } from "../../lib/didit";
 
-/* =========================================================
-   TIPOS
-========================================================= */
+const GERENTE_DIGITAL_URL =
+  "https://www.huggy.chat/e1f3479b-2c80-4b5d-8973-bd1a63adb7f3";
 
 type Gerente = {
   id?: number;
@@ -50,9 +48,6 @@ type Gerente = {
   profile_image?: string | null;
 };
 
-/**
- * Estrutura baseada na tabela user_levels.
- */
 type UserLevel = {
   id: number;
   sequence: number;
@@ -81,9 +76,6 @@ type UserLevel = {
   updated_at?: string | null;
 };
 
-/**
- * Resposta do endpoint GET /api/user-levels
- */
 type UserLevelsResponse = {
   success: boolean;
   user_type?: string;
@@ -92,9 +84,6 @@ type UserLevelsResponse = {
   message?: string;
 };
 
-/**
- * Progresso retornado pelo /api/me (opcional).
- */
 type LevelProgress = {
   percentage?: number | null;
   current_value?: number | null;
@@ -124,13 +113,6 @@ type Usuario = {
   pcd?: boolean | null;
   autista?: boolean | null;
 
-  /**
-   * Nível atual.
-   *
-   * O /api/me pode retornar:
-   * - user_level_id / level_id  (apenas o id; o objeto vem de /api/user-levels)
-   * - user_level / current_level / level  (objeto completo)
-   */
   user_level_id?: number | null;
   level_id?: number | null;
 
@@ -146,7 +128,6 @@ type Usuario = {
   level_current_value?: number | null;
   level_target_value?: number | null;
 
-  /** Usado como valor atual do progresso quando não há level_progress */
   total_rides?: number | null;
 
   verification?: {
@@ -178,10 +159,6 @@ type AccessibilityStatus = {
   mensagem?: string;
 };
 
-/* =========================================================
-   ESTILOS
-========================================================= */
-
 const foco = `focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#149C8B]/30`;
 
 const botaoPrimario = `inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-[#149C8B] px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#11897D] disabled:cursor-not-allowed disabled:opacity-60 ${foco}`;
@@ -194,10 +171,6 @@ const cartao =
   "rounded-2xl bg-white shadow-sm ring-1 ring-gray-900/5 sm:rounded-3xl";
 
 const inputSenha = `h-12 w-full rounded-xl border border-gray-200 bg-gray-50 pl-11 pr-12 text-sm outline-none transition placeholder:text-gray-400 focus:border-[#149C8B] focus:bg-white focus:ring-4 focus:ring-[#149C8B]/10`;
-
-/* =========================================================
-   HELPERS
-========================================================= */
 
 function formatarCPF(valor?: string | null) {
   if (!valor) return "Não informado";
@@ -277,10 +250,6 @@ function statusClasses(status: VerificacaoStatus) {
   }
 }
 
-/**
- * O MySQL pode devolver números como string (principalmente DECIMAL),
- * então normalizamos tudo ao receber da API.
- */
 function normalizarNivel(n: any): UserLevel {
   const num = (v: unknown) =>
     v === null || v === undefined || v === "" ? null : Number(v);
@@ -302,12 +271,6 @@ function normalizarNivel(n: any): UserLevel {
   };
 }
 
-/**
- * Nível atual:
- * 1) id vindo do /api/me -> busca na lista oficial (/api/user-levels)
- * 2) objeto vindo do /api/me
- * 3) primeiro nível da lista (Blue)
- */
 function obterNivelAtual(
   usuario: Usuario | null,
   niveis: UserLevel[],
@@ -334,11 +297,6 @@ function obterNivelAtual(
   return doUsuario ?? niveis[0] ?? null;
 }
 
-/**
- * Próximo nível:
- * 1) enviado pelo /api/me
- * 2) primeiro nível da lista com sequence maior que o atual
- */
 function obterProximoNivel(
   usuario: Usuario | null,
   nivelAtual: UserLevel | null,
@@ -358,9 +316,6 @@ function obterProximoNivel(
   );
 }
 
-/**
- * Blue = primeiro nível ativo do motorista (menor sequence).
- */
 function ehNivelBlue(
   nivel: UserLevel | null,
   todosOsNiveis: UserLevel[],
@@ -383,10 +338,6 @@ function ehNivelBlue(
   return nivel.sequence === niveisMotorista[0].sequence;
 }
 
-/**
- * Calcula a porcentagem caso o backend não envie.
- * Usa targeted_ride do próximo nível como meta.
- */
 function calcularProgressoNivel(
   nivelAtual: UserLevel | null,
   proximoNivel: UserLevel | null,
@@ -422,10 +373,6 @@ function calcularProgressoNivel(
 
   return Math.max(0, Math.min(100, Math.round((atual / alvo) * 100)));
 }
-
-/* =========================================================
-   COMPONENTES
-========================================================= */
 
 function CabecalhoSecao({
   icon: Icon,
@@ -565,9 +512,46 @@ function CampoSenha({
   );
 }
 
-/* =========================================================
-   CARD DE NÍVEL
-========================================================= */
+function GerenteDigitalButton({
+  descricao,
+  onClick,
+}: {
+  descricao: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="group flex w-full cursor-pointer items-start gap-4 rounded-2xl bg-[#F1F9F8] p-4 text-left transition hover:bg-[#e7f5f3] hover:shadow-sm sm:items-center sm:p-5"
+    >
+      <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white text-[#149C8B] shadow-sm transition group-hover:scale-105 sm:h-14 sm:w-14 sm:rounded-2xl">
+        <Headset size={24} />
+      </span>
+
+      <span className="min-w-0 flex-1">
+        <span className="flex flex-wrap items-center gap-2">
+          <span className="text-base font-semibold text-gray-900 sm:text-lg">
+            Gerente Digital
+          </span>
+
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-white px-2.5 py-1 text-xs font-medium text-[#0B6F68] ring-1 ring-[#149C8B]/20">
+            <BadgeCheck size={13} />
+            Atendimento digital
+          </span>
+        </span>
+
+        <span className="mt-1.5 block max-w-2xl text-sm leading-6 text-gray-600">
+          {descricao}
+        </span>
+
+        <span className="mt-3 inline-flex items-center rounded-xl bg-[#149C8B] px-4 py-2 text-sm font-semibold text-white transition group-hover:bg-[#0f897a]">
+          Falar com o Gerente Digital
+        </span>
+      </span>
+    </button>
+  );
+}
 
 function NivelCard({
   nivelAtual,
@@ -687,10 +671,6 @@ function NivelCard({
   );
 }
 
-/* =========================================================
-   VERIFICAÇÕES
-========================================================= */
-
 function VerificacaoCard({
   icon: Icon,
   titulo,
@@ -775,10 +755,6 @@ function VerificacaoCard({
   );
 }
 
-/* =========================================================
-   ACESSIBILIDADE
-========================================================= */
-
 function AccessibilityOption({
   title,
   description,
@@ -803,18 +779,16 @@ function AccessibilityOption({
         event.stopPropagation();
         onClick();
       }}
-      className={`flex w-full cursor-pointer items-start gap-4 rounded-2xl border p-4 text-left transition disabled:cursor-not-allowed disabled:opacity-60 ${
-        selected
-          ? "border-[#35a989] bg-[#35a989]/5 ring-2 ring-[#35a989]/10"
-          : "border-slate-200 bg-white hover:border-[#35a989]/40 hover:bg-slate-50"
-      }`}
+      className={`flex w-full cursor-pointer items-start gap-4 rounded-2xl border p-4 text-left transition disabled:cursor-not-allowed disabled:opacity-60 ${selected
+        ? "border-[#35a989] bg-[#35a989]/5 ring-2 ring-[#35a989]/10"
+        : "border-slate-200 bg-white hover:border-[#35a989]/40 hover:bg-slate-50"
+        }`}
     >
       <div
-        className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${
-          selected
-            ? "bg-[#35a989] text-white"
-            : "bg-[#EAF6F4] text-[#35a989]"
-        }`}
+        className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${selected
+          ? "bg-[#35a989] text-white"
+          : "bg-[#EAF6F4] text-[#35a989]"
+          }`}
       >
         <Icon size={21} />
       </div>
@@ -897,9 +871,8 @@ function LaudoUploadForm({
         </div>
 
         <label
-          className={`inline-flex cursor-pointer items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 ${
-            disabled ? "pointer-events-none opacity-50" : ""
-          }`}
+          className={`inline-flex cursor-pointer items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 ${disabled ? "pointer-events-none opacity-50" : ""
+            }`}
         >
           {file ? file.name : "Selecionar arquivo"}
 
@@ -946,10 +919,6 @@ function LaudoUploadForm({
   );
 }
 
-/* =========================================================
-   LAYOUT
-========================================================= */
-
 export default function DashboardLayout({
   children,
 }: {
@@ -957,7 +926,6 @@ export default function DashboardLayout({
 }) {
   const [usuario, setUsuario] = useState<Usuario | null>(null);
 
-  /** Lista de níveis de motorista vinda de /api/user-levels */
   const [niveis, setNiveis] = useState<UserLevel[]>([]);
 
   const [loading, setLoading] = useState(true);
@@ -969,6 +937,8 @@ export default function DashboardLayout({
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
   const [showModal, setShowModal] = useState(false);
+
+  const [showGerenteModal, setShowGerenteModal] = useState(false);
 
   const [uploading, setUploading] = useState(false);
 
@@ -1043,11 +1013,6 @@ export default function DashboardLayout({
   const [iniciandoVerificacao, setIniciandoVerificacao] =
     useState(false);
 
-  /* =========================================================
-     CARREGAR USUÁRIO
-     (os níveis NÃO vêm mais daqui; veja o effect de /api/user-levels)
-  ========================================================= */
-
   useEffect(() => {
     async function carregarUsuario() {
       try {
@@ -1101,13 +1066,6 @@ export default function DashboardLayout({
     carregarUsuario();
   }, []);
 
-  /* =========================================================
-     CARREGAR NÍVEIS DOS MOTORISTAS
-
-     Busca a lista oficial em /api/user-levels uma única vez
-     (e novamente apenas se o tipo de usuário mudar).
-  ========================================================= */
-
   useEffect(() => {
     if (usuario?.user_type !== "driver") return;
 
@@ -1142,15 +1100,6 @@ export default function DashboardLayout({
       ativo = false;
     };
   }, [usuario?.user_type]);
-
-  /* =========================================================
-     ATUALIZAÇÃO AUTOMÁTICA DA VERIFICAÇÃO
-
-     Mantém e-mail, telefone e CPF sincronizados com /api/me.
-     Assim, quando uma verificação for concluída em outra tela
-     ou pelo backend, a barra de progresso é atualizada sem
-     precisar recarregar a página manualmente.
-  ========================================================= */
 
   useEffect(() => {
     if (loading) return;
@@ -1210,10 +1159,6 @@ export default function DashboardLayout({
     };
   }, [loading]);
 
-  /* =========================================================
-     ALERTA
-  ========================================================= */
-
   useEffect(() => {
     if (!alert) return;
 
@@ -1221,10 +1166,6 @@ export default function DashboardLayout({
 
     return () => clearTimeout(timer);
   }, [alert]);
-
-  /* =========================================================
-     PREVIEW
-  ========================================================= */
 
   useEffect(() => {
     return () => {
@@ -1234,9 +1175,19 @@ export default function DashboardLayout({
     };
   }, [previewSrc]);
 
-  /* =========================================================
-     NÍVEIS
-  ========================================================= */
+  useEffect(() => {
+    if (!showGerenteModal) return;
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setShowGerenteModal(false);
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [showGerenteModal]);
 
   const nivelAtual = useMemo(
     () => obterNivelAtual(usuario, niveis),
@@ -1258,15 +1209,7 @@ export default function DashboardLayout({
     [nivelAtual, proximoNivel, usuario],
   );
 
-  /*
-   * O gerente só deve aparecer para níveis acima
-   * do nível Blue.
-   */
   const gerentePermitido = !nivelBlue && Boolean(usuario?.gerente);
-
-  /* =========================================================
-     TELEFONE
-  ========================================================= */
 
   const formatPhoneBR = (phone?: string | null) => {
     if (!phone) return "Não informado";
@@ -1287,10 +1230,6 @@ export default function DashboardLayout({
 
     return phone;
   };
-
-  /* =========================================================
-     SENHA
-  ========================================================= */
 
   const handleSalvarSenha = async () => {
     setErro("");
@@ -1346,10 +1285,6 @@ export default function DashboardLayout({
     }
   };
 
-  /* =========================================================
-     UPLOAD FOTO
-  ========================================================= */
-
   const handleUpload = async () => {
     if (!selectedFile) {
       setAlert({
@@ -1388,9 +1323,9 @@ export default function DashboardLayout({
       setUsuario((prev) =>
         prev
           ? {
-              ...prev,
-              profile_image: data.url,
-            }
+            ...prev,
+            profile_image: data.url,
+          }
           : prev,
       );
 
@@ -1414,10 +1349,6 @@ export default function DashboardLayout({
     }
   };
 
-  /* =========================================================
-     MODAIS
-  ========================================================= */
-
   const fecharModalSenha = () => {
     setOpen(false);
     setSenha("");
@@ -1433,9 +1364,9 @@ export default function DashboardLayout({
     setSelectedFile(null);
   };
 
-  /* =========================================================
-     ATUALIZAR DOCUMENTO
-  ========================================================= */
+  const abrirGerenteModal = () => setShowGerenteModal(true);
+
+  const fecharGerenteModal = () => setShowGerenteModal(false);
 
   const atualizarStatusDocumento = async (
     setRefresh: (value: boolean) => void,
@@ -1511,10 +1442,6 @@ export default function DashboardLayout({
     }
   };
 
-  /* =========================================================
-     ACESSIBILIDADE
-  ========================================================= */
-
   const salvarAcessibilidade = async () => {
     try {
       setSalvandoAcessibilidade(true);
@@ -1562,10 +1489,6 @@ export default function DashboardLayout({
       setUploadingLaudo(false);
     }
   };
-
-  /* =========================================================
-     DIDIT
-  ========================================================= */
 
   const iniciarVerificacao = async () => {
     try {
@@ -1626,10 +1549,6 @@ export default function DashboardLayout({
     }
   };
 
-  /* =========================================================
-     LOADING
-  ========================================================= */
-
   if (loading || !usuario) {
     return (
       <div className="flex min-h-screen items-center justify-center px-4">
@@ -1650,10 +1569,6 @@ export default function DashboardLayout({
     );
   }
 
-  /* =========================================================
-     DADOS
-  ========================================================= */
-
   const ehMotorista = usuario.user_type === "driver";
 
   const isPassageiro = usuario.user_type === "customer";
@@ -1666,37 +1581,37 @@ export default function DashboardLayout({
     textoOk: string;
     icon: LucideIcon;
   }[] = [
-    {
-      label: "E-mail",
-      ok: Boolean(usuario.email_verified_at),
-      textoOk: "Verificado",
-      icon: Mail,
-    },
-    {
-      label: "Telefone",
-      ok: Boolean(usuario.phone_verified_at),
-      textoOk: "Verificado",
-      icon: Phone,
-    },
-    {
-      label: "CPF",
-      ok: Boolean(usuario.identification_number),
-      textoOk: "Verificado",
-      icon: IdCard,
-    },
-  ];
+      {
+        label: "E-mail",
+        ok: Boolean(usuario.email_verified_at),
+        textoOk: "Verificado",
+        icon: Mail,
+      },
+      {
+        label: "Telefone",
+        ok: Boolean(usuario.phone_verified_at),
+        textoOk: "Verificado",
+        icon: Phone,
+      },
+      {
+        label: "CPF",
+        ok: Boolean(usuario.identification_number),
+        textoOk: "Verificado",
+        icon: IdCard,
+      },
+    ];
 
   const verificados = verificacoes.filter((item) => item.ok).length;
 
   const progresso =
     verificacoes.length > 0
       ? Math.max(
-          0,
-          Math.min(
-            100,
-            Math.round((verificados / verificacoes.length) * 100),
-          ),
-        )
+        0,
+        Math.min(
+          100,
+          Math.round((verificados / verificacoes.length) * 100),
+        ),
+      )
       : 0;
 
   const possuiMaylonPassAtivo = Boolean(
@@ -1712,18 +1627,15 @@ export default function DashboardLayout({
 
   return (
     <div className="min-h-screen min-w-0">
-      {/* =====================================================
-          ALERTA
-      ===================================================== */}
+      {}
 
       {alert && (
         <div
           role="status"
-          className={`fixed left-1/2 top-4 z-[60] flex w-[calc(100%-1.5rem)] max-w-md -translate-x-1/2 items-center gap-3 rounded-2xl border px-4 py-3 text-sm font-medium shadow-lg sm:top-6 ${
-            alert.type === "success"
-              ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-              : "border-red-200 bg-red-50 text-red-700"
-          }`}
+          className={`fixed left-1/2 top-4 z-[60] flex w-[calc(100%-1.5rem)] max-w-md -translate-x-1/2 items-center gap-3 rounded-2xl border px-4 py-3 text-sm font-medium shadow-lg sm:top-6 ${alert.type === "success"
+            ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+            : "border-red-200 bg-red-50 text-red-700"
+            }`}
         >
           {alert.type === "success" ? (
             <CheckCircle2 size={20} className="shrink-0" />
@@ -1737,9 +1649,7 @@ export default function DashboardLayout({
 
       <main>
         <div className="mx-auto w-full min-w-0 max-w-8xl 2xl:max-w-[1500px]">
-          {/* =================================================
-              HEADER
-          ================================================= */}
+          {}
 
           <section className="relative overflow-hidden rounded-2xl sm:rounded-3xl">
             <div className="relative">
@@ -1774,9 +1684,7 @@ export default function DashboardLayout({
           </section>
 
           <div className="grid items-start gap-5 sm:gap-6 lg:grid-cols-[300px_minmax(0,1fr)] xl:grid-cols-[320px_minmax(0,1fr)] 2xl:grid-cols-[340px_minmax(0,1fr)]">
-            {/* =================================================
-                SIDEBAR
-            ================================================= */}
+            {}
 
             <aside className="relative z-10 -mt-2 sm:-mt-4 lg:sticky lg:top-6 lg:mt-6">
               <div
@@ -1808,9 +1716,8 @@ export default function DashboardLayout({
                           strokeLinecap="round"
                           pathLength={100}
                           strokeDasharray={`${progresso} 100`}
-                          className={`stroke-[#149C8B] transition-[stroke-dasharray] duration-700 motion-reduce:transition-none ${
-                            progresso === 0 ? "opacity-0" : ""
-                          }`}
+                          className={`stroke-[#149C8B] transition-[stroke-dasharray] duration-700 motion-reduce:transition-none ${progresso === 0 ? "opacity-0" : ""
+                            }`}
                         />
                       </svg>
 
@@ -1916,7 +1823,7 @@ export default function DashboardLayout({
                       </div>
                     </div>
 
-                    {/* BARRA DE PROGRESSO */}
+                    {}
                     <div className="mt-3 rounded-xl bg-[#F1F9F8] p-3 ring-1 ring-[#149C8B]/10">
                       <div
                         className="h-3 w-full overflow-hidden rounded-full bg-white shadow-inner ring-1 ring-gray-900/5"
@@ -1955,11 +1862,10 @@ export default function DashboardLayout({
                             className="flex items-center gap-3 text-sm"
                           >
                             <span
-                              className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
-                                ok
-                                  ? "bg-emerald-50 text-emerald-600"
-                                  : "bg-amber-50 text-amber-600"
-                              }`}
+                              className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${ok
+                                ? "bg-emerald-50 text-emerald-600"
+                                : "bg-amber-50 text-amber-600"
+                                }`}
                             >
                               <Icone size={16} />
                             </span>
@@ -1969,9 +1875,8 @@ export default function DashboardLayout({
                             </span>
 
                             <span
-                              className={`inline-flex items-center gap-1 text-xs font-medium ${
-                                ok ? "text-emerald-700" : "text-amber-700"
-                              }`}
+                              className={`inline-flex items-center gap-1 text-xs font-medium ${ok ? "text-emerald-700" : "text-amber-700"
+                                }`}
                             >
                               {ok ? (
                                 <CheckCircle2 size={14} />
@@ -1990,32 +1895,26 @@ export default function DashboardLayout({
               </div>
             </aside>
 
-            {/* =================================================
-                CONTEÚDO
-            ================================================= */}
+            {}
 
             <div className="min-w-0 space-y-5 sm:space-y-6 lg:mt-6">
-              {/* ===============================================
-                  DOCUMENTAÇÃO
-              =============================================== */}
+              {}
 
               {(documentacaoPendente || documentacaoAprovada) && (
                 <section
                   role="alert"
-                  className={`overflow-hidden rounded-2xl border p-4 sm:p-5 ${
-                    documentacaoAprovada
-                      ? "border-emerald-200 bg-emerald-50"
-                      : "border-amber-200 bg-amber-50"
-                  }`}
+                  className={`overflow-hidden rounded-2xl border p-4 sm:p-5 ${documentacaoAprovada
+                    ? "border-emerald-200 bg-emerald-50"
+                    : "border-amber-200 bg-amber-50"
+                    }`}
                 >
                   <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex items-start gap-3.5">
                       <span
-                        className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${
-                          documentacaoAprovada
-                            ? "bg-emerald-100 text-emerald-600"
-                            : "bg-amber-100 text-amber-600"
-                        }`}
+                        className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${documentacaoAprovada
+                          ? "bg-emerald-100 text-emerald-600"
+                          : "bg-amber-100 text-amber-600"
+                          }`}
                       >
                         {documentacaoAprovada ? (
                           <CheckCircle2 size={22} />
@@ -2071,9 +1970,7 @@ export default function DashboardLayout({
                 </section>
               )}
 
-              {/* ===============================================
-                  VERIFICAÇÃO
-              =============================================== */}
+              {}
 
               <section className="overflow-hidden rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
                 <div className="flex items-start gap-3 border-b border-slate-100 pb-5">
@@ -2127,9 +2024,7 @@ export default function DashboardLayout({
                 </div>
               </section>
 
-              {/* ===============================================
-                  DADOS
-              =============================================== */}
+              {}
 
               <section className={`${cartao} overflow-hidden`}>
                 <CabecalhoSecao
@@ -2193,9 +2088,7 @@ export default function DashboardLayout({
                 </dl>
               </section>
 
-              {/* =================================================
-                  NÍVEL + GERENTE
-              ================================================= */}
+              {}
 
               <section className={`${cartao} overflow-hidden`}>
                 <CabecalhoSecao
@@ -2205,9 +2098,7 @@ export default function DashboardLayout({
                 />
 
                 <div className="p-5 sm:p-6 lg:p-7">
-                  {/* =============================================
-                      NÍVEL
-                  ============================================= */}
+                  {}
 
                   {ehMotorista && nivelAtual && (
                     <NivelCard
@@ -2219,32 +2110,11 @@ export default function DashboardLayout({
                   )}
 
                   {ehMotorista && nivelBlue ? (
-                    <>
-                      <div className="flex items-start gap-4 rounded-2xl bg-[#F1F9F8] p-4 sm:items-center sm:p-5">
-                        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white text-[#149C8B] shadow-sm sm:h-14 sm:w-14 sm:rounded-2xl">
-                          <Headset size={24} />
-                        </span>
 
-                        <div className="min-w-0">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <h3 className="text-base font-semibold text-gray-900 sm:text-lg">
-                              Gerente Digital
-                            </h3>
-
-                            <span className="inline-flex items-center gap-1.5 rounded-full bg-white px-2.5 py-1 text-xs font-medium text-[#0B6F68] ring-1 ring-[#149C8B]/20">
-                              <BadgeCheck size={13} />
-                              Atendimento digital
-                            </span>
-                          </div>
-
-                          <p className="mt-1.5 max-w-2xl text-sm leading-6 text-gray-600">
-                            Sua conta está no nível inicial. Ao alcançar o
-                            próximo nível, um gerente será atribuído
-                            automaticamente à sua conta.
-                          </p>
-                        </div>
-                      </div>
-                    </>
+                    <GerenteDigitalButton
+                      onClick={abrirGerenteModal}
+                      descricao="Sua conta está no nível inicial. Ao alcançar o próximo nível, um gerente será atribuído automaticamente à sua conta. Enquanto isso, o Gerente Digital ajuda você sempre que precisar."
+                    />
                   ) : gerentePermitido ? (
                     <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-5">
                       <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-2xl bg-[#EAF6F4] sm:h-[72px] sm:w-[72px]">
@@ -2334,36 +2204,16 @@ export default function DashboardLayout({
                       </div>
                     </div>
                   ) : (
-                    <div className="flex items-start gap-4 rounded-2xl bg-[#F1F9F8] p-4 sm:items-center sm:p-5">
-                      <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white text-[#149C8B] shadow-sm sm:h-14 sm:w-14 sm:rounded-2xl">
-                        <Headset size={24} />
-                      </span>
 
-                      <div className="min-w-0">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <h3 className="text-base font-semibold text-gray-900 sm:text-lg">
-                            Gerente Digital
-                          </h3>
-
-                          <span className="inline-flex items-center gap-1.5 rounded-full bg-white px-2.5 py-1 text-xs font-medium text-[#0B6F68] ring-1 ring-[#149C8B]/20">
-                            <BadgeCheck size={13} />
-                            Atendimento digital
-                          </span>
-                        </div>
-
-                        <p className="mt-1.5 max-w-2xl text-sm leading-6 text-gray-600">
-                          Sua conta ainda não tem um gerente responsável. O
-                          Gerente Digital ajuda você sempre que precisar.
-                        </p>
-                      </div>
-                    </div>
+                    <GerenteDigitalButton
+                      onClick={abrirGerenteModal}
+                      descricao="Sua conta ainda não tem um gerente responsável. O Gerente Digital ajuda você sempre que precisar."
+                    />
                   )}
                 </div>
               </section>
 
-              {/* =================================================
-                  ACESSIBILIDADE
-              ================================================= */}
+              {}
 
               {isPassageiro && (
                 <section className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
@@ -2489,9 +2339,7 @@ export default function DashboardLayout({
                 </section>
               )}
 
-              {/* =================================================
-                  MAYLON PASS
-              ================================================= */}
+              {}
 
               {possuiMaylonPassAtivo && (
                 <section className="overflow-hidden rounded-[30px]">
@@ -2525,8 +2373,8 @@ export default function DashboardLayout({
                           <p className="mt-1 text-[clamp(9px,1vw,14px)] font-semibold leading-none text-white">
                             {usuario.data_aquisicao
                               ? new Date(
-                                  usuario.data_aquisicao,
-                                ).toLocaleDateString("pt-BR")
+                                usuario.data_aquisicao,
+                              ).toLocaleDateString("pt-BR")
                               : "--/--/----"}
                           </p>
                         </div>
@@ -2549,9 +2397,7 @@ export default function DashboardLayout({
                 </section>
               )}
 
-              {/* =================================================
-                  SEGURANÇA
-              ================================================= */}
+              {}
 
               <section className={`${cartao} overflow-hidden`}>
                 <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between sm:gap-6 sm:p-6 lg:p-7">
@@ -2593,9 +2439,7 @@ export default function DashboardLayout({
         </div>
       </main>
 
-      {/* =======================================================
-          MODAL FOTO
-      ======================================================= */}
+      {}
 
       {showModal && (
         <div
@@ -2680,9 +2524,7 @@ export default function DashboardLayout({
         </div>
       )}
 
-      {/* =======================================================
-          MODAL SENHA
-      ======================================================= */}
+      {}
 
       {open && (
         <div
@@ -2784,9 +2626,7 @@ export default function DashboardLayout({
         </div>
       )}
 
-      {/* =======================================================
-          MODAL DIDIT
-      ======================================================= */}
+      {}
 
       {verificacaoUrl && (
         <div
@@ -2834,6 +2674,55 @@ export default function DashboardLayout({
                 title="Verificação de documentos"
                 className="h-full w-full rounded-2xl border border-gray-200 bg-white"
                 allow="camera; microphone; fullscreen; autoplay; encrypted-media; payment"
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {}
+
+      {showGerenteModal && (
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 p-3 backdrop-blur-sm sm:p-5"
+          onClick={fecharGerenteModal}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="titulo-gerente-digital"
+            className="relative flex h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl sm:h-[86vh] sm:rounded-3xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex shrink-0 items-center justify-between border-b border-gray-200 px-4 py-3 sm:px-5 sm:py-4">
+              <div className="min-w-0">
+                <h2
+                  id="titulo-gerente-digital"
+                  className="text-base font-bold text-gray-900 sm:text-lg"
+                >
+                  Atendimento Gerente Digital
+                </h2>
+                <p className="text-xs text-gray-500 sm:text-sm">
+                  Atendimento digital Maylon
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={fecharGerenteModal}
+                className={botaoFechar}
+                aria-label="Fechar atendimento"
+                title="Fechar atendimento"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <div className="min-h-0 flex-1 bg-gray-50">
+              <iframe
+                src={GERENTE_DIGITAL_URL}
+                title="Gerente Digital Maylon"
+                className="h-full w-full border-0"
+                allow="microphone; camera; fullscreen"
               />
             </div>
           </div>
