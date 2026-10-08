@@ -36,6 +36,7 @@ import {
   documentacaoBloqueia,
   verifDocPendente,
 } from "../../lib/didit";
+import { validarCpf } from "../../lib/cpf";
 
 const GERENTE_DIGITAL_URL =
   "https://www.huggy.chat/e1f3479b-2c80-4b5d-8973-bd1a63adb7f3";
@@ -132,6 +133,7 @@ type Usuario = {
 
   verification?: {
     documento?: VerificacaoDocumento | null;
+    processos_judiciais?: VerificacaoProcessos | null;
   };
 };
 
@@ -145,6 +147,12 @@ type VerificacaoStatus =
 type Verificacao = {
   status: VerificacaoStatus;
   mensagem?: string;
+};
+
+type VerificacaoProcessos = {
+  status: VerificacaoStatus;
+  total?: number | null;
+  checked_at?: string | null;
 };
 
 type VerificacaoDocumento = {
@@ -214,6 +222,26 @@ function mensagemVerificacaoDocumento(status: VerificacaoStatus) {
       return "Sua documentação está pendente de verificação.";
     default:
       return "Essa verificação ainda não foi realizada.";
+  }
+}
+
+function mensagemProcessosJudiciais(
+  status: VerificacaoStatus,
+  total?: number | null,
+) {
+  switch (status) {
+    case "aprovado":
+      return "Nenhum processo judicial encontrado.";
+    case "reprovado":
+      return total && total > 0
+        ? `Foi encontrado processo judicial vinculado ao seu CPF (${total}).`
+        : "Foi encontrado processo judicial vinculado ao seu CPF.";
+    case "em_analise":
+      return "A consulta de processos judiciais está em análise.";
+    case "pendente":
+      return "A consulta de processos judiciais está pendente.";
+    default:
+      return "Essa consulta ainda não foi realizada.";
   }
 }
 
@@ -678,6 +706,7 @@ function VerificacaoCard({
   verification,
   onRefresh,
   refreshing,
+  hideRefresh,
 }: {
   icon: LucideIcon;
   titulo: string;
@@ -685,6 +714,7 @@ function VerificacaoCard({
   verification: Verificacao;
   onRefresh: () => void;
   refreshing: boolean;
+  hideRefresh?: boolean;
 }) {
   const classes = statusClasses(verification.status);
 
@@ -732,23 +762,25 @@ function VerificacaoCard({
             </p>
           </div>
 
-          <button
-            type="button"
-            onClick={(event) => {
-              event.preventDefault();
-              event.stopPropagation();
-              onRefresh();
-            }}
-            disabled={refreshing}
-            aria-label={`Atualizar ${titulo}`}
-            title={`Atualizar ${titulo}`}
-            className={`flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 shadow-sm transition hover:bg-slate-50 hover:text-[#149C8B] disabled:cursor-not-allowed disabled:opacity-50 ${foco}`}
-          >
-            <RefreshCw
-              size={18}
-              className={refreshing ? "animate-spin" : ""}
-            />
-          </button>
+          {!hideRefresh && (
+            <button
+              type="button"
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                onRefresh();
+              }}
+              disabled={refreshing}
+              aria-label={`Atualizar ${titulo}`}
+              title={`Atualizar ${titulo}`}
+              className={`flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 shadow-sm transition hover:bg-slate-50 hover:text-[#149C8B] disabled:cursor-not-allowed disabled:opacity-50 ${foco}`}
+            >
+              <RefreshCw
+                size={18}
+                className={refreshing ? "animate-spin" : ""}
+              />
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -1054,6 +1086,17 @@ export default function DashboardLayout({
           status: statusDoc,
           mensagem: mensagemVerificacaoDocumento(statusDoc),
         });
+
+        const statusProcessos =
+          data.verification?.processos_judiciais?.status ?? "nao_iniciado";
+
+        setProcessosJudiciais({
+          status: statusProcessos,
+          mensagem: mensagemProcessosJudiciais(
+            statusProcessos,
+            data.verification?.processos_judiciais?.total,
+          ),
+        });
       } catch (error) {
         console.error("Erro ao carregar usuário:", error);
 
@@ -1139,6 +1182,17 @@ export default function DashboardLayout({
         setLiveness({
           status: statusDoc,
           mensagem: mensagemVerificacaoDocumento(statusDoc),
+        });
+
+        const statusProcessos =
+          data.verification?.processos_judiciais?.status ?? "nao_iniciado";
+
+        setProcessosJudiciais({
+          status: statusProcessos,
+          mensagem: mensagemProcessosJudiciais(
+            statusProcessos,
+            data.verification?.processos_judiciais?.total,
+          ),
         });
       } catch (error) {
         console.error(
@@ -1399,6 +1453,17 @@ export default function DashboardLayout({
         status: statusDoc,
         mensagem: mensagemVerificacaoDocumento(statusDoc),
       });
+
+      const statusProcessos =
+        data.verification?.processos_judiciais?.status ?? "nao_iniciado";
+
+      setProcessosJudiciais({
+        status: statusProcessos,
+        mensagem: mensagemProcessosJudiciais(
+          statusProcessos,
+          data.verification?.processos_judiciais?.total,
+        ),
+      });
     } catch (error) {
       console.error(
         "Erro ao atualizar status da verificação:",
@@ -1416,26 +1481,83 @@ export default function DashboardLayout({
     atualizarStatusDocumento(setRefreshLiveness);
 
   const atualizarProcessosJudiciais = async () => {
+    if (
+      processosJudiciais.status === "aprovado" ||
+      processosJudiciais.status === "reprovado"
+    ) {
+      return;
+    }
+
+    if (
+      usuario?.identification_type !== "cpf" ||
+      !validarCpf(usuario?.identification_number)
+    ) {
+      return;
+    }
+
     try {
       setRefreshProcessosJudiciais(true);
 
-      await new Promise((resolve) => setTimeout(resolve, 700));
+      const res = await fetch(
+        "/api/motorista/processos-judiciais",
+        {
+          method: "POST",
+          credentials: "include",
+        },
+      );
+
+      const data = await res.json();
+
+      if (!res.ok || !data?.success) {
+        const invalido = data?.error === "invalid_document";
+
+        setProcessosJudiciais({
+          status: invalido ? "nao_iniciado" : "pendente",
+          mensagem:
+            data?.message ||
+            "Não foi possível consultar os processos judiciais. Tente novamente.",
+        });
+
+        setAlert({
+          type: "error",
+          message:
+            data?.message ||
+            "Não foi possível consultar os processos judiciais.",
+        });
+
+        return;
+      }
+
+      const status: VerificacaoStatus =
+        data.status === "reprovado" ? "reprovado" : "aprovado";
 
       setProcessosJudiciais({
-        status: "em_analise",
-        mensagem:
-          "A consulta de processos judiciais está em análise.",
+        status,
+        mensagem: mensagemProcessosJudiciais(status, data.total),
+      });
+
+      setAlert({
+        type: status === "reprovado" ? "error" : "success",
+        message:
+          status === "reprovado"
+            ? "Foi encontrado processo judicial vinculado ao seu CPF."
+            : "Nenhum processo judicial encontrado.",
       });
     } catch (error) {
       console.error(
-        "Erro ao atualizar processos judiciais:",
+        "Erro ao consultar processos judiciais:",
         error,
       );
 
       setProcessosJudiciais({
-        status: "reprovado",
+        status: "pendente",
         mensagem:
-          "Não foi possível consultar os processos judiciais.",
+          "Não foi possível consultar os processos judiciais. Tente novamente.",
+      });
+
+      setAlert({
+        type: "error",
+        message: "Não foi possível consultar os processos judiciais.",
       });
     } finally {
       setRefreshProcessosJudiciais(false);
@@ -1624,6 +1746,38 @@ export default function DashboardLayout({
   const documentacaoPendente = verifDocPendente(statusDocumento);
 
   const documentacaoAprovada = statusDocumento === "aprovado";
+
+  const processosAprovado = processosJudiciais.status === "aprovado";
+
+  const processosReprovado = processosJudiciais.status === "reprovado";
+
+  const cpfValido =
+    usuario.identification_type === "cpf" &&
+    validarCpf(usuario.identification_number);
+
+  const processosClasses = !cpfValido
+    ? {
+      box: "border-slate-200 bg-slate-50",
+      icon: "bg-white text-slate-500",
+    }
+    : processosAprovado
+      ? {
+        box: "border-emerald-200 bg-emerald-50",
+        icon: "bg-emerald-100 text-emerald-600",
+      }
+      : processosReprovado
+        ? {
+          box: "border-red-200 bg-red-50",
+          icon: "bg-red-100 text-red-600",
+        }
+        : {
+          box: "border-amber-200 bg-amber-50",
+          icon: "bg-amber-100 text-amber-600",
+        };
+
+  const processosPermiteConsulta =
+    processosJudiciais.status === "nao_iniciado" ||
+    processosJudiciais.status === "pendente";
 
   return (
     <div className="min-h-screen min-w-0">
@@ -1972,6 +2126,76 @@ export default function DashboardLayout({
 
               {}
 
+              {ehMotorista && (
+                <section
+                  role="alert"
+                  className={`overflow-hidden rounded-2xl border p-4 sm:p-5 ${processosClasses.box}`}
+                >
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex items-start gap-3.5">
+                      <span
+                        className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${processosClasses.icon}`}
+                      >
+                        {processosAprovado ? (
+                          <CheckCircle2 size={22} />
+                        ) : (
+                          <CircleAlert size={22} />
+                        )}
+                      </span>
+
+                      <div className="min-w-0">
+                        <h2 className="text-sm font-semibold text-gray-900 sm:text-base">
+                          {processosAprovado
+                            ? "Consulta de processos aprovada"
+                            : processosReprovado
+                              ? "Processo judicial encontrado"
+                              : "Consulta de processos judiciais"}
+                        </h2>
+
+                        <p className="mt-0.5 text-xs leading-5 text-gray-600 sm:text-sm">
+                          {!cpfValido
+                            ? "Consulta disponível apenas para CPF válido."
+                            : processosJudiciais.mensagem ||
+                              mensagemProcessosJudiciais(
+                                processosJudiciais.status,
+                              )}
+                        </p>
+                      </div>
+                    </div>
+
+                    {processosPermiteConsulta && cpfValido && (
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.preventDefault();
+                          event.stopPropagation();
+                          atualizarProcessosJudiciais();
+                        }}
+                        disabled={refreshProcessosJudiciais}
+                        className={`${botaoPrimario} w-full sm:w-auto`}
+                      >
+                        {refreshProcessosJudiciais ? (
+                          <>
+                            <RefreshCw
+                              size={18}
+                              className="animate-spin"
+                            />
+                            Consultando...
+                          </>
+                        ) : (
+                          <>
+                            <Scale size={18} />
+                            Consultar processos
+                          </>
+                        )}
+                      </button>
+                    )}
+                  </div>
+                </section>
+              )}
+
+              {}
+
               <section className="overflow-hidden rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
                 <div className="flex items-start gap-3 border-b border-slate-100 pb-5">
                   <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#35a989]/10 text-[#35a989]">
@@ -1999,14 +2223,17 @@ export default function DashboardLayout({
                     refreshing={refreshJustificativa}
                   />
 
-                  <VerificacaoCard
-                    icon={Scale}
-                    titulo="Processos Judiciais"
-                    descricao="Consulta e acompanhamento de informações relacionadas a processos judiciais."
-                    verification={processosJudiciais}
-                    onRefresh={atualizarProcessosJudiciais}
-                    refreshing={refreshProcessosJudiciais}
-                  />
+                  {ehMotorista && (
+                    <VerificacaoCard
+                      icon={Scale}
+                      titulo="Processos Judiciais"
+                      descricao="Consulta e acompanhamento de informações relacionadas a processos judiciais."
+                      verification={processosJudiciais}
+                      onRefresh={atualizarProcessosJudiciais}
+                      refreshing={refreshProcessosJudiciais}
+                      hideRefresh={!processosPermiteConsulta || !cpfValido}
+                    />
+                  )}
 
                   {justificativa.status === "aprovado" &&
                     processosJudiciais.status === "aprovado" && (

@@ -9,6 +9,7 @@ import {
   mapearStatusDidit,
   provaVidaDevida,
 } from "../../lib/didit";
+import { obterConsulta } from "../../lib/lawsuitDb";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -259,6 +260,7 @@ export async function GET() {
 
     let verificacaoDocumento = null;
     let provaVida = null;
+    let verificacaoProcessos = null;
 
     if (userType === "driver") {
       try {
@@ -331,6 +333,14 @@ export async function GET() {
           ),
           last_liveness_at: lastLivenessAt,
         };
+
+        const consultaProcessos = await obterConsulta(resolvedId);
+
+        verificacaoProcessos = {
+          status: consultaProcessos?.status ?? "nao_iniciado",
+          total: consultaProcessos?.total ?? 0,
+          checked_at: consultaProcessos?.checked_at ?? null,
+        };
       } catch (dbError) {
         console.error(
           "GET /api/me: erro ao consultar verificação do motorista:",
@@ -372,6 +382,12 @@ export async function GET() {
         provaVida = {
           devida: false,
           last_liveness_at: null,
+        };
+
+        verificacaoProcessos = {
+          status: "nao_iniciado",
+          total: 0,
+          checked_at: null,
         };
       } catch (dbError) {
         console.error(
@@ -420,6 +436,7 @@ export async function GET() {
         verification: {
           documento: verificacaoDocumento,
           prova_vida: provaVida,
+          processos_judiciais: verificacaoProcessos,
         },
       },
       {
