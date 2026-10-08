@@ -38,6 +38,11 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import {
+  documentacaoBloqueia,
+  verifDocPendente,
+} from "../../lib/didit";
+import type { VerificacaoStatus } from "../../lib/didit";
 
 type VerificationStatus =
   | "aprovado"
@@ -106,6 +111,11 @@ type Usuario = {
     liveness?: VerificationData | null;
     pcd?: VerificationData | null;
     autista?: VerificationData | null;
+    documento?: {
+      status?: string | null;
+      didit_status?: string | null;
+      is_verified?: boolean;
+    } | null;
   } | null;
   justification_status?: string | null;
   justification_updated_at?: string | null;
@@ -1065,6 +1075,12 @@ export default function PerfilPage() {
   const [uploadingLaudo, setUploadingLaudo] =
     useState(false);
 
+  const [verificacaoUrl, setVerificacaoUrl] =
+    useState<string | null>(null);
+
+  const [iniciandoVerificacao, setIniciandoVerificacao] =
+    useState(false);
+
   // Controla se o cartão virtual Maylon Pass deve aparecer: só quando
   // o usuário tiver esse benefício efetivamente ativo (status === false,
   // seguindo a mesma convenção usada na página de Benefícios).
@@ -1166,6 +1182,7 @@ export default function PerfilPage() {
                 raw?.autista,
                 raw?.autista_status
               ),
+            documento: verification?.documento ?? null,
           },
         };
 
@@ -1593,17 +1610,6 @@ export default function PerfilPage() {
     isTrue(usuario?.phone_verified) ||
     Boolean(usuario?.phone_verified_at);
 
-  const verificationJustification =
-    usuario?.verification?.justification ??
-    usuario?.justification ?? {
-      status:
-        usuario?.justification_status,
-      updatedAt:
-        usuario?.justification_updated_at,
-      reason:
-        usuario?.justification_reason,
-    };
-
   const verificationLivesheet =
     usuario?.verification?.livesheet ??
     usuario?.verification?.liveness ??
@@ -1631,6 +1637,30 @@ export default function PerfilPage() {
       usuario?.autista_status
     );
 
+  const statusDocumento =
+    usuario?.verification?.documento?.status ?? "nao_iniciado";
+
+  const documentacaoPendente = verifDocPendente(
+    statusDocumento as VerificacaoStatus
+  );
+
+  const documentacaoAprovada = statusDocumento === "aprovado";
+
+  const mostrarModalVerificacao =
+    Boolean(verificacaoUrl) &&
+    documentacaoBloqueia(statusDocumento as VerificacaoStatus);
+
+  const verificationDocumento: VerificationData = {
+    status:
+      statusDocumento === "aprovado"
+        ? "aprovado"
+        : statusDocumento === "em_analise"
+          ? "pendente"
+          : statusDocumento === "reprovado"
+            ? "rejeitado"
+            : "nao_iniciado",
+  };
+
   const atualizarVerificacoes =
     async () => {
       setRefreshingVerification(true);
@@ -1649,6 +1679,57 @@ export default function PerfilPage() {
         setRefreshingVerification(false);
       }
     };
+
+  const iniciarVerificacao = async () => {
+    try {
+      setIniciandoVerificacao(true);
+
+      const response = await fetch("/api/verificacao", {
+        method: "POST",
+        credentials: "include",
+      });
+
+      const data = await response
+        .json()
+        .catch(() => null);
+
+      if (!response.ok || !data?.url) {
+        showAlert(
+          "error",
+          data?.message ||
+            "Não foi possível iniciar a verificação."
+        );
+        return;
+      }
+
+      setVerificacaoUrl(data.url);
+    } catch (error) {
+      showAlert(
+        "error",
+        error instanceof Error
+          ? error.message
+          : "Não foi possível iniciar a verificação."
+      );
+    } finally {
+      setIniciandoVerificacao(false);
+    }
+  };
+
+  const fecharVerificacao = async () => {
+    setVerificacaoUrl(null);
+
+    await carregarUsuario(false);
+  };
+
+  useEffect(() => {
+    if (!mostrarModalVerificacao) return;
+
+    const interval = window.setInterval(() => {
+      void carregarUsuario(false);
+    }, 5000);
+
+    return () => window.clearInterval(interval);
+  }, [mostrarModalVerificacao, carregarUsuario]);
 
   const handlePhotoChange = (
     event: ChangeEvent<HTMLInputElement>
@@ -2511,6 +2592,71 @@ export default function PerfilPage() {
 
         <div className="grid gap-7 lg:grid-cols-[minmax(0,1fr)_360px]">
           <div className="min-w-0 space-y-7">
+            {(documentacaoPendente || documentacaoAprovada) && (
+              <section
+                role="alert"
+                className={`overflow-hidden rounded-[24px] border p-4 sm:p-5 ${documentacaoAprovada
+                  ? "border-emerald-200 bg-emerald-50"
+                  : "border-amber-200 bg-amber-50"
+                  }`}
+              >
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex items-start gap-3.5">
+                    <span
+                      className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${documentacaoAprovada
+                        ? "bg-emerald-100 text-emerald-600"
+                        : "bg-amber-100 text-amber-600"
+                        }`}
+                    >
+                      {documentacaoAprovada ? (
+                        <CheckCircle2 className="h-5 w-5" />
+                      ) : (
+                        <AlertCircle className="h-5 w-5" />
+                      )}
+                    </span>
+
+                    <div className="min-w-0">
+                      <h2 className="text-sm font-semibold text-slate-900 sm:text-base">
+                        {documentacaoAprovada
+                          ? "Conta aprovada"
+                          : "Documentação pendente de verificação"}
+                      </h2>
+
+                      <p className="mt-0.5 text-xs leading-5 text-slate-600 sm:text-sm">
+                        {documentacaoAprovada
+                          ? "Sua documentação foi aprovada e sua conta está ativa."
+                          : "Para usar todos os recursos da conta, é preciso verificar seus documentos de forma segura pela Didit."}
+                      </p>
+                    </div>
+                  </div>
+
+                  {!documentacaoAprovada &&
+                    documentacaoBloqueia(
+                      statusDocumento as VerificacaoStatus
+                    ) && (
+                      <button
+                        type="button"
+                        onClick={iniciarVerificacao}
+                        disabled={iniciandoVerificacao}
+                        className="inline-flex w-full shrink-0 cursor-pointer items-center justify-center gap-2 rounded-xl bg-[#35a989] px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#2f977b] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+                      >
+                        {iniciandoVerificacao ? (
+                          <>
+                            <RefreshCw className="h-[18px] w-[18px] animate-spin" />
+                            Iniciando...
+                          </>
+                        ) : (
+                          <>
+                            <ShieldCheck className="h-[18px] w-[18px]" />
+                            Iniciar verificação
+                          </>
+                        )}
+                      </button>
+                    )}
+                </div>
+              </section>
+            )}
+
             <section className="rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
               {/* Cabeçalho */}
               <div className="flex flex-col gap-4 border-b border-slate-100 pb-4 sm:flex-row sm:items-center sm:justify-between">
@@ -2543,7 +2689,7 @@ export default function PerfilPage() {
                 <VerificationCard
                   title="RG, CNH ou Passaport"
                   description="Validação das informações e documentos necessários para sua conta."
-                  verification={verificationJustification}
+                  verification={verificationDocumento}
                   icon={<FileCheck2 className="h-5 w-5" />}
                   onRefresh={atualizarVerificacoes}
                   refreshing={refreshingVerification}
@@ -3543,6 +3689,58 @@ export default function PerfilPage() {
               </div>
             </div>
           </ModalOverlay>
+        )}
+
+        {mostrarModalVerificacao && verificacaoUrl && (
+          <div
+            className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/60 backdrop-blur-sm sm:items-center sm:p-4"
+            onClick={fecharVerificacao}
+          >
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="titulo-modal-verificacao"
+              onClick={(event) => event.stopPropagation()}
+              className="flex h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-t-3xl bg-white shadow-2xl sm:h-[85vh] sm:rounded-3xl"
+            >
+              <div className="flex items-start gap-3.5 p-5 sm:p-6">
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#EAF6F4] text-[#35a989]">
+                  <ShieldCheck className="h-5 w-5" />
+                </span>
+
+                <div className="min-w-0 flex-1">
+                  <h2
+                    id="titulo-modal-verificacao"
+                    className="text-lg font-semibold text-slate-900"
+                  >
+                    Verificação de documentos
+                  </h2>
+
+                  <p className="mt-0.5 text-sm text-slate-500">
+                    Conclua a verificação para ativar sua conta.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={fecharVerificacao}
+                  aria-label="Fechar"
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-hidden px-5 pb-5 sm:px-6 sm:pb-6">
+                <iframe
+                  src={verificacaoUrl}
+                  title="Verificação de documentos"
+                  className="h-full w-full rounded-2xl border border-slate-200 bg-white"
+                  allow="camera; microphone; fullscreen; autoplay; encrypted-media; payment"
+                />
+              </div>
+            </div>
+          </div>
         )}
     </main>
   );
