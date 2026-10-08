@@ -31,6 +31,9 @@ export default async function PassageiroLayout({
     <div className="dashboard-layout">
       <LayoutContainer>
         {children}
+        <p className="text-xs text-slate-500">
+          © {new Date().getFullYear()} Portal Connect. Todos os direitos reservados. • Maylon v0.1.0
+        </p>
       </LayoutContainer>
     </div>
   );

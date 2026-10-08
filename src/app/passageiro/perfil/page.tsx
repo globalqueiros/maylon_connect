@@ -11,6 +11,7 @@ import {
 } from "react";
 import {
   AlertCircle,
+  ArrowRight,
   BadgeCheck,
   CalendarDays,
   Camera,
@@ -22,6 +23,7 @@ import {
   EyeOff,
   FileCheck2,
   FileText,
+  Gift,
   KeyRound,
   Loader2,
   LockKeyhole,
@@ -35,6 +37,7 @@ import {
   X,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 type VerificationStatus =
   | "aprovado"
@@ -2793,33 +2796,18 @@ export default function PerfilPage() {
           <aside className="space-y-5">
             {/* Cartão digital Maylon Pass: só aparece quando o usuário
                 possui o benefício Maylon Pass efetivamente ativo. */}
-            {possuiMaylonPassAtivo && (
+            {possuiMaylonPassAtivo ? (
               <section aria-label="Cartão digital Maylon Pass">
                 <div className="mx-auto w-full max-w-[460px]">
                   <div className="relative aspect-[1.586/1] w-full overflow-hidden rounded-[26px] bg-gradient-to-br from-[#0b6e4f] via-[#23886f] to-[#35a989] p-5 shadow-2xl shadow-[#0b6e4f]/25">
-                    {/* Brilhos decorativos */}
                     <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-white/10 blur-3xl" />
-
                     <div className="pointer-events-none absolute -bottom-32 -left-20 h-72 w-72 rounded-full bg-[#58d68d]/20 blur-3xl" />
 
-                    {/* Padrão decorativo */}
-                    <div className="pointer-events-none absolute right-0 top-0 h-full w-[55%] opacity-10">
-                      <div className="absolute right-[-10%] top-[8%] h-40 w-40 rounded-full border-[30px] border-white" />
-                      <div className="absolute right-[15%] top-[35%] h-32 w-32 rounded-full border-[22px] border-white" />
-                    </div>
-
-                    {/* Conteúdo */}
                     <div className="relative z-10 flex h-full flex-col justify-between">
-                      {/* Topo */}
-                      <div className="flex items-start justify-between gap-4">
-                        <div>
-                          <h2 className="mt-1 text-3xl font-black tracking-tight text-white">
-                            Maylon
-                            <span className="font-medium text-white/80">
-                              {" "}Pass
-                            </span>
-                          </h2>
-                        </div>
+                      <div className="flex items-start justify-between">
+                        <h2 className="mt-1 text-3xl font-black tracking-tight text-white">
+                          Maylon <span className="font-medium text-white/80">Pass</span>
+                        </h2>
 
                         <div className="flex items-center gap-1.5 pt-1">
                           <span className="h-2.5 w-2.5 rounded-full bg-white/80" />
@@ -2828,50 +2816,77 @@ export default function PerfilPage() {
                         </div>
                       </div>
 
-                      {/* Parte inferior */}
                       <div>
-                        {/* Nome completo */}
-                        <div className="min-w-0">
-                          <p className="text-[9px] font-medium uppercase tracking-[0.18em] text-white/55">
-                            Titular
-                          </p>
+                        <p className="text-[9px] font-medium uppercase tracking-[0.18em] text-white/55">
+                          Titular
+                        </p>
 
-                          <p
-                            className="mt-1 truncate text-sm font-bold uppercase tracking-wide text-white"
-                            title={nomeCartao}
-                          >
-                            {nomeCartao}
-                          </p>
-                        </div>
+                        <p
+                          className="mt-1 truncate text-sm font-bold uppercase tracking-wide text-white"
+                          title={nomeCartao}
+                        >
+                          {nomeCartao}
+                        </p>
 
-                        {/* Validade e plano */}
                         <div className="mt-3 flex items-end justify-between gap-4">
-                          <div className="shrink-0">
+                          <div>
                             <p className="text-[9px] font-medium uppercase tracking-[0.18em] text-white/55">
                               Validade
                             </p>
 
                             <p className="mt-1 text-sm font-bold tabular-nums text-white">
-                              {formatarValidadeCartao(
-                                validadeCartao
-                              )}
+                              {formatarValidadeCartao(validadeCartao)}
                             </p>
                           </div>
 
-                          <div className="min-w-0 text-right">
+                          <div className="text-right">
                             <p className="text-[9px] font-medium uppercase tracking-[0.18em] text-white/55">
                               Plano
                             </p>
 
-                            <p
-                              className="mt-1 truncate text-sm font-bold text-white"
-                              title={planoCartao}
-                            >
+                            <p className="mt-1 text-sm font-bold text-white">
                               {planoCartao}
                             </p>
                           </div>
                         </div>
                       </div>
+                    </div>
+                  </div>
+                </div>
+              </section>
+            ) : (
+              <section aria-label="Maylon Pass">
+                <div className="mx-auto w-full max-w-[460px]">
+                  <div className="relative overflow-hidden rounded-[26px] bg-gradient-to-br from-[#0b6e4f] via-[#23886f] to-[#35a989] p-6 shadow-2xl shadow-[#0b6e4f]/25">
+                    <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-white/10 blur-3xl" />
+                    <div className="pointer-events-none absolute -bottom-32 -left-20 h-72 w-72 rounded-full bg-[#58d68d]/20 blur-3xl" />
+
+                    <div className="relative z-10">
+                      <div className="mb-6 flex items-center justify-between">
+                        <div>
+                          <div className="flex items-baseline gap-2">
+                            <span className="text-sm font-semibold uppercase tracking-[0.2em] text-white/60">Maylon</span>
+                            <h2 className="text-3xl font-black text-white">Pass</h2>
+                          </div>
+                        </div>
+                        <div className="rounded-full bg-white/15 p-3 backdrop-blur-sm">
+                          <Gift className="h-6 w-6 text-white" />
+                        </div>
+                      </div>
+                      <h3 className="text-base font-bold text-white">
+                        Tenha mais benefícios com o Maylon Pass
+                      </h3>
+                      <p className="mt-2 text-sm leading-relaxed text-white/75">
+                        Assine o Maylon Pass e aproveite condições especiais, benefícios
+                        exclusivos e uma experiência ainda melhor dentro da Maylon.
+                      </p>
+                      <Link
+                        href="/passageiro/beneficios"
+                        className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-white px-5 py-3 text-sm font-bold text-[#0b6e4f] transition hover:bg-white/90"
+                      >
+                        Conhecer Maylon Pass
+                        <ArrowRight className="h-4 w-4" />
+                      </Link>
                     </div>
                   </div>
                 </div>
