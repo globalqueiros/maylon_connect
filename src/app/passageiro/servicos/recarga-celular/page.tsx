@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   Smartphone,
   Search,
@@ -14,33 +14,10 @@ import {
   CircleDollarSign,
   AlertTriangle,
 } from "lucide-react";
-
-type Operadora = {
-  id: string;
-  nome: string;
-  cor: string;
-  logo: string;
-};
-
-/**
- * Estilo visual por operadora. A lista de operadoras em si vem da RVHub
- * (GET /api/rvhub/recarga/operadoras); aqui só guardamos cor e rótulo
- * conhecidos. Qualquer operadora nova cai num estilo padrão.
- */
-const ESTILO_OPERADORA: Record<string, { nome: string; cor: string; logo: string }> = {
-  claro: { nome: "Claro", cor: "#E30613", logo: "CLARO" },
-  tim: { nome: "TIM", cor: "#003B7A", logo: "TIM" },
-  vivo: { nome: "Vivo", cor: "#660099", logo: "VIVO" },
-  oi: { nome: "Oi", cor: "#FFCC00", logo: "Oi" },
-};
-
-function estiloOperadora(nome: string): Operadora {
-  const id = nome.toLowerCase();
-  const estilo = ESTILO_OPERADORA[id];
-  if (estilo) return { id, ...estilo };
-  // Operadora desconhecida: usa o próprio nome e um tom neutro.
-  return { id, nome, cor: "#334155", logo: nome };
-}
+import {
+  OPERADORAS_CELULAR,
+  type Operadora,
+} from "../../../lib/operadoras";
 
 const VALORES = [10, 15, 20, 25, 30, 40, 50, 100];
 
@@ -68,38 +45,12 @@ function somenteNumeros(value: string) {
 export default function RecargaCelularPage() {
   const [telefone, setTelefone] = useState("");
   const [operadora, setOperadora] = useState("");
-  const [operadoras, setOperadoras] = useState<Operadora[]>([]);
+  const operadoras: Operadora[] = OPERADORAS_CELULAR;
   const [valor, setValor] = useState<number | null>(null);
   const [valorCustomizado, setValorCustomizado] = useState("");
   const [loading, setLoading] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [sucesso, setSucesso] = useState(false);
-
-  // Operadoras habilitadas na conta RVHub (vem da API, não é lista fixa).
-  useEffect(() => {
-    let ativo = true;
-    (async () => {
-      try {
-        const res = await fetch("/api/rvhub/recarga/operadoras", {
-          credentials: "include",
-          cache: "no-store",
-        });
-        const data = await res.json().catch(() => null);
-        if (!ativo || !res.ok) return;
-        const lista: Operadora[] = Array.isArray(data?.operadoras)
-          ? data.operadoras.map((o: { provider: string }) =>
-              estiloOperadora(String(o.provider))
-            )
-          : [];
-        setOperadoras(lista);
-      } catch {
-        // Sem operadoras dinâmicas a tela fica só com o aviso de indisponível.
-      }
-    })();
-    return () => {
-      ativo = false;
-    };
-  }, []);
 
   const valorFinal = useMemo(() => {
     if (valor !== null) {
@@ -385,12 +336,6 @@ export default function RecargaCelularPage() {
               </label>
 
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                {operadoras.length === 0 && (
-                  <p className="col-span-full text-xs text-slate-400">
-                    Carregando operadoras...
-                  </p>
-                )}
-
                 {operadoras.map((item) => {
                   const selecionada = operadora === item.nome;
 
