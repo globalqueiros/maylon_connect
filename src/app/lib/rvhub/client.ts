@@ -285,6 +285,72 @@ export function estornarRecarga(id: string) {
   );
 }
 
+/* ---------- Recarga de PIN (gift cards) ---------- */
+
+export type RvhubPin = {
+  id: string;
+  product_id?: string;
+  status: string;
+  status_reason?: string;
+  created_at?: string;
+  updated_at?: string;
+  authorization_code?: string | number;
+  face_amount?: number;
+  due_date?: string;
+  authorized_at?: string;
+  /** Código do PIN que o cliente usa para resgatar os créditos. */
+  pin?: string;
+  lot?: string;
+  serial_number?: string;
+  charged_amount?: number;
+  affiliation_key?: string;
+  message?: string;
+  links?: RvhubLink[];
+};
+
+/**
+ * Solicita uma recarga de PIN (gift card). `amount` só é usado em produtos
+ * de valor variável; nos fixos o valor vem do próprio product_id.
+ */
+export function solicitarPin(params: {
+  productId: string;
+  amount?: number;
+  idempotencyKey?: string;
+}) {
+  const body: Record<string, unknown> = {
+    product_id: params.productId,
+  };
+  if (params.amount != null) body.amount = params.amount;
+  const affiliation = envStr("RVHUB_AFFILIATION_KEY");
+  if (affiliation) body.affiliation_key = affiliation;
+
+  return rvFetch<RvhubPin>("POST", "/pin-topups/transactions", {
+    body,
+    idempotencyKey: params.idempotencyKey || randomUUID(),
+  });
+}
+
+export function confirmarPin(id: string) {
+  return rvFetch<RvhubPin>(
+    "POST",
+    `/pin-topups/transactions/${encodeURIComponent(id)}/capture`
+  );
+}
+
+export function consultarPin(id: string) {
+  return rvFetch<RvhubPin>(
+    "GET",
+    `/pin-topups/transactions/${encodeURIComponent(id)}`
+  );
+}
+
+export function estornarPin(id: string) {
+  return rvFetch<RvhubPin>(
+    "DELETE",
+    `/pin-topups/transactions/${encodeURIComponent(id)}`
+  );
+}
+
 /* ---------- Pagamento de contas ---------- */
 
 export type RvhubConta = {
