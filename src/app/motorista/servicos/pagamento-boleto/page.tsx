@@ -133,13 +133,13 @@ export default function DepositoBoletoPage() {
 
   return (
     <main className="min-h-screen pb-10">
-      <div className="mx-auto w-full max-w-5xl px-4 sm:px-6 lg:px-8">
+      <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
 
         {/* HEADER */}
         <header className="pt-6 sm:pt-8">
           <div className="flex items-center gap-4">
             <Link
-              href="/passageiro/servicos"
+              href="/motorista/servicos"
               className="flex h-10 items-center gap-2 rounded-xl border border-white/10 bg-white/10 px-4 text-sm font-semibold text-white transition hover:bg-white/15"
             >
               <ArrowLeft size={17} />

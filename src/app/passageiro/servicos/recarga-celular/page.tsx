@@ -197,7 +197,7 @@ export default function RecargaCelularPage() {
   if (sucesso) {
     return (
       <main className="min-h-screen">
-        <div className="mx-auto flex min-h-[80vh] w-full max-w-2xl items-center justify-center">
+        <div className="mx-auto flex min-h-[80vh] w-full max-w-7xl items-center justify-center">
           <div className="w-full rounded-[28px] border border-slate-200 bg-white p-6 text-center shadow-xl sm:rounded-[32px] sm:p-10">
             <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-[26px] bg-emerald-50">
               <CheckCircle2

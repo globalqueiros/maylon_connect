@@ -61,11 +61,15 @@ type BeneficioResumo = {
 };
 
 type Usuario = {
-  data_aquisicao: string | number | Date;
-  usuario: string | number | Date;
-  nome_plano: any;
-  plano_nome: any;
-  plano: any;
+  // Dados do Maylon Pass (todos opcionais: dependem do que a API devolve)
+  data_aquisicao?: string | number | Date | null;
+  data_validade?: string | number | Date | null;
+  validade?: string | number | Date | null;
+  data_fim?: string | number | Date | null;
+  nome_plano?: any;
+  plano_nome?: any;
+  plano?: any;
+  usuario?: string | number | Date;
   id?: number | string;
   user_id?: number | string;
   profile_image?: string | null;
@@ -356,6 +360,36 @@ const formatDateBR = (value?: string | null) => {
     month: "2-digit",
     year: "numeric",
   });
+};
+
+/**
+ * Formata a validade do cartão no padrão MM/AA.
+ * Datas no formato "2028-09-30" são lidas direto do texto, para o fuso
+ * horário não empurrar a data para o dia (ou mês) anterior.
+ */
+const formatarValidadeCartao = (
+  value?: string | number | Date | null
+): string => {
+  if (!value) return "--/--";
+
+  if (typeof value === "string") {
+    const texto = value.trim();
+
+    const iso = texto.match(/^(\d{4})-(\d{2})/);
+    if (iso) return `${iso[2]}/${iso[1].slice(-2)}`;
+
+    const curto = texto.match(/^(\d{2})\/(\d{4}|\d{2})$/);
+    if (curto) return `${curto[1]}/${curto[2].slice(-2)}`;
+  }
+
+  const date = value instanceof Date ? value : parseDataFlexivel(value);
+
+  if (!date || Number.isNaN(date.getTime())) return "--/--";
+
+  const mes = String(date.getMonth() + 1).padStart(2, "0");
+  const ano = String(date.getFullYear()).slice(-2);
+
+  return `${mes}/${ano}`;
 };
 
 const formatCPF = (value?: string | null) => {
@@ -1460,6 +1494,52 @@ export default function PerfilPage() {
     [usuario]
   );
 
+  // ---- Dados do cartão Maylon Pass ----
+
+  const nomeCartao = useMemo(
+    () => usuario?.full_name || nomeUsuario,
+    [usuario, nomeUsuario]
+  );
+
+  const planoCartao = useMemo(
+    () =>
+      String(
+        usuario?.nome_plano ||
+        usuario?.plano_nome ||
+        usuario?.plano ||
+        "Maylon Pass"
+      ),
+    [usuario]
+  );
+
+  const validadeCartao = useMemo(() => {
+    // 1) Se a API já manda a validade, usa ela
+    const direta =
+      usuario?.data_validade ??
+      usuario?.validade ??
+      usuario?.data_fim;
+
+    if (direta) return direta;
+
+    // 2) Senão, calcula 12 meses a partir da data de aquisição
+    //    (troque o "+ 1" abaixo se a regra da validade for outra)
+    const bruto = usuario?.data_aquisicao;
+
+    const aquisicao =
+      bruto instanceof Date
+        ? bruto
+        : parseDataFlexivel(
+          bruto as string | number | null | undefined
+        );
+
+    if (!aquisicao) return null;
+
+    const fim = new Date(aquisicao);
+    fim.setFullYear(fim.getFullYear() + 1);
+
+    return fim;
+  }, [usuario]);
+
   const emailUsuario =
     usuario?.email || "Não informado";
 
@@ -2321,7 +2401,7 @@ export default function PerfilPage() {
                         alt={`Foto de ${nomeUsuario}`}
                         fill
                         sizes="128px"
-                        className="object-cover rounder-full"
+                        className="rounded-full object-cover"
                       />
                     ) : (
                       <div className="flex h-full w-full items-center justify-center bg-white/10 text-3xl font-bold text-white">
@@ -2711,57 +2791,87 @@ export default function PerfilPage() {
           </div>
 
           <aside className="space-y-5">
-            {/* Cartão virtual Maylon Pass — só aparece quando o usuário
+            {/* Cartão digital Maylon Pass: só aparece quando o usuário
                 possui o benefício Maylon Pass efetivamente ativo. */}
             {possuiMaylonPassAtivo && (
-              <section className="mb-7 overflow-hidden rounded-[30px]">
-                <div className="mx-auto w-full max-w-5xl">
-                  <div className="relative aspect-[1585/992] w-full overflow-hidden rounded-[24px] shadow-lg ring-1 ring-black/5">
-                    <Image
-                      src="/cartao_maylon_pass.png"
-                      alt="Cartão virtual Maylon Pass"
-                      fill
-                      priority
-                      sizes="(max-width: 1024px) 100vw, 1024px"
-                      className="object-cover"
-                    />
-                    <div className="absolute left-[4%] top-[56%] flex w-[100%] items-end gap-[8%]">
-                      <div className="min-w-0 flex-1">
-                        <p className="text-[clamp(6px,0.65vw,9px)] font-medium uppercase tracking-[0.12em] text-white/70">
-                          Titular
-                        </p>
-                        <p className="mt-1 truncate text-[clamp(9px,1.05vw,15px)] font-bold uppercase leading-none text-white">
-                          {usuario?.full_name ||
-                            usuario?.full_name ||
-                            usuario?.name ||
-                            usuario?.nome ||
-                            "NOME COMPLETO"}
-                        </p>
-                      </div>
-                      <div className="shrink-0">
-                        <p className="text-[clamp(6px,0.65vw,9px)] font-medium uppercase tracking-[0.12em] text-white/70">
-                          Data da aquisição
-                        </p>
-                        <p className="mt-1 text-[clamp(9px,1vw,14px)] font-semibold leading-none text-white">
-                          {usuario?.data_aquisicao
-                            ? new Date(usuario.data_aquisicao).toLocaleDateString("pt-BR")
-                            : usuario?.data_aquisicao
-                              ? new Date(usuario.data_aquisicao).toLocaleDateString("pt-BR")
-                              : "--/--/----"}
-                        </p>
-                      </div>
+              <section aria-label="Cartão digital Maylon Pass">
+                <div className="mx-auto w-full max-w-[460px]">
+                  <div className="relative aspect-[1.586/1] w-full overflow-hidden rounded-[26px] bg-gradient-to-br from-[#0b6e4f] via-[#23886f] to-[#35a989] p-5 shadow-2xl shadow-[#0b6e4f]/25">
+                    {/* Brilhos decorativos */}
+                    <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-white/10 blur-3xl" />
+
+                    <div className="pointer-events-none absolute -bottom-32 -left-20 h-72 w-72 rounded-full bg-[#58d68d]/20 blur-3xl" />
+
+                    {/* Padrão decorativo */}
+                    <div className="pointer-events-none absolute right-0 top-0 h-full w-[55%] opacity-10">
+                      <div className="absolute right-[-10%] top-[8%] h-40 w-40 rounded-full border-[30px] border-white" />
+                      <div className="absolute right-[15%] top-[35%] h-32 w-32 rounded-full border-[22px] border-white" />
                     </div>
-                    <div className="absolute left-[4%] top-[75%]">
-                      <p className="text-[clamp(6px,0.65vw,9px)] font-medium uppercase tracking-[0.12em] text-white/70">
-                        Plano
-                      </p>
-                      <p className="mt-1 text-[clamp(10px,1.1vw,16px)] font-bold leading-none text-white">
-                        {usuario?.nome_plano ||
-                          usuario?.plano_nome ||
-                          usuario?.plano_nome ||
-                          usuario?.plano ||
-                          "Maylon Pass"}
-                      </p>
+
+                    {/* Conteúdo */}
+                    <div className="relative z-10 flex h-full flex-col justify-between">
+                      {/* Topo */}
+                      <div className="flex items-start justify-between gap-4">
+                        <div>
+                          <h2 className="mt-1 text-3xl font-black tracking-tight text-white">
+                            Maylon
+                            <span className="font-medium text-white/80">
+                              {" "}Pass
+                            </span>
+                          </h2>
+                        </div>
+
+                        <div className="flex items-center gap-1.5 pt-1">
+                          <span className="h-2.5 w-2.5 rounded-full bg-white/80" />
+                          <span className="h-2.5 w-2.5 rounded-full bg-white/50" />
+                          <span className="h-2.5 w-2.5 rounded-full bg-white/30" />
+                        </div>
+                      </div>
+
+                      {/* Parte inferior */}
+                      <div>
+                        {/* Nome completo */}
+                        <div className="min-w-0">
+                          <p className="text-[9px] font-medium uppercase tracking-[0.18em] text-white/55">
+                            Titular
+                          </p>
+
+                          <p
+                            className="mt-1 truncate text-sm font-bold uppercase tracking-wide text-white"
+                            title={nomeCartao}
+                          >
+                            {nomeCartao}
+                          </p>
+                        </div>
+
+                        {/* Validade e plano */}
+                        <div className="mt-3 flex items-end justify-between gap-4">
+                          <div className="shrink-0">
+                            <p className="text-[9px] font-medium uppercase tracking-[0.18em] text-white/55">
+                              Validade
+                            </p>
+
+                            <p className="mt-1 text-sm font-bold tabular-nums text-white">
+                              {formatarValidadeCartao(
+                                validadeCartao
+                              )}
+                            </p>
+                          </div>
+
+                          <div className="min-w-0 text-right">
+                            <p className="text-[9px] font-medium uppercase tracking-[0.18em] text-white/55">
+                              Plano
+                            </p>
+
+                            <p
+                              className="mt-1 truncate text-sm font-bold text-white"
+                              title={planoCartao}
+                            >
+                              {planoCartao}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -2773,12 +2883,10 @@ export default function PerfilPage() {
                 <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#35a989]/10 text-[#35a989]">
                   <ShieldCheck className="h-5 w-5" />
                 </div>
-
                 <div>
                   <h2 className="font-bold text-slate-900">
                     Segurança
                   </h2>
-
                   <p className="mt-0.5 text-xs text-slate-500">
                     Proteja sua conta
                   </p>

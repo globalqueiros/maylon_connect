@@ -56,13 +56,13 @@ export default function GiftCardPage() {
 
   return (
     <main className="min-h-screen pb-12">
-      <div className="mx-auto w-full max-w-5xl px-4 sm:px-6 lg:px-8">
+      <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
 
         {/* HEADER */}
         <header className="flex items-center justify-between pt-6 sm:pt-8">
           <div className="flex items-center gap-3">
             <Link
-              href="/passageiro/servicos"
+              href="/motorista/servicos"
               className="flex h-10 items-center gap-2 rounded-xl border border-[#08a89d]/30 bg-[#08a89d]/10 px-4 text-sm font-bold text-white transition"
             >
               <ArrowLeft size={18} />

@@ -424,7 +424,7 @@ export default function ExtratoPage() {
         <header className="flex items-center justify-between pt-6 sm:pt-8">
           <div className="flex items-center gap-3">
             <Link
-              href="/passageiro/servicos"
+              href="/motorista/servicos"
               className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/10 text-white transition hover:bg-white/15"
             >
               <ArrowLeft size={18} />
