@@ -1,1492 +1,1375 @@
 "use client";
 
-<<<<<<< HEAD
+import { useEffect, useMemo, useState } from "react";
+import NvoipWidget from "../../components/NvoipWidget";
 import {
-  ArrowLeft,
-  CalendarDays,
-  CarFront,
+  AlertCircle,
   CheckCircle2,
+  ChevronRight,
+  CircleHelp,
   Clock3,
-  ExternalLink,
-  MapPin,
-  Navigation,
-  Phone,
-  Wallet,
-  XCircle,
+  Eye,
+  FileText,
+  Mails,
+  MessageCircle,
+  MessagesSquare,
+  Paperclip,
+  Search,
+  Send,
+  ShieldCheck,
+  Trash2,
 } from "lucide-react";
 import Link from "next/link";
-import { use, useEffect, useMemo, useRef, useState } from "react";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faWhatsapp } from "@fortawesome/free-brands-svg-icons";
 
-type Person = {
-  id?: string | null;
-  full_name?: string | null;
-  phone?: string | null;
+type Formulario = {
+  nome: string;
+  email: string;
+  assunto: string;
+  mensagem: string;
+  categoria: string;
 };
 
-type Vehicle = {
-  id?: string | number | null;
-  licence_plate_number?: string | null;
-  category_id?: string | number | null;
-  category?: { id?: string | number | null; name?: string | null } | null;
-  model?: {
-    id?: string | number | null;
-    name?: string | null;
-    image?: string | null;
-  } | null;
+type Alerta = {
+  type: "success" | "error";
+  message: string;
+} | null;
+
+type Protocolo = {
+  codigo?: string;
+  assunto?: string;
+  criado_em?: string;
+  status?: string;
 };
 
-type Trip = {
-  id: string | number;
-  ref_id: string;
-  entrance?: string | null;
-  note?: string | null;
-  pickup_address?: string | null;
-  destination_address?: string | null;
-  pickup_lat?: number | string | null;
-  pickup_lng?: number | string | null;
-  destination_lat?: number | string | null;
-  destination_lng?: number | string | null;
-  encoded_polyline?: string | null;
-  estimated_fare?: number | string | null;
-  paid_fare?: number | string | null;
-  actual_distance?: number | string | null;
-  estimated_distance?: number | string | null;
-  current_status?: string | null;
-  payment_status?: string | null;
-  payment_method?: string | null;
-  created_at: string;
-  passenger?: Person | null;
-  driver?: Person | null;
-  vehicle?: Vehicle | null;
-  vehicle_category?: string | null;
-  vehicle_model?: string | null;
-  vehicle_color?: string | null;
-  vehicle_plate?: string | null;
-  vehicle_model_image?: string | null;
+type ApiResponse = {
+  success?: boolean;
+  message?: string;
+  error?: string;
+  data?: unknown;
+  [key: string]: unknown;
 };
 
-const NAO_INFORMADO = "Não informado";
+const faq = [
+  {
+    pergunta: "Como começo a receber viagens?",
+    resposta:
+      "Após a aprovação do seu cadastro, acesse o aplicativo Maylon Motorista, fique disponível para receber solicitações e mantenha a localização do dispositivo ativada.",
+  },
+  {
+    pergunta: "Posso recusar uma viagem?",
+    resposta:
+      "Consulte as regras de aceitação e cancelamento vigentes na plataforma Maylon. Cancelamentos frequentes podem estar sujeitos às políticas operacionais da empresa.",
+  },
+  {
+    pergunta: "Como vejo minhas viagens?",
+    resposta:
+      "Acesse a área de histórico de viagens no aplicativo Maylon Motorista ou no Portal do Motorista, caso essa funcionalidade esteja disponível para sua conta.",
+  },
+  {
+    pergunta: "Quanto ganha um motorista Maylon?",
+    resposta:
+      "Os ganhos dependem da quantidade de viagens, das tarifas aplicáveis, da categoria e de eventuais incentivos. Consulte o aplicativo Maylon Motorista para informações detalhadas sobre ganhos e tarifas.",
+  },
+  {
+    pergunta: "Como consulto meus ganhos?",
+    resposta: "Entre no portal e procure a seção extrato financeiro.",
+  },
+  {
+    pergunta: "Quando recebo o pagamento?",
+    resposta:
+      "Consulte o calendário de repasses definido pela Maylon e confira se seus dados bancários ou PIX estão corretos.",
+  },
+  {
+    pergunta: "Onde vejo as taxas descontadas?",
+    resposta:
+      "Na seção de extrato financeiro, quando disponível, confira o valor das viagens, as taxas aplicadas e o saldo a receber.",
+  },
+  {
+    pergunta: "O que acontece se minha CNH vencer?",
+    resposta:
+      "Atualize o documento assim que possível. A atividade poderá ficar restrita até a regularização e aprovação.",
+  },
+  {
+    pergunta: "Posso cadastrar uma nova conta bancária?",
+    resposta:
+      "Solicite a atualização na área financeira e conclua a validação de titularidade exigida.",
+  },
+];
 
-/* ------------------------------------------------------------------ */
-/* Google Maps                                                         */
-/* ------------------------------------------------------------------ */
+/*
+ * Lê a resposta da API com segurança.
+ * Se o servidor devolver HTML (ex.: página 404), devolve uma
+ * mensagem curta em vez de despejar o HTML no console/alerta.
+ */
+async function lerResposta(res: Response): Promise<ApiResponse> {
+  const texto = await res.text();
 
-let googleMapsPromise: Promise<void> | null = null;
-
-function carregarGoogleMaps(): Promise<void> {
-  if (typeof window === "undefined") {
-    return Promise.reject(
-      new Error("Google Maps só pode ser carregado no navegador.")
-    );
+  if (!texto.trim()) {
+    return {};
   }
 
-  if (window.google?.maps) {
-    return Promise.resolve();
-  }
+  try {
+    const json = JSON.parse(texto);
 
-  if (googleMapsPromise) {
-    return googleMapsPromise;
-  }
+    if (json && typeof json === "object") {
+      return json;
+    }
 
-  const chave = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
-
-  if (!chave) {
-    return Promise.reject(
-      new Error("NEXT_PUBLIC_GOOGLE_MAPS_API_KEY não está configurada.")
-    );
-  }
-
-  googleMapsPromise = new Promise<void>((resolve, reject) => {
-    const falhar = (mensagem: string) => {
-      googleMapsPromise = null;
-      reject(new Error(mensagem));
+    return {};
+  } catch {
+    return {
+      error: `Resposta inválida do servidor (status ${res.status}).`,
     };
+  }
+}
 
-    const scriptExistente = document.querySelector<HTMLScriptElement>(
-      'script[data-google-maps="true"]'
-    );
+function gerarNovoProtocolo() {
+  const ano = new Date().getFullYear();
+  const random = Math.floor(100000000 + Math.random() * 900000000);
+  const novo = `MAY - ${random}${ano}`;
 
-    if (scriptExistente) {
-      scriptExistente.addEventListener(
-        "load",
-        () => {
-          if (window.google?.maps) {
-            resolve();
-          } else {
-            falhar("Google Maps carregou, mas a API não está disponível.");
-          }
-        },
-        { once: true }
-      );
-      scriptExistente.addEventListener(
-        "error",
-        () => falhar("Erro ao carregar Google Maps."),
-        { once: true }
-      );
+  if (typeof window !== "undefined") {
+    localStorage.setItem("protocolo", novo);
+    localStorage.setItem("protocolo_time", String(Date.now()));
+  }
+
+  return novo;
+}
+
+function gerarProtocoloPersistente() {
+  if (typeof window === "undefined") {
+    return "";
+  }
+
+  const tempoLimite = 90 * 60 * 1000;
+  const salvo = localStorage.getItem("protocolo");
+  const salvoTempo = localStorage.getItem("protocolo_time");
+  const agora = Date.now();
+
+  if (
+    salvo &&
+    salvoTempo &&
+    agora - Number(salvoTempo) < tempoLimite
+  ) {
+    return salvo;
+  }
+
+  return gerarNovoProtocolo();
+}
+
+function extrairProtocolos(data: ApiResponse): Protocolo[] {
+  if (Array.isArray(data)) {
+    return data as Protocolo[];
+  }
+
+  if (Array.isArray(data.data)) {
+    return data.data as Protocolo[];
+  }
+
+  if (Array.isArray(data.protocolos)) {
+    return data.protocolos as Protocolo[];
+  }
+
+  return [];
+}
+
+export default function DashboardLayout() {
+  const [form, setForm] = useState<Formulario>({
+    nome: "",
+    email: "",
+    assunto: "",
+    mensagem: "",
+    categoria: "",
+  });
+
+  const [loading, setLoading] = useState(true);
+  const [enviando, setEnviando] = useState(false);
+  const [codigo, setCodigo] = useState("");
+  const [buscaProtocolo, setBuscaProtocolo] = useState("");
+  const [filtroStatus, setFiltroStatus] = useState("Todos");
+  const [arquivo, setArquivo] = useState<File | null>(null);
+  const [protocolos, setProtocolos] = useState<Protocolo[]>([]);
+  const [alert, setAlert] = useState<Alerta>(null);
+  const [faqAberto, setFaqAberto] = useState<number | null>(null);
+
+  useEffect(() => {
+    setCodigo(gerarProtocoloPersistente());
+  }, []);
+
+  useEffect(() => {
+    async function carregarDados() {
+      try {
+        const [usuarioRes, protocolosRes] = await Promise.all([
+          fetch("/api/me", {
+            credentials: "include",
+            cache: "no-store",
+          }),
+          fetch("/api/protocolo", {
+            credentials: "include",
+            cache: "no-store",
+          }),
+        ]);
+
+        const usuarioData = await lerResposta(usuarioRes);
+        const protocolosData = await lerResposta(protocolosRes);
+
+        if (usuarioRes.ok) {
+          setForm((prev) => ({
+            ...prev,
+            nome: String(
+              usuarioData.full_name ||
+                usuarioData.nome ||
+                ""
+            ),
+            email: String(usuarioData.email || ""),
+          }));
+        }
+
+        if (protocolosRes.ok) {
+          setProtocolos(extrairProtocolos(protocolosData));
+        } else {
+          console.error(
+            "Erro ao carregar protocolos:",
+            protocolosData.error ||
+              `Status ${protocolosRes.status}`
+          );
+
+          setProtocolos([]);
+        }
+      } catch (error) {
+        console.error("Erro ao carregar central:", error);
+
+        setAlert({
+          type: "error",
+          message:
+            "Não foi possível carregar seus protocolos.",
+        });
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    carregarDados();
+  }, []);
+
+  useEffect(() => {
+    if (!alert) {
       return;
     }
 
-    const script = document.createElement("script");
+    const timer = setTimeout(() => {
+      setAlert(null);
+    }, 5000);
 
-    script.src =
-      "https://maps.googleapis.com/maps/api/js" +
-      `?key=${encodeURIComponent(chave)}` +
-      "&v=weekly";
-    script.async = true;
-    script.defer = true;
-    script.dataset.googleMaps = "true";
+    return () => clearTimeout(timer);
+  }, [alert]);
 
-    script.onload = () => {
-      if (window.google?.maps) {
-        resolve();
-      } else {
-        falhar("Google Maps carregou, mas a API não está disponível.");
+  const protocolosFiltrados = useMemo(() => {
+    const busca = buscaProtocolo.toLowerCase().trim();
+
+    return protocolos.filter((item) => {
+      const codigoItem = String(item.codigo || "").toLowerCase();
+      const assuntoItem = String(item.assunto || "").toLowerCase();
+
+      const correspondeBusca =
+        !busca ||
+        codigoItem.includes(busca) ||
+        assuntoItem.includes(busca);
+
+      const correspondeStatus =
+        filtroStatus === "Todos" ||
+        item.status === filtroStatus;
+
+      return correspondeBusca && correspondeStatus;
+    });
+  }, [protocolos, buscaProtocolo, filtroStatus]);
+
+  const statusCounts = {
+    total: protocolos.length,
+    aberto: protocolos.filter(
+      (item) => item.status === "Aberto"
+    ).length,
+    andamento: protocolos.filter(
+      (item) => item.status === "Em andamento"
+    ).length,
+    finalizado: protocolos.filter(
+      (item) => item.status === "Finalizado"
+    ).length,
+  };
+
+  const atualizarProtocolos = async () => {
+    try {
+      const res = await fetch("/api/protocolo", {
+        method: "GET",
+        credentials: "include",
+        cache: "no-store",
+      });
+
+      const data = await lerResposta(res);
+
+      if (!res.ok) {
+        console.error(
+          "Erro ao atualizar protocolos:",
+          data.error || `Status ${res.status}`
+        );
+        return;
       }
-    };
 
-    script.onerror = () => falhar("Não foi possível carregar o Google Maps.");
+      setProtocolos(extrairProtocolos(data));
+    } catch (error) {
+      console.error("Erro ao atualizar protocolos:", error);
+    }
+  };
 
-    document.head.appendChild(script);
-  });
+  const handleSubmit = async (
+    e: React.FormEvent<HTMLFormElement>
+  ) => {
+    e.preventDefault();
 
-  return googleMapsPromise;
-}
+    const categoria = form.categoria.trim();
+    const assunto = form.assunto.trim();
+    const mensagem = form.mensagem.trim();
 
-/* ------------------------------------------------------------------ */
-/* Helpers                                                             */
-/* ------------------------------------------------------------------ */
+    if (!categoria) {
+      setAlert({
+        type: "error",
+        message: "Selecione uma categoria para o atendimento.",
+      });
+      return;
+    }
 
-function paraNumero(valor?: number | string | null): number | null {
-  if (valor === null || valor === undefined) return null;
+    if (!assunto) {
+      setAlert({
+        type: "error",
+        message: "Informe o assunto da solicitação.",
+      });
+      return;
+    }
 
-  const texto = String(valor).trim();
-  if (!texto) return null;
+    if (!mensagem) {
+      setAlert({
+        type: "error",
+        message: "Digite uma mensagem para sua solicitação.",
+      });
+      return;
+    }
 
-  const numero = Number(texto);
-  return Number.isFinite(numero) ? numero : null;
-}
+    if (!codigo) {
+      setAlert({
+        type: "error",
+        message: "Aguarde a geração do número do protocolo.",
+      });
+      return;
+    }
 
-function montarCoordenada(
-  lat?: number | string | null,
-  lng?: number | string | null
-): string {
-  const latitude = paraNumero(lat);
-  const longitude = paraNumero(lng);
+    if (arquivo) {
+      const tamanhoMaximo = 10 * 1024 * 1024;
 
-  if (latitude === null || longitude === null) return "";
-  if (latitude === 0 && longitude === 0) return "";
-
-  return `${latitude},${longitude}`;
-}
-
-function formatarValor(valor?: number | string | null): string {
-  const numero = paraNumero(valor);
-  if (numero === null) return NAO_INFORMADO;
-
-  return numero.toLocaleString("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-}
-
-function formatarData(data?: string | null): string {
-  if (!data) return NAO_INFORMADO;
-
-  const date = new Date(data);
-  if (Number.isNaN(date.getTime())) return NAO_INFORMADO;
-
-  return date.toLocaleString("pt-BR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
-function formatarDistancia(distancia?: number | string | null): string {
-  const numero = paraNumero(distancia);
-  if (numero === null) return NAO_INFORMADO;
-
-  return `${numero.toLocaleString("pt-BR", {
-    minimumFractionDigits: 1,
-    maximumFractionDigits: 1,
-  })} km`;
-}
-
-function traduzirMetodoPagamento(metodo?: string | null): string {
-  switch (String(metodo || "").trim().toLowerCase()) {
-    case "cash":
-    case "dinheiro":
-      return "Dinheiro";
-    case "card":
-    case "credit_card":
-    case "debit_card":
-    case "cartao":
-    case "cartão":
-      return "Cartão";
-    case "pix":
-      return "PIX";
-    default:
-      return metodo || NAO_INFORMADO;
-  }
-}
-
-// Formato final: (11) *****-4321
-function mascararTelefone(telefone?: string | null): string {
-  if (!telefone) return "Telefone não disponível";
-
-  let digitos = telefone.replace(/\D/g, "");
-
-  // Remove o código do Brasil quando vier com +55
-  if (digitos.startsWith("55") && digitos.length > 11) {
-    digitos = digitos.slice(2);
-  }
-
-  // Precisa ter DDD + pelo menos os 4 últimos dígitos
-  if (digitos.length < 6) return "Telefone inválido";
-
-  return `(${digitos.slice(0, 2)}) *****-${digitos.slice(-4)}`;
-}
-
-/* ------------------------------------------------------------------ */
-/* Página                                                              */
-/* ------------------------------------------------------------------ */
-
-export default function DetalhesCorrida({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
-  const { id } = use(params);
-  const [trip, setTrip] = useState<Trip | null>(null);
-  const [loading, setLoading] = useState(true);
-  const mapaRef = useRef<HTMLDivElement | null>(null);
-  const directionsRendererRef =
-    useRef<google.maps.DirectionsRenderer | null>(null);
-
-  /* ---------------------------- Carregar corrida ---------------------------- */
-
-  useEffect(() => {
-    let ativo = true;
-
-    async function carregarCorrida() {
-      try {
-        setLoading(true);
-
-        const res = await fetch(`/api/trips/${encodeURIComponent(id)}`, {
-          method: "GET",
-          cache: "no-store",
+      if (arquivo.size > tamanhoMaximo) {
+        setAlert({
+          type: "error",
+          message: "O arquivo não pode ter mais de 10 MB.",
         });
-
-        const data = await res.json();
-
-        if (!res.ok) {
-          throw new Error(
-            data?.error || `Erro ao carregar corrida: ${res.status}`
-          );
-        }
-
-        if (!ativo) return;
-
-        setTrip(data?.trip ?? null);
-      } catch (error) {
-        console.error("Erro ao carregar corrida:", error);
-        if (ativo) setTrip(null);
-      } finally {
-        if (ativo) setLoading(false);
+        return;
       }
-    }
 
-    carregarCorrida();
+      const extensoesPermitidas = [
+        "image/jpeg",
+        "image/png",
+        "image/webp",
+        "application/pdf",
+      ];
 
-    return () => {
-      ativo = false;
-    };
-  }, [id]);
-
-  /* --------------------------------- Status --------------------------------- */
-
-  const statusNormalizado = String(trip?.current_status || "")
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, "_");
-
-  const isDriverCanceled =
-    statusNormalizado.includes("driver_cancel") ||
-    statusNormalizado === "cancelled_by_driver" ||
-    statusNormalizado === "canceled_by_driver" ||
-    statusNormalizado === "cancelado_pelo_motorista" ||
-    statusNormalizado === "cancelada_pelo_motorista";
-
-  const isTripCanceled =
-    isDriverCanceled || statusNormalizado.includes("cancel");
-
-  const isCompleted = [
-    "completed",
-    "complete",
-    "concluida",
-    "concluída",
-    "success",
-    "successful",
-    "sucesso",
-  ].includes(statusNormalizado);
-
-  const statusColor = isTripCanceled
-    ? "border-red-100 bg-red-50 text-red-700"
-    : isCompleted
-      ? "border-emerald-100 bg-emerald-50 text-emerald-700"
-      : "border-amber-100 bg-amber-50 text-amber-700";
-
-  const statusLabel = isDriverCanceled
-    ? "Cancelada pelo motorista"
-    : isTripCanceled
-      ? "Cancelada"
-      : isCompleted
-        ? "Concluída"
-        : statusNormalizado === "in_progress"
-          ? "Em andamento"
-          : statusNormalizado === "accepted"
-            ? "Aceita"
-            : "Pendente";
-
-  /* ------------------------------ Dados derivados ------------------------------ */
-
-  const origem =
-    trip?.pickup_address?.trim() || trip?.entrance?.trim() || "";
-  const destino = trip?.destination_address?.trim() || "";
-
-  const coordenadaOrigem = useMemo(
-    () => montarCoordenada(trip?.pickup_lat, trip?.pickup_lng),
-    [trip?.pickup_lat, trip?.pickup_lng]
-  );
-
-  const coordenadaDestino = useMemo(
-    () => montarCoordenada(trip?.destination_lat, trip?.destination_lng),
-    [trip?.destination_lat, trip?.destination_lng]
-  );
-
-  const pontoOrigem = coordenadaOrigem || origem;
-  const pontoDestino = coordenadaDestino || destino;
-  const possuiPontosMapa = Boolean(pontoOrigem || pontoDestino);
-
-  const nomeVeiculo =
-    trip?.vehicle?.model?.name?.trim() ||
-    trip?.vehicle_model?.trim() ||
-    NAO_INFORMADO;
-
-  const placaVeiculo =
-    trip?.vehicle?.licence_plate_number?.trim() ||
-    trip?.vehicle_plate?.trim() ||
-    "";
-
-  const imagemVeiculo =
-    trip?.vehicle?.model?.image || trip?.vehicle_model_image || null;
-
-  const categoria =
-    trip?.vehicle?.category?.name?.trim() ||
-    trip?.vehicle_category?.trim() ||
-    NAO_INFORMADO;
-
-  const nomeMotorista =
-    trip?.driver?.full_name?.trim() || "Motorista não informado";
-
-  const possuiMotorista =
-    Boolean(trip?.driver?.id) ||
-    Boolean(trip?.driver?.full_name) ||
-    Boolean(trip?.driver?.phone);
-
-  // Usa o valor pago quando houver (> 0); senão, o estimado.
-  // Assim o topo da página e o card "Valor da corrida" mostram o mesmo valor.
-  const valorPago = paraNumero(trip?.paid_fare);
-  const valorCorrida =
-    valorPago !== null && valorPago > 0 ? valorPago : trip?.estimated_fare;
-
-  const distanciaBanco =
-    trip?.actual_distance ?? trip?.estimated_distance ?? null;
-
-  /* ---------------------------------- Mapa ---------------------------------- */
-
-  useEffect(() => {
-    if (!trip || !mapaRef.current || !possuiPontosMapa) return;
-
-    let cancelado = false;
-
-    async function iniciarMapa() {
-      try {
-        await carregarGoogleMaps();
-
-        if (cancelado || !mapaRef.current || !window.google?.maps) return;
-
-        if (directionsRendererRef.current) {
-          directionsRendererRef.current.setMap(null);
-          directionsRendererRef.current = null;
-        }
-
-        const paraLatLng = (coordenada: string) => {
-          const [lat, lng] = coordenada.split(",").map(Number);
-          return Number.isFinite(lat) && Number.isFinite(lng)
-            ? { lat, lng }
-            : null;
-        };
-
-        const centroInicial = (coordenadaOrigem &&
-          paraLatLng(coordenadaOrigem)) || {
-          lat: -23.9608,
-          lng: -46.3336,
-        };
-
-        const mapa = new window.google.maps.Map(mapaRef.current, {
-          center: centroInicial,
-          zoom: 14,
-          streetViewControl: false,
-          mapTypeControl: false,
-          fullscreenControl: true,
-          zoomControl: true,
-          clickableIcons: true,
+      if (
+        arquivo.type &&
+        !extensoesPermitidas.includes(arquivo.type)
+      ) {
+        setAlert({
+          type: "error",
+          message:
+            "Formato de arquivo não permitido. Envie PDF, JPG, PNG ou WEBP.",
         });
-
-        if (pontoOrigem && pontoDestino) {
-          const directionsService = new window.google.maps.DirectionsService();
-
-          const directionsRenderer = new window.google.maps.DirectionsRenderer({
-            map: mapa,
-            suppressMarkers: false,
-            polylineOptions: {
-              strokeColor: isTripCanceled ? "#dc2626" : "#155EEF",
-              strokeOpacity: 0.95,
-              strokeWeight: 6,
-            },
-          });
-
-          directionsRendererRef.current = directionsRenderer;
-
-          directionsService.route(
-            {
-              origin: pontoOrigem,
-              destination: pontoDestino,
-              travelMode: window.google.maps.TravelMode.DRIVING,
-            },
-            (resultado, status) => {
-              if (cancelado) return;
-
-              if (
-                status === window.google.maps.DirectionsStatus.OK &&
-                resultado
-              ) {
-                directionsRenderer.setDirections(resultado);
-
-                const bounds = resultado.routes[0]?.bounds;
-                if (bounds) mapa.fitBounds(bounds, 50);
-              } else {
-                console.error("Erro ao carregar rota:", status);
-              }
-            }
-          );
-
-          return;
-        }
-
-        const coordenada = coordenadaOrigem || coordenadaDestino;
-        if (!coordenada) return;
-
-        const position = paraLatLng(coordenada);
-        if (!position) return;
-
-        mapa.setCenter(position);
-        mapa.setZoom(15);
-
-        new window.google.maps.Marker({
-          position,
-          map: mapa,
-          title: coordenadaOrigem ? "Origem da viagem" : "Destino da viagem",
-        });
-      } catch (error) {
-        if (!cancelado) {
-          console.error("Erro ao inicializar Google Maps:", error);
-        }
+        return;
       }
     }
 
-    iniciarMapa();
+    try {
+      setEnviando(true);
+      setAlert(null);
 
-    return () => {
-      cancelado = true;
+      const codigoAtual = codigo;
+      const formData = new FormData();
 
-      if (directionsRendererRef.current) {
-        directionsRendererRef.current.setMap(null);
-        directionsRendererRef.current = null;
+      formData.append("nome", form.nome.trim());
+      formData.append("email", form.email.trim());
+      formData.append("categoria", categoria);
+      formData.append("assunto", assunto);
+      formData.append("mensagem", mensagem);
+      formData.append("codigo", codigoAtual);
+
+      if (arquivo) {
+        formData.append("arquivo", arquivo);
       }
-    };
-  }, [
-    trip,
-    possuiPontosMapa,
-    pontoOrigem,
-    pontoDestino,
-    coordenadaOrigem,
-    coordenadaDestino,
-    isTripCanceled,
-  ]);
 
-  const googleMapsRouteUrl = useMemo(() => {
-    if (!pontoOrigem && !pontoDestino) {
-      return "https://www.google.com/maps";
+      const res = await fetch("/api/protocolo", {
+        method: "POST",
+        credentials: "include",
+        body: formData,
+      });
+
+      const data = await lerResposta(res);
+
+      if (!res.ok) {
+        throw new Error(
+          data.error ||
+            String(data.message || "") ||
+            `Erro ao criar protocolo. Status: ${res.status}.`
+        );
+      }
+
+      if (data.success === false) {
+        throw new Error(
+          data.error ||
+            String(data.message || "") ||
+            "Erro ao criar protocolo."
+        );
+      }
+
+      setAlert({
+        type: "success",
+        message:
+          data.message || "Protocolo criado com sucesso!",
+      });
+
+      setForm((prev) => ({
+        ...prev,
+        assunto: "",
+        mensagem: "",
+        categoria: "",
+      }));
+
+      setArquivo(null);
+
+      const novoCodigo = gerarNovoProtocolo();
+      setCodigo(novoCodigo);
+
+      await atualizarProtocolos();
+    } catch (error) {
+      console.error("Erro ao enviar protocolo:", error);
+
+      setAlert({
+        type: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Erro ao criar protocolo.",
+      });
+    } finally {
+      setEnviando(false);
+    }
+  };
+
+  const abrirChat = () => {
+    if (
+      typeof window !== "undefined" &&
+      (window as any).Huggy
+    ) {
+      (window as any).Huggy.openBox();
+      return;
     }
 
-    if (pontoOrigem && pontoDestino) {
-      return (
-        "https://www.google.com/maps/dir/?api=1" +
-        `&origin=${encodeURIComponent(pontoOrigem)}` +
-        `&destination=${encodeURIComponent(pontoDestino)}` +
-        "&travelmode=driving"
-      );
+    setAlert({
+      type: "error",
+      message:
+        "Chat indisponível no momento. Tente novamente mais tarde.",
+    });
+  };
+
+  const limparFormulario = () => {
+    setForm((prev) => ({
+      ...prev,
+      assunto: "",
+      mensagem: "",
+      categoria: "",
+    }));
+
+    setArquivo(null);
+    setAlert(null);
+  };
+
+  const statusClasses = (status?: string) => {
+    if (status === "Aberto") {
+      return "border-[#bce9df] bg-[#e8faf6] text-[#0f766e]";
     }
 
-    return (
-      "https://www.google.com/maps/search/?api=1" +
-      `&query=${encodeURIComponent(pontoOrigem || pontoDestino)}`
-    );
-  }, [pontoOrigem, pontoDestino]);
+    if (status === "Em andamento") {
+      return "border-[#f5dfab] bg-[#fff8e7] text-[#a66b00]";
+    }
 
-  /* ------------------------------ Estados de tela ------------------------------ */
+    if (status === "Finalizado") {
+      return "border-[#d6e6e4] bg-[#eef6f5] text-[#52706d]";
+    }
+
+    return "border-gray-200 bg-gray-50 text-gray-500";
+  };
 
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center px-4">
-        <div className="flex w-full max-w-[280px] flex-col items-center rounded-[24px] bg-white p-7 shadow-xl ring-1 ring-black/5 sm:max-w-[320px] sm:rounded-[28px] sm:p-8 md:p-10">
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#e8f7f4] sm:h-16 sm:w-16">
-            <div className="h-7 w-7 animate-spin rounded-full border-[3px] border-[#149C8B] border-t-transparent sm:h-8 sm:w-8" />
+        <div className="w-full max-w-[300px] rounded-2xl border border-gray-200/80 bg-white p-6 text-center shadow-[0_25px_80px_rgba(15,118,110,0.10)] sm:max-w-[340px] sm:rounded-[28px] sm:p-8 md:max-w-[380px] md:rounded-[32px] md:p-10">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#0f766e] shadow-xl shadow-[#0f766e]/20 sm:h-16 sm:w-16 sm:rounded-[20px]">
+            <div className="h-6 w-6 animate-spin rounded-full border-[3px] border-white/30 border-t-white sm:h-7 sm:w-7" />
           </div>
-          <p className="mt-5 text-center text-sm font-semibold text-gray-700">
-            Carregando sua viagem
-          </p>
-          <p className="mt-1 text-center text-xs text-gray-400">
-            Aguarde um momento...
-          </p>
-        </div>
-      </div>
-    );
-  }
 
-  if (!trip) {
-    return (
-      <div className="flex min-h-screen items-center justify-center px-4">
-        <div className="w-full max-w-sm rounded-[24px] border border-slate-200 bg-white p-6 text-center shadow-sm sm:max-w-md sm:p-8">
-          <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-red-50">
-            <XCircle className="h-7 w-7 text-red-500" />
-          </div>
-          <h2 className="text-lg font-bold text-[#073b70] sm:text-xl">
-            Viagem não encontrada
+          <h2 className="mt-5 text-base font-black tracking-tight text-[#0f766e] sm:mt-6 sm:text-lg">
+            Preparando seu atendimento
           </h2>
-          <p className="mt-3 text-sm leading-6 text-slate-500">
-            Não foi possível localizar esta viagem.
+
+          <p className="mt-2 text-xs text-gray-400 sm:text-sm">
+            Estamos carregando suas informações.
           </p>
-          <Link
-            href="/passageiro/viagens"
-            className="mt-6 inline-flex w-full items-center justify-center rounded-xl bg-[#073b70] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#0a4d8f] sm:w-auto"
-          >
-            <ArrowLeft size={17} className="mr-2" />
-            Voltar para viagens
-          </Link>
         </div>
       </div>
     );
   }
-
-  /* --------------------------------- Render --------------------------------- */
 
   return (
-    <main className="mb-3 min-h-screen overflow-x-hidden text-sm text-[#073b70]">
-      <div className="max-w-8xl mx-auto flex flex-col gap-5 sm:gap-6 lg:gap-7 2xl:gap-8">
-        {/* Cabeçalho */}
-        <div
-          className={`relative overflow-hidden rounded-[22px] border p-5 text-white shadow-sm sm:rounded-[26px] sm:p-7 md:p-8 lg:rounded-[30px] lg:p-9 2xl:rounded-[34px] 2xl:p-10 ${
-            isTripCanceled
-              ? "border-red-700 bg-gradient-to-br from-red-700 to-red-900"
-              : isCompleted
-                ? "border-[#0f8f7d] bg-gradient-to-br from-[#073b70] via-[#075b70] to-[#149c8b]"
-                : "border-amber-600 bg-gradient-to-br from-amber-500 to-amber-700"
-          }`}
-        >
-          <div className="absolute -right-20 -top-20 h-48 w-48 rounded-full bg-white/10 blur-3xl sm:h-64 sm:w-64" />
-          <div className="relative z-10 flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex min-w-0 items-center gap-3 sm:gap-4">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-white/20 bg-white/10 sm:h-14 sm:w-14 2xl:h-16 2xl:w-16">
-                {isTripCanceled ? (
-                  <XCircle className="h-6 w-6 sm:h-7 sm:w-7" />
-                ) : (
-                  <CarFront className="h-6 w-6 sm:h-7 sm:w-7" />
-                )}
-              </div>
-              <div className="min-w-0">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-white/70">
-                  Viagem
-                </p>
-                <h1 className="mt-1 truncate text-xl font-bold tracking-tight sm:text-2xl md:text-3xl">
-                  #{trip.ref_id}
-                </h1>
-                <p className="mt-1 text-xs text-white/75 sm:text-sm">
-                  Visualize informações completas da viagem.
-                </p>
-              </div>
-            </div>
+    <div className="min-h-screen mb-3 min-w-0 text-gray-700">
+      <NvoipWidget />
 
-            <div className="grid w-full grid-cols-2 gap-3 sm:gap-4 lg:w-auto">
-              <div className="min-w-0 rounded-2xl border border-white/15 bg-white/10 p-3 backdrop-blur-sm sm:min-w-[170px] sm:p-4">
-                <p className="text-[11px] font-medium text-white/70 sm:text-xs">
-                  Valor da corrida
-                </p>
-                <h2 className="mt-1 truncate text-lg font-bold sm:text-xl md:text-2xl">
-                  {formatarValor(valorCorrida)}
-                </h2>
-              </div>
-              <div className="min-w-0 rounded-2xl border border-white/15 bg-white/10 p-3 backdrop-blur-sm sm:min-w-[170px] sm:p-4">
-                <p className="text-[11px] font-medium text-white/70 sm:text-xs">
-                  Distância
-                </p>
-                <h2 className="mt-1 truncate text-lg font-bold sm:text-xl md:text-2xl">
-                  {formatarDistancia(distanciaBanco)}
-                </h2>
-              </div>
+      <main className="mx-auto w-full min-w-0 max-w-8xl px-3 sm:px-4 md:px-6 lg:px-0 2xl:max-w-[1600px]">
+        <section className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#115e59] via-[#0f766e] to-[#0d9488] shadow-[0_30px_90px_rgba(15,118,110,0.20)] sm:rounded-[28px] lg:rounded-[36px]">
+          <div className="absolute -right-40 -top-40 h-[560px] w-[560px] rounded-full border-[110px] border-white/[0.035]" />
+          <div className="absolute -bottom-52 left-[38%] h-[520px] w-[520px] rounded-full border-[90px] border-white/[0.025]" />
+          <div className="absolute right-[25%] top-10 h-44 w-44 rounded-full bg-[#5eead4]/15 blur-[80px]" />
+          <div className="absolute bottom-0 left-0 h-40 w-72 rounded-full bg-[#14b8a6]/10 blur-[70px]" />
+
+          <div className="relative grid gap-6 px-4 py-7 sm:gap-8 sm:px-7 sm:py-9 lg:grid-cols-[1fr_auto] lg:gap-10 lg:px-10 lg:py-11 xl:px-12 xl:py-12">
+            <div className="max-w-3xl">
+              <h1 className="mt-2 text-2xl font-black leading-[1.08] tracking-[-0.03em] text-white sm:mt-4 sm:text-3xl md:text-4xl">
+                Estamos aqui para
+                <span className="block text-[#99f6e4]">
+                  ajudar você.
+                </span>
+              </h1>
+
+              <p className="mt-3 max-w-2xl text-xs leading-6 text-white/65 sm:mt-4 sm:text-sm">
+                Tire suas dúvidas, converse com nossa equipe
+                ou registre uma solicitação. Tudo organizado
+                em um único espaço de atendimento.
+              </p>
             </div>
           </div>
-        </div>
+        </section>
 
-        <div className="grid grid-cols-1 gap-5 md:gap-6 lg:gap-7 xl:grid-cols-3 2xl:gap-8">
-          {/* Coluna principal */}
-          <div className="flex min-w-0 flex-col gap-5 md:gap-6 lg:gap-7 xl:col-span-2">
-            {/* Status */}
-            <section className="min-w-0 rounded-[22px] border border-slate-200 bg-white p-5 shadow-sm sm:rounded-[26px] sm:p-6 md:p-7 lg:rounded-[30px] lg:p-8">
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <div className="min-w-0">
-                  <h2 className="text-lg font-bold tracking-tight text-[#073b70] sm:text-xl lg:text-2xl">
-                    Status da Corrida
-                  </h2>
-                  <p className="mt-1 text-xs text-slate-500 sm:text-sm">
-                    Informações atualizadas da viagem
-                  </p>
+        <section className="mt-5">
+          <div className="mb-4 sm:mb-5">
+            <h2 className="mt-1 text-xl font-black tracking-tight text-white sm:text-2xl">
+              Fale conosco
+            </h2>
+
+            <p className="mt-1 text-xs text-white/80 sm:text-sm">
+              Escolha o canal mais conveniente para você.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <a
+              href="https://wa.me/5511974204958"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="group relative overflow-hidden rounded-2xl border border-gray-200/80 bg-white p-5 shadow-[0_12px_40px_rgba(15,35,55,0.05)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_22px_50px_rgba(15,118,110,0.12)] sm:rounded-[28px] sm:p-6"
+            >
+              <div className="absolute right-0 top-0 h-32 w-32 translate-x-10 -translate-y-10 rounded-full bg-[#20b85a]/5 transition duration-500 group-hover:scale-150" />
+
+              <div className="relative flex items-start justify-between">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#eaf8f0] text-[#159447] sm:h-14 sm:w-14 sm:rounded-[18px]">
+                  <FontAwesomeIcon icon={faWhatsapp} size="lg" />
                 </div>
-                <div
-                  className={`inline-flex w-fit shrink-0 items-center gap-2 rounded-xl border px-3 py-2 text-xs font-bold sm:px-4 sm:text-sm ${statusColor}`}
-                >
-                  {isTripCanceled ? (
-                    <XCircle size={16} />
-                  ) : isCompleted ? (
-                    <CheckCircle2 size={16} />
-                  ) : (
-                    <Clock3 size={16} />
-                  )}
-                  {statusLabel}
+
+                <ChevronRight
+                  size={19}
+                  className="text-gray-300 transition duration-300 group-hover:translate-x-1 group-hover:text-[#159447]"
+                />
+              </div>
+
+              <div className="relative mt-6 sm:mt-7">
+                <p className="text-[9px] font-black uppercase tracking-[0.18em] text-[#159447]">
+                  Canal rápido
+                </p>
+
+                <h3 className="mt-1 text-lg font-black text-[#115e59] sm:text-xl">
+                  WhatsApp
+                </h3>
+
+                <p className="mt-2 text-xs leading-6 text-gray-400 sm:text-sm">
+                  Converse diretamente com nossa equipe
+                  de atendimento.
+                </p>
+
+                <span className="mt-5 inline-flex items-center gap-1.5 text-xs font-black text-[#159447] sm:mt-6">
+                  Iniciar conversa
+                  <ChevronRight size={14} />
+                </span>
+              </div>
+            </a>
+
+            <a
+              href="mailto:atendimento@maylon.com.br"
+              className="group relative overflow-hidden rounded-2xl border border-gray-200/80 bg-white p-5 shadow-[0_12px_40px_rgba(15,35,55,0.05)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_22px_50px_rgba(15,118,110,0.12)] sm:rounded-[28px] sm:p-6"
+            >
+              <div className="absolute right-0 top-0 h-32 w-32 translate-x-10 -translate-y-10 rounded-full bg-[#0f766e]/5 transition duration-500 group-hover:scale-150" />
+
+              <div className="relative flex items-start justify-between">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#e6fffb] text-[#0f766e] sm:h-14 sm:w-14 sm:rounded-[18px]">
+                  <Mails size={20} className="sm:hidden" />
+                  <Mails size={22} className="hidden sm:block" />
+                </div>
+
+                <ChevronRight
+                  size={19}
+                  className="text-gray-300 transition duration-300 group-hover:translate-x-1 group-hover:text-[#0f766e]"
+                />
+              </div>
+
+              <div className="relative mt-6 sm:mt-7">
+                <p className="text-[9px] font-black uppercase tracking-[0.18em] text-[#0f766e]">
+                  Atendimento detalhado
+                </p>
+
+                <h3 className="mt-1 text-lg font-black text-[#115e59] sm:text-xl">
+                  E-mail
+                </h3>
+
+                <p className="mt-2 text-xs leading-6 text-gray-400 sm:text-sm">
+                  Envie sua solicitação com todos os
+                  detalhes necessários.
+                </p>
+
+                <span className="mt-5 inline-flex items-center gap-1.5 text-xs font-black text-[#0f766e] sm:mt-6">
+                  Enviar mensagem
+                  <ChevronRight size={14} />
+                </span>
+              </div>
+            </a>
+
+            <button
+              type="button"
+              onClick={abrirChat}
+              className="group relative overflow-hidden rounded-2xl border border-gray-200/80 bg-white p-5 text-left shadow-[0_12px_40px_rgba(15,35,55,0.05)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_22px_50px_rgba(15,118,110,0.12)] sm:rounded-[28px] sm:p-6 sm:col-span-2 lg:col-span-1"
+            >
+              <div className="absolute right-0 top-0 h-32 w-32 translate-x-10 -translate-y-10 rounded-full bg-[#0f766e]/5 transition duration-500 group-hover:scale-150" />
+
+              <div className="relative flex items-start justify-between">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#e6fffb] text-[#0f766e] sm:h-14 sm:w-14 sm:rounded-[18px]">
+                  <MessagesSquare size={20} className="sm:hidden" />
+                  <MessagesSquare size={22} className="hidden sm:block" />
+                </div>
+
+                <ChevronRight
+                  size={19}
+                  className="text-gray-300 transition duration-300 group-hover:translate-x-1 group-hover:text-[#0f766e]"
+                />
+              </div>
+
+              <div className="relative mt-6 sm:mt-7">
+                <p className="text-[9px] font-black uppercase tracking-[0.18em] text-[#0f766e]">
+                  Tempo real
+                </p>
+
+                <h3 className="mt-1 text-lg font-black text-[#115e59] sm:text-xl">
+                  Chat Online
+                </h3>
+
+                <p className="mt-2 text-xs leading-6 text-gray-400 sm:text-sm">
+                  Converse com um atendente em tempo real.
+                </p>
+
+                <span className="mt-5 inline-flex items-center gap-1.5 text-xs font-black text-[#0f766e] sm:mt-6">
+                  Abrir atendimento
+                  <ChevronRight size={14} />
+                </span>
+              </div>
+            </button>
+          </div>
+        </section>
+
+        <section
+          id="abrir-protocolo"
+          className="mt-7 overflow-hidden rounded-2xl border border-gray-200/80 bg-white shadow-[0_18px_60px_rgba(15,118,110,0.07)] sm:mt-9 sm:rounded-[32px]"
+        >
+          <div className="grid lg:grid-cols-[1fr_300px] xl:grid-cols-[1fr_330px]">
+            <div className="p-4 sm:p-6 md:p-7 lg:p-8">
+              <div className="flex items-start gap-3 sm:gap-4">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#0f766e] text-white shadow-lg shadow-[#0f766e]/15 sm:h-14 sm:w-14 sm:rounded-[18px]">
+                  <FileText size={20} className="sm:hidden" />
+                  <FileText size={22} className="hidden sm:block" />
+                </div>
+
+                <div>
+                  <h2 className="mt-1 text-xl font-black tracking-tight text-[#115e59] sm:text-2xl">
+                    Abrir protocolo
+                  </h2>
+
+                  <p className="mt-0 text-xs text-gray-500 sm:text-sm">
+                    Preencha as informações para iniciar seu
+                    atendimento.
+                  </p>
                 </div>
               </div>
 
-              {isTripCanceled && (
-                <div className="mt-6 rounded-2xl border border-red-100 bg-red-50 p-4 sm:p-5">
-                  <div className="flex gap-3">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-red-100 text-red-600">
-                      <XCircle size={20} />
-                    </div>
-                    <div className="min-w-0">
-                      <h3 className="text-sm font-bold text-red-700 sm:text-base">
-                        {isDriverCanceled
-                          ? "Viagem cancelada pelo motorista"
-                          : "Viagem cancelada"}
-                      </h3>
-                      <p className="mt-1 text-xs leading-5 text-red-600 sm:text-sm">
-                        {isDriverCanceled
-                          ? "O motorista cancelou esta viagem. A viagem permanece disponível para consulta."
-                          : "Esta viagem foi cancelada, mas os dados registrados permanecem disponíveis para consulta."}
+              {alert && (
+                <div
+                  className={`mt-6 flex items-start gap-3 rounded-xl border p-3.5 sm:mt-7 sm:rounded-2xl sm:p-4 ${
+                    alert.type === "success"
+                      ? "border-[#bce9df] bg-[#effcf9] text-[#0f766e]"
+                      : "border-red-200 bg-red-50 text-red-700"
+                  }`}
+                >
+                  {alert.type === "success" ? (
+                    <CheckCircle2
+                      size={19}
+                      className="mt-0.5 shrink-0"
+                    />
+                  ) : (
+                    <AlertCircle
+                      size={19}
+                      className="mt-0.5 shrink-0"
+                    />
+                  )}
+
+                  <div>
+                    <p className="text-xs font-black sm:text-sm">
+                      {alert.type === "success"
+                        ? "Solicitação enviada"
+                        : "Não foi possível enviar"}
+                    </p>
+
+                    <p className="mt-1 text-[11px] leading-5 sm:text-xs">
+                      {alert.message}
+                    </p>
+
+                    {alert.type === "success" && (
+                      <p className="mt-1 text-[11px] sm:text-xs">
+                        Protocolo: <strong>{codigo}</strong>
                       </p>
-                    </div>
+                    )}
                   </div>
                 </div>
               )}
 
-              <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                <div className="min-w-0 rounded-2xl border border-slate-100 bg-[#f8fafb] p-4 sm:p-5">
-                  <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-[#e8f7f3] text-[#149c8b]">
-                    <CalendarDays size={20} />
+              <form
+                onSubmit={handleSubmit}
+                className="mt-7 sm:mt-8"
+              >
+                <div className="grid gap-4 sm:grid-cols-2 sm:gap-5">
+                  <div>
+                    <label className="mb-2 block text-[9px] font-black uppercase tracking-[0.15em] text-gray-500">
+                      Nome completo
+                    </label>
+
+                    <input
+                      type="text"
+                      readOnly
+                      value={form.nome}
+                      className="h-11 w-full rounded-xl border border-gray-200 bg-[#f5faf9] px-4 text-xs font-medium text-gray-500 outline-none sm:h-12 sm:rounded-2xl sm:text-sm"
+                    />
                   </div>
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400 sm:text-xs">
-                    Data da corrida
-                  </p>
-                  <h3 className="mt-2 break-words text-sm font-bold leading-5 text-[#073b70]">
-                    {formatarData(trip.created_at)}
-                  </h3>
+
+                  <div>
+                    <label className="mb-2 block text-[9px] font-black uppercase tracking-[0.15em] text-gray-500">
+                      E-mail
+                    </label>
+
+                    <input
+                      type="email"
+                      readOnly
+                      value={form.email}
+                      className="h-11 w-full rounded-xl border border-gray-200 bg-[#f5faf9] px-4 text-xs font-medium text-gray-500 outline-none sm:h-12 sm:rounded-2xl sm:text-sm"
+                    />
+                  </div>
                 </div>
 
-                <div className="min-w-0 rounded-2xl border border-slate-100 bg-[#f8fafb] p-4 sm:p-5">
-                  <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
-                    <Wallet size={20} />
+                <div className="mt-4 grid gap-4 sm:mt-5 sm:grid-cols-2 sm:gap-5">
+                  <div>
+                    <label className="mb-2 block text-[9px] font-black uppercase tracking-[0.15em] text-gray-500">
+                      Categoria
+                    </label>
+
+                    <select
+                      value={form.categoria}
+                      onChange={(e) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          categoria: e.target.value,
+                        }))
+                      }
+                      className="h-11 w-full rounded-xl border border-gray-200 bg-white px-4 text-xs text-gray-700 outline-none transition focus:border-[#0f766e] focus:ring-4 focus:ring-[#0f766e]/10 sm:h-12 sm:rounded-2xl sm:text-sm"
+                    >
+                      <option value="">
+                        Selecione uma categoria
+                      </option>
+
+                      <option value="Cancelamento">
+                        Cancelamento
+                      </option>
+
+                      <option value="Reembolso">
+                        Reembolso
+                      </option>
+
+                      <option value="Alteração de viagem">
+                        Alteração de viagem
+                      </option>
+
+                      <option value="Pagamento">
+                        Pagamento
+                      </option>
+
+                      <option value="Bagagem">
+                        Bagagem
+                      </option>
+
+                      <option value="Conta">
+                        Conta
+                      </option>
+
+                      <option value="Outros">
+                        Outros
+                      </option>
+                    </select>
                   </div>
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400 sm:text-xs">
-                    Meio de pagamento
-                  </p>
-                  <div className="mt-2">
-                    <span className="inline-flex max-w-full rounded-lg bg-blue-50 px-3 py-1.5 text-xs font-bold text-blue-700 sm:text-sm">
-                      {traduzirMetodoPagamento(trip.payment_method)}
+
+                  <div>
+                    <label className="mb-2 block text-[9px] font-black uppercase tracking-[0.15em] text-gray-500">
+                      Assunto
+                    </label>
+
+                    <input
+                      type="text"
+                      value={form.assunto}
+                      onChange={(e) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          assunto: e.target.value,
+                        }))
+                      }
+                      placeholder="Ex.: Problema com minha viagem"
+                      required
+                      className="h-11 w-full rounded-xl border border-gray-200 bg-white px-4 text-xs text-gray-700 outline-none transition placeholder:text-gray-400 focus:border-[#0f766e] focus:ring-4 focus:ring-[#0f766e]/10 sm:h-12 sm:rounded-2xl sm:text-sm"
+                    />
+                  </div>
+                </div>
+
+                <div className="mt-4 sm:mt-5">
+                  <label className="mb-2 block text-[9px] font-black uppercase tracking-[0.15em] text-gray-500">
+                    Mensagem
+                  </label>
+
+                  <textarea
+                    value={form.mensagem}
+                    onChange={(e) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        mensagem: e.target.value,
+                      }))
+                    }
+                    rows={6}
+                    required
+                    placeholder="Descreva detalhadamente o que aconteceu..."
+                    className="w-full resize-none rounded-xl border border-gray-200 bg-white px-4 py-3.5 text-xs leading-6 text-gray-700 outline-none transition placeholder:text-gray-400 focus:border-[#0f766e] focus:ring-4 focus:ring-[#0f766e]/10 sm:rounded-2xl sm:py-4 sm:text-sm"
+                  />
+                </div>
+
+                <div className="mt-4 sm:mt-5">
+                  <label className="mb-2 block text-[9px] font-black uppercase tracking-[0.15em] text-gray-500">
+                    Anexo
+                  </label>
+
+                  <label className="group flex cursor-pointer items-center gap-3 rounded-xl border border-dashed border-gray-300 bg-[#f7fbfa] p-3.5 transition hover:border-[#0f766e] hover:bg-[#f1fbf8] sm:gap-4 sm:rounded-2xl sm:p-4">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-[#0f766e] shadow-sm sm:h-11 sm:w-11">
+                      <Paperclip size={18} />
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-[11px] font-black text-[#115e59] sm:text-xs">
+                        {arquivo
+                          ? arquivo.name
+                          : "Adicionar documento ou comprovante"}
+                      </p>
+
+                      <p className="mt-1 text-[9px] text-gray-400 sm:text-[10px]">
+                        PDF, JPG, PNG ou WEBP • máximo 10 MB
+                      </p>
+                    </div>
+
+                    <span className="hidden shrink-0 rounded-xl border border-gray-200 bg-white px-4 py-2 text-[10px] font-black text-[#0f766e] sm:block">
+                      Selecionar
                     </span>
-                  </div>
+
+                    <input
+                      type="file"
+                      accept=".jpg,.jpeg,.png,.pdf,.webp"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0] || null;
+
+                        setArquivo(file);
+                        e.target.value = "";
+                      }}
+                    />
+                  </label>
+
+                  {arquivo && (
+                    <div className="mt-2 flex items-center justify-between rounded-xl border border-[#bce9df] bg-[#effcf9] px-3.5 py-2.5 sm:px-4">
+                      <span className="truncate text-[10px] font-bold text-[#0f766e] sm:text-[11px]">
+                        {arquivo.name}
+                      </span>
+
+                      <button
+                        type="button"
+                        onClick={() => setArquivo(null)}
+                        className="ml-3 shrink-0 cursor-pointer text-[10px] font-black text-red-500 hover:text-red-700"
+                      >
+                        Remover
+                      </button>
+                    </div>
+                  )}
                 </div>
 
-                <div className="min-w-0 rounded-2xl border border-slate-100 bg-[#f8fafb] p-4 sm:p-5">
-                  <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50 text-orange-600">
-                    <Wallet size={20} />
-                  </div>
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400 sm:text-xs">
-                    Valor da corrida
+                <div className="mt-6 flex flex-col-reverse gap-3 border-t border-gray-100 pt-5 sm:mt-7 sm:flex-row sm:justify-end sm:pt-6">
+                  <button
+                    type="button"
+                    onClick={limparFormulario}
+                    className="inline-flex h-11 cursor-pointer items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-5 text-xs font-black text-gray-500 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600 sm:h-12 sm:rounded-2xl sm:px-6"
+                  >
+                    <Trash2 size={16} />
+                    Limpar
+                  </button>
+
+                  <button
+                    type="submit"
+                    disabled={enviando}
+                    className={`inline-flex h-11 cursor-pointer items-center justify-center gap-2 rounded-xl px-6 text-xs font-black text-white shadow-lg transition sm:h-12 sm:rounded-2xl sm:px-7 ${
+                      enviando
+                        ? "cursor-not-allowed bg-gray-400"
+                        : "bg-[#0f766e] shadow-[#0f766e]/20 hover:-translate-y-0.5 hover:bg-[#115e59]"
+                    }`}
+                  >
+                    <Send size={16} />
+
+                    {enviando
+                      ? "Enviando..."
+                      : "Enviar solicitação"}
+                  </button>
+                </div>
+              </form>
+            </div>
+
+            <aside className="border-t border-gray-100 bg-[#f5faf9] p-4 sm:p-6 lg:border-l lg:border-t-0 lg:p-7 xl:p-4">
+              <div className="rounded-2xl bg-gradient-to-br from-[#115e59] to-[#0f766e] text-white shadow-xl shadow-[#0f766e]/15 sm:rounded-[26px] sm:p-4">
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/10 sm:h-11 sm:w-11">
+                  <FileText size={18} />
+                </div>
+
+                <p className="mt-5 text-[9px] font-black uppercase tracking-[0.18em] text-white/45 sm:mt-6">
+                  Seu protocolo
+                </p>
+
+                <p className="mt-2 break-all text-lg font-black tracking-wide sm:text-xl">
+                  {codigo || "Gerando..."}
+                </p>
+
+                <div className="mt-4 h-px bg-white/10 sm:mt-5" />
+
+                <div className="mt-4 flex gap-3 sm:mt-5">
+                  <ShieldCheck
+                    size={17}
+                    className="mt-0.5 shrink-0 text-[#99f6e4]"
+                  />
+
+                  <p className="text-[11px] leading-5 text-white/60 sm:text-xs">
+                    Este número será utilizado para
+                    acompanhar sua solicitação.
                   </p>
-                  <h3 className="mt-2 truncate text-lg font-bold text-[#073b70] sm:text-xl">
-                    {formatarValor(valorCorrida)}
-                  </h3>
                 </div>
               </div>
-            </section>
 
-            {/* Trajeto */}
-            <section className="min-w-0 overflow-hidden rounded-[22px] border border-slate-200 bg-white shadow-sm sm:rounded-[26px] lg:rounded-[30px]">
-              <div className="p-5 sm:p-6 md:p-7 lg:p-8">
-                <div className="mb-5 flex items-center gap-3 sm:mb-6">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#e8f7f3] text-[#149c8b] sm:h-11 sm:w-11">
-                    <Navigation size={21} />
+              <div className="mt-4 rounded-2xl border border-gray-200 bg-white p-4 sm:mt-5 sm:rounded-[26px] sm:p-5">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#e6fffb] text-[#0f766e] sm:h-10 sm:w-10">
+                    <Clock3 size={17} />
                   </div>
-                  <div className="min-w-0">
-                    <h2 className="text-lg font-bold tracking-tight text-[#073b70] sm:text-xl lg:text-2xl">
-                      Trajeto da Corrida
-                    </h2>
-                    <p className="mt-1 text-xs text-slate-500 sm:text-sm">
-                      Origem e destino da viagem
+
+                  <div>
+                    <p className="text-xs font-black text-[#115e59]">
+                      Atendimento
+                    </p>
+
+                    <p className="mt-0.5 text-[9px] text-gray-400 sm:text-[10px]">
+                      Acompanhe pelo histórico
                     </p>
                   </div>
                 </div>
 
-                <div className="flex flex-col gap-5 sm:gap-6">
-                  <div className="relative">
-                    <div className="absolute left-5 top-5 h-[calc(100%-40px)] w-px bg-slate-200" />
+                <div className="mt-4 grid grid-cols-2 gap-2 sm:mt-5">
+                  <div className="rounded-xl bg-[#f5faf9] p-3">
+                    <p className="text-[8px] font-black uppercase tracking-wider text-gray-400">
+                      Abertos
+                    </p>
 
-                    <div className="relative flex min-w-0 gap-3 sm:gap-4">
-                      <div className="z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-4 border-white bg-[#149c8b] shadow-sm">
-                        <MapPin size={16} className="text-white" />
-                      </div>
-                      <div className="min-w-0 flex-1 rounded-2xl border border-slate-100 bg-[#f8fafb] p-4 sm:p-5">
-                        <p className="text-[11px] font-semibold uppercase tracking-wide text-[#149c8b] sm:text-xs">
-                          Origem
-                        </p>
-                        <h3 className="mt-2 break-words text-sm font-bold leading-6 text-[#073b70] sm:text-base">
-                          {origem || NAO_INFORMADO}
-                        </h3>
-                        <p className="mt-1 text-xs text-slate-400">
-                          Local de embarque
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="relative mt-4 flex min-w-0 gap-3 sm:gap-4">
-                      <div className="z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-4 border-white bg-[#073b70] shadow-sm">
-                        <Navigation size={16} className="text-white" />
-                      </div>
-                      <div className="min-w-0 flex-1 rounded-2xl border border-slate-100 bg-[#f8fafb] p-4 sm:p-5">
-                        <p className="text-[11px] font-semibold uppercase tracking-wide text-[#073b70] sm:text-xs">
-                          Destino
-                        </p>
-                        <h3 className="mt-2 break-words text-sm font-bold leading-6 text-[#073b70] sm:text-base">
-                          {destino || NAO_INFORMADO}
-                        </h3>
-                        <p className="mt-1 text-xs text-slate-400">
-                          Destino final
-                        </p>
-                      </div>
-                    </div>
+                    <p className="mt-1 text-base font-black text-[#0f766e] sm:text-lg">
+                      {statusCounts.aberto}
+                    </p>
                   </div>
 
-                  <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 shadow-sm">
-                    {possuiPontosMapa ? (
-                      <div
-                        ref={mapaRef}
-                        className="block h-[280px] w-full sm:h-[360px] md:h-[420px] lg:h-[460px] xl:h-[500px]"
+                  <div className="rounded-xl bg-[#f5faf9] p-3">
+                    <p className="text-[8px] font-black uppercase tracking-wider text-gray-400">
+                      Finalizados
+                    </p>
+
+                    <p className="mt-1 text-base font-black text-[#0f766e] sm:text-lg">
+                      {statusCounts.finalizado}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </aside>
+          </div>
+        </section>
+
+        <section className="mt-7 grid gap-5 sm:mt-9 sm:gap-6 xl:grid-cols-[340px_minmax(0,1fr)] 2xl:grid-cols-[370px_minmax(0,1fr)]">
+          <aside className="min-w-0 rounded-2xl border border-gray-200/80 bg-white p-4 shadow-[0_18px_60px_rgba(15,118,110,0.06)] sm:rounded-[32px] sm:p-6">
+            <div className="flex items-center gap-3">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#e6fffb] text-[#0f766e] sm:h-12 sm:w-12 sm:rounded-[17px]">
+                <CircleHelp size={20} />
+              </div>
+
+              <div>
+                <p className="text-[9px] font-black uppercase tracking-[0.18em] text-[#0f766e]">
+                  Ajuda
+                </p>
+
+                <h2 className="text-lg font-black tracking-tight text-[#115e59] sm:text-xl">
+                  Perguntas frequentes
+                </h2>
+              </div>
+            </div>
+
+            <div className="mt-5 space-y-2 sm:mt-6">
+              {faq.map((item, index) => {
+                const aberto = faqAberto === index;
+
+                return (
+                  <div
+                    key={item.pergunta}
+                    className={`overflow-hidden rounded-2xl border transition-all ${
+                      aberto
+                        ? "border-[#bce9df] bg-[#f1fbf8]"
+                        : "border-gray-100 bg-[#f8fbfa]"
+                    }`}
+                  >
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setFaqAberto(aberto ? null : index)
+                      }
+                      className="flex w-full cursor-pointer items-center justify-between gap-3 px-4 py-3.5 text-left sm:py-4"
+                    >
+                      <span className="text-xs font-black text-gray-700">
+                        {item.pergunta}
+                      </span>
+
+                      <ChevronRight
+                        size={15}
+                        className={`shrink-0 text-gray-400 transition ${
+                          aberto
+                            ? "rotate-90 text-[#0f766e]"
+                            : ""
+                        }`}
                       />
-                    ) : (
-                      <div className="flex min-h-[280px] flex-col items-center justify-center px-6 text-center sm:min-h-[360px]">
-                        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white text-[#149c8b] shadow-sm">
-                          <MapPin size={25} />
-                        </div>
-                        <h3 className="mt-4 text-base font-bold text-[#073b70]">
-                          Mapa indisponível
-                        </h3>
-                        <p className="mt-2 max-w-md text-sm leading-6 text-slate-500">
-                          A origem e o destino desta viagem não foram
-                          informados.
+                    </button>
+
+                    {aberto && (
+                      <div className="border-t border-gray-200/70 px-4 pb-4 pt-3">
+                        <p className="text-[11px] leading-5 text-gray-500">
+                          {item.resposta}
                         </p>
                       </div>
                     )}
                   </div>
+                );
+              })}
+            </div>
 
-                  {possuiPontosMapa && (
-                    <a
-                      href={googleMapsRouteUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className={`inline-flex w-full items-center justify-center gap-2 rounded-xl px-5 py-3.5 text-sm font-bold text-white transition active:scale-[0.99] sm:w-auto ${
-                        isTripCanceled
-                          ? "bg-red-700 hover:bg-red-800"
-                          : "bg-[#073b70] hover:bg-[#0a4d8f]"
-                      }`}
-                    >
-                      <Navigation size={17} />
-                      {pontoOrigem && pontoDestino
-                        ? "Abrir rota no Google Maps"
-                        : "Abrir localização no Google Maps"}
-                      <ExternalLink size={15} />
-                    </a>
-                  )}
+            <div className="relative mt-5 overflow-hidden rounded-2xl bg-gradient-to-br from-[#115e59] to-[#0f766e] p-4 text-white sm:mt-6 sm:rounded-[26px] sm:p-5">
+              <div className="absolute -right-8 -top-8 h-24 w-24 rounded-full bg-white/[0.05]" />
+
+              <div className="relative">
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/10 sm:h-11 sm:w-11">
+                  <MessageCircle size={18} />
                 </div>
-              </div>
-            </section>
-          </div>
 
-          {/* Coluna lateral */}
-          <div className="flex min-w-0 flex-col gap-5 md:gap-6 lg:gap-7">
-            {isTripCanceled && (
-              <section className="rounded-[22px] border border-red-100 bg-white p-5 shadow-sm sm:rounded-[26px] sm:p-6 md:p-7 lg:rounded-[30px]">
-                <div className="flex flex-col items-center justify-center py-8 text-center">
-                  <div className="flex h-20 w-20 items-center justify-center rounded-3xl bg-red-50 text-red-500">
-                    <XCircle size={38} />
+                <h3 className="mt-4 text-sm font-black sm:mt-5">
+                  Ainda precisa de ajuda?
+                </h3>
+
+                <p className="mt-1 text-[10px] leading-5 text-white/55 sm:text-[11px]">
+                  Nossa equipe está pronta para atender você.
+                </p>
+
+                <button
+                  type="button"
+                  onClick={abrirChat}
+                  className="mt-4 flex h-10 w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-white text-[10px] font-black text-[#0f766e] transition hover:bg-[#ecfffc] sm:mt-5 sm:h-11 sm:text-[11px]"
+                >
+                  <MessagesSquare size={15} />
+                  Abrir atendimento
+                </button>
+              </div>
+            </div>
+          </aside>
+
+          <section className="min-w-0 rounded-2xl border border-gray-200/80 bg-white p-4 shadow-[0_18px_60px_rgba(15,118,110,0.06)] sm:rounded-[32px] sm:p-6 md:p-7 lg:p-8">
+            <div className="flex flex-col gap-4 border-b border-gray-100 pb-5 sm:gap-5 sm:pb-6">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#0f766e] text-white sm:h-12 sm:w-12 sm:rounded-[17px]">
+                    <FileText size={19} />
                   </div>
-                  <span className="mt-5 rounded-full bg-red-50 px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.12em] text-red-500">
-                    {isDriverCanceled
-                      ? "Cancelada pelo motorista"
-                      : "Viagem cancelada"}
+
+                  <div className="min-w-0">
+                    <h2 className="truncate text-lg font-black tracking-tight text-[#115e59] sm:text-xl">
+                      Meus protocolos
+                    </h2>
+
+                    <p className="text-[11px] text-gray-400 sm:text-xs">
+                      Acompanhe todas as suas solicitações.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex shrink-0 items-center gap-2 self-start rounded-full border border-[#d5ece8] bg-[#f2fbf9] px-3 py-1.5 sm:self-auto sm:px-3.5 sm:py-2">
+                  <span className="h-1.5 w-1.5 rounded-full bg-[#0f766e]" />
+
+                  <span className="text-[9px] font-black text-[#115e59] sm:text-[10px]">
+                    {protocolos.length} registros
                   </span>
-                  <h2 className="mt-3 text-xl font-bold text-[#073b70] sm:text-2xl">
-                    Viagem cancelada
-                  </h2>
-                  <p className="mt-2 max-w-md text-sm leading-6 text-slate-500">
-                    {isDriverCanceled
-                      ? "O motorista cancelou esta viagem. Os dados da corrida continuam disponíveis para consulta."
-                      : "Esta viagem foi cancelada. Os dados registrados continuam disponíveis para consulta."}
-                  </p>
-                </div>
-              </section>
-            )}
-
-            {/* Motorista */}
-            <section className="rounded-[22px] border border-slate-200 bg-white p-5 shadow-sm sm:rounded-[26px] sm:p-6 md:p-7 lg:rounded-[30px]">
-              <div className="mb-5 flex items-center gap-3 sm:mb-6">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#eef3f7] text-[#073b70] sm:h-11 sm:w-11">
-                  <CarFront size={21} />
-                </div>
-                <div className="min-w-0">
-                  <h2 className="text-lg font-bold tracking-tight text-[#073b70] sm:text-xl lg:text-2xl">
-                    Seu motorista
-                  </h2>
-                  <p className="text-xs text-slate-500 sm:text-sm">
-                    Informações do condutor
-                  </p>
                 </div>
               </div>
 
-              {!possuiMotorista ? (
-                <div className="rounded-2xl border border-amber-100 bg-amber-50 p-5">
-                  <div className="flex gap-3">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-600">
-                      <Clock3 size={20} />
-                    </div>
-                    <div>
-                      <h3 className="text-sm font-bold text-amber-700">
-                        Motorista não informado
-                      </h3>
-                      <p className="mt-1 text-xs leading-5 text-amber-600">
-                        {isTripCanceled
-                          ? "Não existem dados de motorista registrados para esta viagem."
-                          : "Os dados do motorista aparecerão aqui quando um motorista aceitar a corrida."}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="flex flex-col gap-4">
-                  <div className="flex items-center gap-4 rounded-2xl border border-slate-100 bg-[#f8fafb] p-4 sm:p-5">
-                    <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-[#d9f8f3] to-[#eefbf9]">
-                      <svg
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        className="h-10 w-10 text-[#008f80]"
-                      >
-                        <path
-                          d="M20 21a8 8 0 0 0-16 0"
-                          stroke="currentColor"
-                          strokeWidth="1.8"
-                          strokeLinecap="round"
-                        />
-                        <circle
-                          cx="12"
-                          cy="7"
-                          r="4"
-                          stroke="currentColor"
-                          strokeWidth="1.8"
-                        />
-                      </svg>
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-                        Motorista
-                      </p>
-                      <h3 className="mt-1 break-words text-lg font-bold text-[#073b70] sm:text-xl">
-                        {nomeMotorista}
-                      </h3>
-                      <span className="mt-2 inline-flex rounded-lg bg-[#e8f7f3] px-3 py-1 text-xs font-semibold text-[#008f80]">
-                        Motorista
-                      </span>
-                    </div>
-                  </div>
+              <div className="grid grid-cols-2 gap-2.5 sm:gap-3 md:grid-cols-4">
+                <div className="rounded-xl border border-gray-100 bg-[#f8fbfa] p-3 sm:rounded-2xl sm:p-4">
+                  <p className="text-[8px] font-black uppercase tracking-[0.15em] text-gray-400">
+                    Total
+                  </p>
 
-                  <div className="rounded-2xl border border-slate-100 bg-[#f8fafb] p-4 sm:p-5">
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-                      Telefone
-                    </p>
-                    <div className="mt-3 flex items-center gap-3">
-                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#e8f7f3] text-[#149c8b]">
-                        <Phone size={17} />
-                      </div>
-                      <p className="break-words text-sm font-bold text-[#073b70] sm:text-base">
-                        {mascararTelefone(trip.driver?.phone)}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div
-                    className={`rounded-2xl p-4 text-white sm:p-5 ${
-                      isTripCanceled
-                        ? "bg-gradient-to-br from-red-700 to-red-900"
-                        : "bg-gradient-to-br from-[#073b70] to-[#149c8b]"
-                    }`}
-                  >
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-white/70 sm:text-xs">
-                      Status do motorista
-                    </p>
-                    <h3 className="mt-2 text-lg font-bold sm:text-xl">
-                      {isTripCanceled
-                        ? "Viagem cancelada"
-                        : "Vinculado à corrida"}
-                    </h3>
-                    <p className="mt-2 text-sm leading-relaxed text-white/75">
-                      {isTripCanceled
-                        ? "O motorista estava vinculado a esta corrida, mas a viagem foi cancelada."
-                        : "Motorista vinculado à corrida e responsável pelo atendimento desta viagem."}
-                    </p>
-                  </div>
+                  <p className="mt-1 text-lg font-black text-[#115e59] sm:text-xl">
+                    {statusCounts.total}
+                  </p>
                 </div>
-              )}
-            </section>
 
-            {/* Veículo */}
-            <section className="rounded-[22px] border border-slate-200 bg-white p-5 shadow-sm sm:rounded-[26px] sm:p-6 md:p-7 lg:rounded-[30px]">
-              <div className="mb-5 flex items-center gap-3 sm:mb-6">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#e8f7f3] text-[#149c8b] sm:h-11 sm:w-11">
-                  <CarFront size={21} />
+                <div className="rounded-xl border border-[#cdeee5] bg-[#f0fbf8] p-3 sm:rounded-2xl sm:p-4">
+                  <p className="text-[8px] font-black uppercase tracking-[0.15em] text-[#0f766e]">
+                    Abertos
+                  </p>
+
+                  <p className="mt-1 text-lg font-black text-[#0f766e] sm:text-xl">
+                    {statusCounts.aberto}
+                  </p>
                 </div>
-                <div className="min-w-0">
-                  <h2 className="text-lg font-bold tracking-tight text-[#073b70] sm:text-xl lg:text-2xl">
-                    Veículo
-                  </h2>
-                  <p className="mt-1 text-xs text-slate-500 sm:text-sm">
-                    Informações do veículo utilizado
+
+                <div className="rounded-xl border border-[#f4e1b1] bg-[#fffaf0] p-3 sm:rounded-2xl sm:p-4">
+                  <p className="text-[8px] font-black uppercase tracking-[0.15em] text-[#a66b00]">
+                    Andamento
+                  </p>
+
+                  <p className="mt-1 text-lg font-black text-[#956300] sm:text-xl">
+                    {statusCounts.andamento}
+                  </p>
+                </div>
+
+                <div className="rounded-xl border border-gray-100 bg-[#f8fbfa] p-3 sm:rounded-2xl sm:p-4">
+                  <p className="text-[8px] font-black uppercase tracking-[0.15em] text-gray-400">
+                    Finalizados
+                  </p>
+
+                  <p className="mt-1 text-lg font-black text-gray-600 sm:text-xl">
+                    {statusCounts.finalizado}
                   </p>
                 </div>
               </div>
+            </div>
 
-              {imagemVeiculo && (
-                <div className="mb-4 overflow-hidden rounded-2xl border border-slate-100">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={`https://auth.maylon.com.br/storage/app/public/vehicle/model/${imagemVeiculo}`}
-                    alt={nomeVeiculo}
-                    className="h-40 w-full object-contain p-0"
-                  />
-                </div>
-              )}
+            <div className="mt-4 grid gap-3 sm:mt-5 md:grid-cols-[1fr_190px] lg:grid-cols-[1fr_210px]">
+              <div className="relative">
+                <Search
+                  size={16}
+                  className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
+                />
 
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                {[
-                  { rotulo: "Modelo", valor: nomeVeiculo },
-                  { rotulo: "Placa", valor: placaVeiculo || NAO_INFORMADO },
-                  { rotulo: "Categoria", valor: categoria },
-                ].map((item) => (
-                  <div key={item.rotulo} className="rounded-2xl bg-[#f8fafb] p-4">
-                    <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">
-                      {item.rotulo}
-                    </p>
-                    <p className="mt-2 break-words text-xs font-bold text-[#073b70]">
-                      {item.valor}
-                    </p>
-                  </div>
-                ))}
+                <input
+                  value={buscaProtocolo}
+                  onChange={(e) =>
+                    setBuscaProtocolo(e.target.value)
+                  }
+                  placeholder="Pesquisar protocolo ou assunto..."
+                  className="h-11 w-full rounded-xl border border-gray-200 bg-[#f8fbfa] pl-11 pr-4 text-xs outline-none transition focus:border-[#0f766e] focus:bg-white focus:ring-4 focus:ring-[#0f766e]/10 sm:h-12 sm:rounded-2xl"
+                />
               </div>
-            </section>
 
-            <Link
-              href="/passageiro/viagens"
-              className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 py-3.5 text-sm font-bold text-[#073b70] shadow-sm transition hover:border-[#149c8b] hover:text-[#149c8b]"
-            >
-              <ArrowLeft size={17} />
-              Voltar para todas as viagens
-            </Link>
-          </div>
-        </div>
-      </div>
-    </main>
-  );
-=======
-import { ArrowLeft, MapPin } from "lucide-react";
-import Link from "next/link";
-import { useParams } from "next/navigation";
-import { useEffect, useState } from "react";
-
-type TripDetails = {
-    trip_request_id: string;
-    pickup_address: string;
-    destination_address: string;
-    valor: number;
-    current_status: string;
-};
-
-type ApiTrip = {
-    id?: string | number | null;
-    trip_request_id?: string | number | null;
-    request_id?: string | number | null;
-
-    origin?: string | null;
-    destination?: string | null;
-
-    pickup_address?: string | null;
-    destination_address?: string | null;
-
-    pickup_location?: string | null;
-    dropoff_address?: string | null;
-    dropoff_location?: string | null;
-
-    fare?: string | number | null;
-    amount?: string | number | null;
-    valor?: string | number | null;
-    price?: string | number | null;
-
-    status?: string | null;
-    current_status?: string | null;
-    trip_status?: string | null;
-};
-
-type ApiResponse = {
-    success?: boolean;
-    trip?: ApiTrip | null;
-    message?: string;
-    error?: string;
-};
-
-export default function DetalheViagem() {
-    const params = useParams();
-
-    const id = String(params?.id ?? "").trim();
-
-    const [trip, setTrip] = useState<TripDetails | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [erro, setErro] = useState<string | null>(null);
-
-    useEffect(() => {
-        let mounted = true;
-
-        async function buscarViagem() {
-            if (!id) {
-                if (mounted) {
-                    setErro("ID da viagem não informado.");
-                    setLoading(false);
+              <select
+                value={filtroStatus}
+                onChange={(e) =>
+                  setFiltroStatus(e.target.value)
                 }
+                className="h-11 w-full rounded-xl border border-gray-200 bg-[#f8fbfa] px-4 text-xs text-gray-700 outline-none transition focus:border-[#0f766e] focus:bg-white focus:ring-4 focus:ring-[#0f766e]/10 sm:h-12 sm:rounded-2xl"
+              >
+                <option value="Todos">
+                  Todos os status
+                </option>
 
-                return;
-            }
+                <option value="Aberto">
+                  Aberto
+                </option>
 
-            try {
-                if (mounted) {
-                    setLoading(true);
-                    setErro(null);
-                    setTrip(null);
-                }
+                <option value="Em andamento">
+                  Em andamento
+                </option>
 
-                const url = `/api/trips/drives/${encodeURIComponent(id)}`;
+                <option value="Finalizado">
+                  Finalizado
+                </option>
+              </select>
+            </div>
 
-                console.log("=================================");
-                console.log("BUSCANDO VIAGEM");
-                console.log("ID:", id);
-                console.log("URL:", url);
-                console.log("=================================");
+            <div className="mt-4 min-w-0 overflow-hidden rounded-2xl border border-gray-100 sm:mt-5">
+              <div className="w-full min-w-0 overflow-x-auto">
+                <table className="min-w-[640px] w-full sm:min-w-[720px] lg:min-w-full">
+                  <thead className="bg-[#f8fbfa]">
+                    <tr className="border-b border-gray-100">
+                      <th className="px-4 py-3.5 text-left text-[8px] font-black uppercase tracking-[0.16em] text-gray-400 sm:px-5 sm:py-4">
+                        Protocolo
+                      </th>
 
-                const response = await fetch(url, {
-                    method: "GET",
-                    credentials: "include",
-                    cache: "no-store",
-                    headers: {
-                        Accept: "application/json",
-                    },
-                });
+                      <th className="px-4 py-3.5 text-left text-[8px] font-black uppercase tracking-[0.16em] text-gray-400 sm:px-5 sm:py-4">
+                        Assunto
+                      </th>
 
-                const contentType =
-                    response.headers.get("content-type") || "";
+                      <th className="px-4 py-3.5 text-left text-[8px] font-black uppercase tracking-[0.16em] text-gray-400 sm:px-5 sm:py-4">
+                        Data
+                      </th>
 
-                const text = await response.text();
+                      <th className="px-4 py-3.5 text-left text-[8px] font-black uppercase tracking-[0.16em] text-gray-400 sm:px-5 sm:py-4">
+                        Status
+                      </th>
 
-                console.log("RESPOSTA API:", {
-                    status: response.status,
-                    contentType,
-                    body: text.substring(0, 1000),
-                });
+                      <th className="px-4 py-3.5 text-left text-[8px] font-black uppercase tracking-[0.16em] text-gray-400 sm:px-5 sm:py-4">
+                        Ação
+                      </th>
+                    </tr>
+                  </thead>
 
-                let data: ApiResponse = {};
-
-                if (text) {
-                    try {
-                        data = JSON.parse(text);
-                    } catch {
-                        console.error(
-                            "Resposta não é JSON:",
-                            text
-                        );
-
-                        throw new Error(
-                            `A API retornou uma resposta inválida (${response.status}).`
-                        );
-                    }
-                }
-
-                if (!response.ok) {
-                    throw new Error(
-                        data.message ||
-                            data.error ||
-                            `Erro ao buscar a viagem (${response.status}).`
-                    );
-                }
-
-                if (data.success === false) {
-                    throw new Error(
-                        data.message ||
-                            data.error ||
-                            "Não foi possível encontrar a viagem."
-                    );
-                }
-
-                if (!data.trip) {
-                    throw new Error(
-                        "Viagem não encontrada."
-                    );
-                }
-
-                const item = data.trip;
-
-                const tripId = String(
-                    item.trip_request_id ??
-                        item.request_id ??
-                        item.id ??
-                        id
-                ).trim();
-
-                const pickup = String(
-                    item.pickup_address ??
-                        item.origin ??
-                        item.pickup_location ??
-                        ""
-                ).trim();
-
-                const destination = String(
-                    item.destination_address ??
-                        item.destination ??
-                        item.dropoff_address ??
-                        item.dropoff_location ??
-                        ""
-                ).trim();
-
-                const valorBruto =
-                    item.valor ??
-                    item.fare ??
-                    item.amount ??
-                    item.price ??
-                    0;
-
-                const valor = Number(
-                    String(valorBruto)
-                        .replace(",", ".")
-                        .replace(/[^\d.-]/g, "")
-                );
-
-                const status = String(
-                    item.current_status ??
-                        item.status ??
-                        item.trip_status ??
-                        "pending"
-                ).trim();
-
-                if (!mounted) return;
-
-                setTrip({
-                    trip_request_id: tripId || id,
-                    pickup_address:
-                        pickup || "Origem não informada",
-                    destination_address:
-                        destination ||
-                        "Destino não informado",
-                    valor: Number.isFinite(valor)
-                        ? valor
-                        : 0,
-                    current_status:
-                        status || "pending",
-                });
-            } catch (error) {
-                console.error(
-                    "================================="
-                );
-
-                console.error(
-                    "ERRO AO BUSCAR VIAGEM"
-                );
-
-                console.error(error);
-
-                console.error(
-                    "================================="
-                );
-
-                if (!mounted) return;
-
-                setTrip(null);
-
-                setErro(
-                    error instanceof Error
-                        ? error.message
-                        : "Erro ao buscar a viagem."
-                );
-            } finally {
-                if (mounted) {
-                    setLoading(false);
-                }
-            }
-        }
-
-        buscarViagem();
-
-        return () => {
-            mounted = false;
-        };
-    }, [id]);
-
-    const formatCurrency = (value: number) => {
-        return new Intl.NumberFormat("pt-BR", {
-            style: "currency",
-            currency: "BRL",
-        }).format(value);
-    };
-
-    const normalizarStatus = (status: string) => {
-        return String(status || "")
-            .trim()
-            .toLowerCase()
-            .replace(/[\s-]+/g, "_");
-    };
-
-    const traduzirStatus = (status: string) => {
-        switch (normalizarStatus(status)) {
-            case "completed":
-            case "complete":
-            case "finished":
-                return "Finalizada";
-
-            case "cancelled":
-            case "canceled":
-                return "Cancelada";
-
-            case "in_progress":
-            case "ongoing":
-                return "Em andamento";
-
-            case "accepted":
-                return "Aceita";
-
-            case "picked_up":
-                return "Passageiro embarcou";
-
-            case "out_for_pickup":
-                return "A caminho";
-
-            case "pending":
-                return "Pendente";
-
-            case "returned":
-                return "Retornada";
-
-            case "returning":
-                return "Retornando";
-
-            case "failed":
-                return "Falhou";
-
-            default:
-                return status || "Desconhecido";
-        }
-    };
-
-    const statusClass = (status: string) => {
-        switch (normalizarStatus(status)) {
-            case "completed":
-            case "complete":
-            case "finished":
-                return "bg-green-100 text-green-700";
-
-            case "cancelled":
-            case "canceled":
-            case "failed":
-                return "bg-red-100 text-red-700";
-
-            case "in_progress":
-            case "ongoing":
-            case "accepted":
-            case "picked_up":
-            case "out_for_pickup":
-                return "bg-yellow-100 text-yellow-700";
-
-            case "returned":
-            case "returning":
-                return "bg-blue-100 text-blue-700";
-
-            case "pending":
-            default:
-                return "bg-gray-100 text-gray-700";
-        }
-    };
-
-    return (
-        <main className="mx-auto w-full max-w-3xl px-3 py-4 sm:px-4 sm:py-6 md:px-6">
-            <Link
-                href="/motorista/viagens"
-                className="mb-5 inline-flex items-center gap-2 text-sm font-medium text-gray-500 transition hover:text-gray-800"
-            >
-                <ArrowLeft size={17} />
-                Voltar para o relatório
-            </Link>
-
-            <section className="overflow-hidden rounded-2xl bg-white shadow-sm sm:rounded-3xl">
-                {loading ? (
-                    <div className="flex min-h-[300px] items-center justify-center">
-                        <div className="flex items-center gap-3 text-sm text-gray-500">
-                            <div className="h-5 w-5 animate-spin rounded-full border-2 border-gray-200 border-t-teal-500" />
-                            Carregando viagem...
-                        </div>
-                    </div>
-                ) : erro || !trip ? (
-                    <div className="flex min-h-[300px] flex-col items-center justify-center px-5 py-12 text-center">
-                        <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-gray-100">
-                            <MapPin
-                                size={22}
-                                className="text-gray-400"
-                            />
-                        </div>
-
-                        <h2 className="text-base font-semibold text-gray-800 sm:text-lg">
-                            Não foi possível carregar a viagem
-                        </h2>
-
-                        <p className="mt-2 max-w-md text-sm text-gray-500">
-                            {erro ||
-                                "Viagem não encontrada."}
-                        </p>
-
-                        {id && (
-                            <p className="mt-3 max-w-full break-all text-xs text-gray-400">
-                                ID: {id}
-                            </p>
-                        )}
-
-                        <Link
-                            href="/motorista/viagens"
-                            className="mt-6 inline-flex rounded-full bg-gray-900 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-gray-800"
+                  <tbody className="divide-y divide-gray-100">
+                    {protocolosFiltrados.length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan={5}
+                          className="px-5 py-12 text-center sm:py-16"
                         >
-                            Voltar para viagens
-                        </Link>
-                    </div>
-                ) : (
-                    <div className="p-5 sm:p-7 md:p-8">
-                        <div className="mb-8 text-center">
-                            <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-gray-400">
-                                ID da viagem
-                            </p>
+                          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-[#edf7f5] text-[#0f766e] sm:h-14 sm:w-14">
+                            <FileText size={21} />
+                          </div>
 
-                            <h1 className="mt-1 break-all text-lg font-bold text-gray-800 sm:text-xl">
-                                #{trip.trip_request_id}
-                            </h1>
+                          <p className="mt-4 text-xs font-black text-gray-600">
+                            Nenhum protocolo encontrado
+                          </p>
 
-                            <span
-                                className={`mt-3 inline-flex rounded-full px-3.5 py-1.5 text-xs font-semibold ${statusClass(
-                                    trip.current_status
-                                )}`}
-                            >
-                                {traduzirStatus(
-                                    trip.current_status
-                                )}
+                          <p className="mt-1 text-[10px] text-gray-400">
+                            Ajuste os filtros ou abra uma nova
+                            solicitação.
+                          </p>
+                        </td>
+                      </tr>
+                    ) : (
+                      protocolosFiltrados.map((item, index) => (
+                        <tr
+                          key={`${item.codigo}-${index}`}
+                          className="group transition hover:bg-[#f8fcfb]"
+                        >
+                          <td className="whitespace-nowrap px-4 py-3.5 sm:px-5 sm:py-4">
+                            <span className="rounded-lg border border-[#cfe9e5] bg-[#f1f9f7] px-2.5 py-1.5 text-[10px] font-black text-[#0f766e]">
+                              {item.codigo || "-"}
                             </span>
-                        </div>
+                          </td>
 
-                        <div className="space-y-1">
-                            <div className="flex flex-col items-center text-center">
-                                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-50">
-                                    <MapPin
-                                        size={17}
-                                        className="text-green-500"
-                                    />
-                                </div>
-
-                                <p className="mt-2 text-[11px] font-bold uppercase tracking-[0.14em] text-gray-400">
-                                    Origem
-                                </p>
-
-                                <p className="mt-1 max-w-xl break-words text-sm leading-6 text-gray-700 sm:text-base">
-                                    {trip.pickup_address}
-                                </p>
-                            </div>
-
-                            <div className="mx-auto h-8 w-px border-l border-dashed border-gray-300" />
-
-                            <div className="flex flex-col items-center text-center">
-                                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-50">
-                                    <MapPin
-                                        size={17}
-                                        className="text-red-500"
-                                    />
-                                </div>
-
-                                <p className="mt-2 text-[11px] font-bold uppercase tracking-[0.14em] text-gray-400">
-                                    Destino
-                                </p>
-
-                                <p className="mt-1 max-w-xl break-words text-sm leading-6 text-gray-700 sm:text-base">
-                                    {trip.destination_address}
-                                </p>
-                            </div>
-                        </div>
-
-                        <div className="mx-auto mt-8 max-w-sm rounded-2xl border border-teal-100 bg-teal-50 px-5 py-4 text-center">
-                            <p className="text-xs font-medium text-teal-600">
-                                Valor da corrida
+                          <td className="max-w-[220px] px-4 py-3.5 sm:max-w-[300px] sm:px-5 sm:py-4">
+                            <p className="truncate text-[11px] font-bold text-gray-700">
+                              {item.assunto || "-"}
                             </p>
+                          </td>
 
-                            <p className="mt-1 text-xl font-bold text-teal-700 sm:text-2xl">
-                                {trip.valor > 0
-                                    ? formatCurrency(
-                                          trip.valor
-                                      )
-                                    : "Aguardando"}
-                            </p>
-                        </div>
-                    </div>
-                )}
-            </section>
-        </main>
-    );
->>>>>>> bf7afa0b6409237a274208cf0288ae1bf31835e9
+                          <td className="whitespace-nowrap px-4 py-3.5 sm:px-5 sm:py-4">
+                            <div className="flex items-center gap-2 text-[10px] text-gray-400">
+                              <Clock3 size={13} />
+
+                              {item.criado_em
+                                ? new Date(
+                                    item.criado_em
+                                  ).toLocaleString("pt-BR")
+                                : "-"}
+                            </div>
+                          </td>
+
+                          <td className="whitespace-nowrap px-4 py-3.5 sm:px-5 sm:py-4">
+                            <span
+                              className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[9px] font-black ${statusClasses(
+                                item.status
+                              )}`}
+                            >
+                              <span className="h-1.5 w-1.5 rounded-full bg-current" />
+
+                              {item.status || "Pendente"}
+                            </span>
+                          </td>
+
+                          <td className="px-4 py-3.5 sm:px-5 sm:py-4">
+                            <Link
+                              href={`/passageiro/protocolo/${encodeURIComponent(
+                                item.codigo || ""
+                              )}`}
+                              title="Visualizar protocolo"
+                              className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 bg-white text-[#0f766e] shadow-sm transition hover:border-[#0f766e] hover:bg-[#0f766e] hover:text-white"
+                            >
+                              <Eye size={15} />
+                            </Link>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div className="mt-4 flex flex-col gap-2 text-[10px] text-gray-400 sm:mt-5 sm:flex-row sm:items-center sm:justify-between">
+              <span>
+                Exibindo{" "}
+                <strong className="text-gray-600">
+                  {protocolosFiltrados.length}
+                </strong>{" "}
+                de{" "}
+                <strong className="text-gray-600">
+                  {protocolos.length}
+                </strong>{" "}
+                protocolos
+              </span>
+            </div>
+          </section>
+        </section>
+      </main>
+    </div>
+  );
 }
