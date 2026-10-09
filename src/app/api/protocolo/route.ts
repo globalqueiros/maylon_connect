@@ -1,12 +1,7 @@
-
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import jwt from "jsonwebtoken";
-import type {
-  RowDataPacket,
-  ResultSetHeader,
-} from "mysql2";
-
+import type { RowDataPacket, ResultSetHeader } from "mysql2";
 import { db } from "../../lib/db";
 import { uploadToS3 } from "../../lib/s3";
 
@@ -17,8 +12,13 @@ type ProtocoloRow = RowDataPacket & {
   id: number;
   usuario_id: string;
   codigo: string;
+  nome: string;
+  email: string;
+  categoria: string;
   assunto: string;
+  mensagem: string;
   criado_em: string | Date;
+  atualizado_em: string | Date;
   status: string;
   arquivo: string | null;
 };
@@ -44,14 +44,7 @@ const ALLOWED_FILE_TYPES = new Set([
   "application/pdf",
 ]);
 
-/* =====================================================
-   HELPERS
-===================================================== */
-
-function erroMensagem(
-  error: unknown,
-  fallback: string
-): string {
+function erroMensagem(error: unknown, fallback: string): string {
   if (error instanceof Error && error.message) {
     return error.message;
   }
@@ -111,14 +104,11 @@ function isValidUserId(value: unknown): boolean {
 
   if (!normalized) return false;
 
-  // IDs numéricos positivos
   if (/^[0-9]+$/.test(normalized)) {
     const number = Number(normalized);
-
     return Number.isSafeInteger(number) && number > 0;
   }
 
-  // UUID
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
     normalized
   );
@@ -151,27 +141,17 @@ function responderErro(
   );
 }
 
-/* =====================================================
-   AUTENTICAÇÃO
-   Cookie access_token (JWT)
-===================================================== */
-
 async function obterUsuarioIdAutenticado(): Promise<string | null> {
   try {
     const cookieStore = await cookies();
     const token = cookieStore.get("access_token")?.value;
 
-    if (!token) {
-      return null;
-    }
+    if (!token) return null;
 
     const jwtSecret = cleanSecret(process.env.JWT_SECRET);
 
     if (!jwtSecret) {
-      console.error(
-        "/api/protocolo: JWT_SECRET não configurada"
-      );
-
+      console.error("/api/protocolo: JWT_SECRET não configurada");
       return null;
     }
 
@@ -180,10 +160,7 @@ async function obterUsuarioIdAutenticado(): Promise<string | null> {
     try {
       const payload = jwt.verify(token, jwtSecret);
 
-      if (
-        typeof payload !== "object" ||
-        payload === null
-      ) {
+      if (typeof payload !== "object" || payload === null) {
         return null;
       }
 
@@ -193,7 +170,6 @@ async function obterUsuarioIdAutenticado(): Promise<string | null> {
         "/api/protocolo: token inválido",
         erroMensagem(error, "JWT inválido")
       );
-
       return null;
     }
 
@@ -211,7 +187,6 @@ async function obterUsuarioIdAutenticado(): Promise<string | null> {
       }
     }
 
-    // Alternativa: localizar o usuário pelo e-mail do JWT.
     const email =
       typeof decoded.email === "string"
         ? decoded.email.trim().toLowerCase()
@@ -241,21 +216,13 @@ async function obterUsuarioIdAutenticado(): Promise<string | null> {
       "/api/protocolo: erro de autenticação",
       erroMensagem(error, "Erro ao identificar usuário")
     );
-
     return null;
   }
 }
 
 function naoAutenticado() {
-  return responderErro(
-    "Usuário não autenticado.",
-    401
-  );
+  return responderErro("Usuário não autenticado.", 401);
 }
-
-/* =====================================================
-   GET - LISTAR PROTOCOLOS DO USUÁRIO AUTENTICADO
-===================================================== */
 
 export async function GET() {
   try {
@@ -271,8 +238,13 @@ export async function GET() {
           id,
           usuario_id,
           codigo,
+          nome,
+          email,
+          categoria,
           assunto,
+          mensagem,
           criado_em,
+          atualizado_em,
           status,
           arquivo
         FROM smartmobility_db.protocolos
@@ -286,6 +258,7 @@ export async function GET() {
       {
         success: true,
         data: rows,
+        protocolos: rows,
       },
       {
         headers: {
@@ -307,10 +280,6 @@ export async function GET() {
   }
 }
 
-/* =====================================================
-   POST - CRIAR PROTOCOLO
-===================================================== */
-
 export async function POST(request: Request) {
   try {
     const usuario_id = await obterUsuarioIdAutenticado();
@@ -321,41 +290,15 @@ export async function POST(request: Request) {
 
     const formData = await request.formData();
 
-    const nome = String(
-      formData.get("nome") ?? ""
-    ).trim();
-
-    const email = String(
-      formData.get("email") ?? ""
-    ).trim();
-
-    const categoria = String(
-      formData.get("categoria") ?? ""
-    ).trim();
-
-    const assunto = String(
-      formData.get("assunto") ?? ""
-    ).trim();
-
-    const mensagem = String(
-      formData.get("mensagem") ?? ""
-    ).trim();
-
-    const codigo = String(
-      formData.get("codigo") ?? ""
-    ).trim();
-
+    const nome = String(formData.get("nome") ?? "").trim();
+    const email = String(formData.get("email") ?? "").trim();
+    const categoria = String(formData.get("categoria") ?? "").trim();
+    const assunto = String(formData.get("assunto") ?? "").trim();
+    const mensagem = String(formData.get("mensagem") ?? "").trim();
+    const codigo = String(formData.get("codigo") ?? "").trim();
     const arquivo = formData.get("arquivo");
 
-    // Validação dos campos obrigatórios.
-    if (
-      !nome ||
-      !email ||
-      !categoria ||
-      !assunto ||
-      !mensagem ||
-      !codigo
-    ) {
+    if (!nome || !email || !categoria || !assunto || !mensagem || !codigo) {
       return responderErro(
         "Preencha nome, e-mail, categoria, assunto, mensagem e código.",
         400
@@ -375,32 +318,19 @@ export async function POST(request: Request) {
       );
     }
 
-    if (
-      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
-    ) {
-      return responderErro(
-        "Informe um endereço de e-mail válido.",
-        400
-      );
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return responderErro("Informe um endereço de e-mail válido.", 400);
     }
 
     if (mensagem.length > 20000) {
-      return responderErro(
-        "A mensagem excede o limite permitido.",
-        400
-      );
+      return responderErro("A mensagem excede o limite permitido.", 400);
     }
-
-    /* UPLOAD S3 */
 
     let arquivoUrl: string | null = null;
 
     if (arquivo instanceof File && arquivo.size > 0) {
       if (arquivo.size > MAX_FILE_SIZE) {
-        return responderErro(
-          "O arquivo não pode exceder 10 MB.",
-          400
-        );
+        return responderErro("O arquivo não pode exceder 10 MB.", 400);
       }
 
       if (!ALLOWED_FILE_TYPES.has(arquivo.type)) {
@@ -411,18 +341,9 @@ export async function POST(request: Request) {
       }
 
       try {
-        const buffer = Buffer.from(
-          await arquivo.arrayBuffer()
-        );
-
-        const nomeSeguro = normalizarNomeArquivo(
-          arquivo.name
-        );
-
-        const codigoSeguro = normalizarNomeArquivo(
-          codigo
-        );
-
+        const buffer = Buffer.from(await arquivo.arrayBuffer());
+        const nomeSeguro = normalizarNomeArquivo(arquivo.name);
+        const codigoSeguro = normalizarNomeArquivo(codigo);
         const key =
           `protocolos/${usuario_id}/${codigoSeguro}/` +
           `${Date.now()}-${nomeSeguro}`;
@@ -434,9 +355,7 @@ export async function POST(request: Request) {
         })) as UploadResult;
 
         if (!upload?.url) {
-          throw new Error(
-            "O S3 não retornou a URL do arquivo."
-          );
+          throw new Error("O S3 não retornou a URL do arquivo.");
         }
 
         arquivoUrl = upload.url;
@@ -452,17 +371,9 @@ export async function POST(request: Request) {
           erroCodigo(error)
         );
       }
-    } else if (
-      arquivo !== null &&
-      !(arquivo instanceof File)
-    ) {
-      return responderErro(
-        "O arquivo enviado é inválido.",
-        400
-      );
+    } else if (arquivo !== null && !(arquivo instanceof File)) {
+      return responderErro("O arquivo enviado é inválido.", 400);
     }
-
-    /* INSERT NO MYSQL */
 
     const [result] = await db.execute<ResultSetHeader>(
       `
@@ -498,6 +409,11 @@ export async function POST(request: Request) {
         message: "Protocolo criado com sucesso.",
         id: result.insertId,
         codigo,
+        nome,
+        email,
+        categoria,
+        assunto,
+        mensagem,
         arquivo: arquivoUrl,
         status: "Aberto",
       },

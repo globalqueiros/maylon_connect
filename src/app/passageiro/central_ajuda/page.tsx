@@ -51,33 +51,12 @@ type ApiResponse = {
   [key: string]: unknown;
 };
 
-const faq = [
-  {
-    pergunta: "Como cancelar uma passagem?",
-    resposta:
-      "Abra um protocolo selecionando a categoria Cancelamento e informe os dados da sua viagem.",
-  },
-  {
-    pergunta: "Como solicitar reembolso?",
-    resposta:
-      "Selecione a categoria Reembolso e descreva o motivo da solicitação. Nossa equipe analisará o pedido.",
-  },
-  {
-    pergunta: "Como alterar minha viagem?",
-    resposta:
-      "Utilize a categoria Alteração de viagem e informe a data e os dados que deseja modificar.",
-  },
-  {
-    pergunta: "Como acompanhar meu protocolo?",
-    resposta:
-      "Acompanhe todas as solicitações na área Meus Protocolos e clique no ícone de visualização.",
-  },
-  {
-    pergunta: "Problemas com pagamento",
-    resposta:
-      "Selecione Pagamento e envie uma descrição detalhada. Se possível, anexe um comprovante.",
-  },
-];
+type FAQItem = {
+  id: number | string;
+  pergunta: string;
+  resposta: string;
+  publico: string; // 'passageiro' | 'motorista' | 'ambos'
+};
 
 /*
  * Lê a resposta da API com segurança.
@@ -129,11 +108,7 @@ function gerarProtocoloPersistente() {
   const salvoTempo = localStorage.getItem("protocolo_time");
   const agora = Date.now();
 
-  if (
-    salvo &&
-    salvoTempo &&
-    agora - Number(salvoTempo) < tempoLimite
-  ) {
+  if (salvo && salvoTempo && agora - Number(salvoTempo) < tempoLimite) {
     return salvo;
   }
 
@@ -173,7 +148,11 @@ export default function DashboardLayout() {
   const [arquivo, setArquivo] = useState<File | null>(null);
   const [protocolos, setProtocolos] = useState<Protocolo[]>([]);
   const [alert, setAlert] = useState<Alerta>(null);
-  const [faqAberto, setFaqAberto] = useState<number | null>(null);
+
+  const [faq, setFaq] = useState<FAQItem[]>([]);
+  const [faqAberto, setFaqAberto] = useState<number | string | null>(null);
+  const [faqLoading, setFaqLoading] = useState(true);
+  const [faqErro, setFaqErro] = useState("");
 
   useEffect(() => {
     setCodigo(gerarProtocoloPersistente());
@@ -199,12 +178,7 @@ export default function DashboardLayout() {
         if (usuarioRes.ok) {
           setForm((prev) => ({
             ...prev,
-            nome:
-              String(
-                usuarioData.full_name ||
-                  usuarioData.nome ||
-                  ""
-              ),
+            nome: String(usuarioData.full_name || usuarioData.nome || ""),
             email: String(usuarioData.email || ""),
           }));
         }
@@ -214,8 +188,7 @@ export default function DashboardLayout() {
         } else {
           console.error(
             "Erro ao carregar protocolos:",
-            protocolosData.error ||
-              `Status ${protocolosRes.status}`
+            protocolosData.error || `Status ${protocolosRes.status}`
           );
 
           setProtocolos([]);
@@ -225,8 +198,7 @@ export default function DashboardLayout() {
 
         setAlert({
           type: "error",
-          message:
-            "Não foi possível carregar seus protocolos.",
+          message: "Não foi possível carregar seus protocolos.",
         });
       } finally {
         setLoading(false);
@@ -248,26 +220,100 @@ export default function DashboardLayout() {
     return () => clearTimeout(timer);
   }, [alert]);
 
+  // FAQ vem da tabela "faq" (coluna "publico": passageiro ou ambos)
+  useEffect(() => {
+    let ativo = true;
+
+    async function carregarFAQ() {
+      try {
+        setFaqLoading(true);
+        setFaqErro("");
+
+        const response = await fetch("/api/faq?publico=passageiro", {
+          method: "GET",
+          credentials: "include",
+          cache: "no-store",
+        });
+        const data = await lerResposta(response);
+
+        if (!response.ok) {
+          throw new Error(
+            typeof data.error === "string"
+              ? data.error
+              : "Não foi possível carregar as perguntas frequentes."
+          );
+        }
+
+        const registros: unknown[] = Array.isArray(data)
+          ? data
+          : Array.isArray(data.data)
+          ? data.data
+          : Array.isArray(data.faq)
+          ? (data.faq as unknown[])
+          : [];
+
+        const perguntas: FAQItem[] = registros
+          .filter(
+            (item): item is Record<string, unknown> =>
+              typeof item === "object" && item !== null
+          )
+          .map((item, index) => ({
+            id: String(item.id ?? item.id_faq ?? index),
+            pergunta: String(
+              item.pergunta ?? item.titulo ?? item.question ?? ""
+            ),
+            resposta: String(
+              item.resposta ?? item.resposta_faq ?? item.answer ?? ""
+            ),
+            publico: String(item.publico ?? item.tipo ?? "")
+              .trim()
+              .toLowerCase(),
+          }))
+          // mostra só "passageiro" e "ambos" (se a API não enviar o campo, confia no filtro dela)
+          .filter(
+            (item) =>
+              item.pergunta.trim() &&
+              item.resposta.trim() &&
+              (!item.publico ||
+                item.publico === "passageiro" ||
+                item.publico === "ambos")
+          );
+
+        if (ativo) setFaq(perguntas);
+      } catch (error) {
+        if (ativo) {
+          setFaq([]);
+          setFaqErro(
+            error instanceof Error
+              ? error.message
+              : "Erro ao carregar as perguntas frequentes."
+          );
+        }
+      } finally {
+        if (ativo) setFaqLoading(false);
+      }
+    }
+
+    carregarFAQ();
+
+    return () => {
+      ativo = false;
+    };
+  }, []);
+
   const protocolosFiltrados = useMemo(() => {
     const busca = buscaProtocolo.toLowerCase().trim();
 
     return protocolos.filter((item) => {
-      const codigoItem = String(
-        item.codigo || ""
-      ).toLowerCase();
+      const codigoItem = String(item.codigo || "").toLowerCase();
 
-      const assuntoItem = String(
-        item.assunto || ""
-      ).toLowerCase();
+      const assuntoItem = String(item.assunto || "").toLowerCase();
 
       const correspondeBusca =
-        !busca ||
-        codigoItem.includes(busca) ||
-        assuntoItem.includes(busca);
+        !busca || codigoItem.includes(busca) || assuntoItem.includes(busca);
 
       const correspondeStatus =
-        filtroStatus === "Todos" ||
-        item.status === filtroStatus;
+        filtroStatus === "Todos" || item.status === filtroStatus;
 
       return correspondeBusca && correspondeStatus;
     });
@@ -275,15 +321,11 @@ export default function DashboardLayout() {
 
   const statusCounts = {
     total: protocolos.length,
-    aberto: protocolos.filter(
-      (item) => item.status === "Aberto"
-    ).length,
-    andamento: protocolos.filter(
-      (item) => item.status === "Em andamento"
-    ).length,
-    finalizado: protocolos.filter(
-      (item) => item.status === "Finalizado"
-    ).length,
+    aberto: protocolos.filter((item) => item.status === "Aberto").length,
+    andamento: protocolos.filter((item) => item.status === "Em andamento")
+      .length,
+    finalizado: protocolos.filter((item) => item.status === "Finalizado")
+      .length,
   };
 
   const atualizarProtocolos = async () => {
@@ -299,24 +341,18 @@ export default function DashboardLayout() {
       if (!res.ok) {
         console.error(
           "Erro ao atualizar protocolos:",
-          data.error ||
-            `Status ${res.status}`
+          data.error || `Status ${res.status}`
         );
         return;
       }
 
       setProtocolos(extrairProtocolos(data));
     } catch (error) {
-      console.error(
-        "Erro ao atualizar protocolos:",
-        error
-      );
+      console.error("Erro ao atualizar protocolos:", error);
     }
   };
 
-  const handleSubmit = async (
-    e: React.FormEvent<HTMLFormElement>
-  ) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     const categoria = form.categoria.trim();
@@ -326,8 +362,7 @@ export default function DashboardLayout() {
     if (!categoria) {
       setAlert({
         type: "error",
-        message:
-          "Selecione uma categoria para o atendimento.",
+        message: "Selecione uma categoria para o atendimento.",
       });
       return;
     }
@@ -335,8 +370,7 @@ export default function DashboardLayout() {
     if (!assunto) {
       setAlert({
         type: "error",
-        message:
-          "Informe o assunto da solicitação.",
+        message: "Informe o assunto da solicitação.",
       });
       return;
     }
@@ -344,8 +378,7 @@ export default function DashboardLayout() {
     if (!mensagem) {
       setAlert({
         type: "error",
-        message:
-          "Digite uma mensagem para sua solicitação.",
+        message: "Digite uma mensagem para sua solicitação.",
       });
       return;
     }
@@ -353,8 +386,7 @@ export default function DashboardLayout() {
     if (!codigo) {
       setAlert({
         type: "error",
-        message:
-          "Aguarde a geração do número do protocolo.",
+        message: "Aguarde a geração do número do protocolo.",
       });
       return;
     }
@@ -365,8 +397,7 @@ export default function DashboardLayout() {
       if (arquivo.size > tamanhoMaximo) {
         setAlert({
           type: "error",
-          message:
-            "O arquivo não pode ter mais de 10 MB.",
+          message: "O arquivo não pode ter mais de 10 MB.",
         });
         return;
       }
@@ -378,10 +409,7 @@ export default function DashboardLayout() {
         "application/pdf",
       ];
 
-      if (
-        arquivo.type &&
-        !extensoesPermitidas.includes(arquivo.type)
-      ) {
+      if (arquivo.type && !extensoesPermitidas.includes(arquivo.type)) {
         setAlert({
           type: "error",
           message:
@@ -398,36 +426,15 @@ export default function DashboardLayout() {
       const codigoAtual = codigo;
       const formData = new FormData();
 
-      formData.append(
-        "nome",
-        form.nome.trim()
-      );
-      formData.append(
-        "email",
-        form.email.trim()
-      );
-      formData.append(
-        "categoria",
-        categoria
-      );
-      formData.append(
-        "assunto",
-        assunto
-      );
-      formData.append(
-        "mensagem",
-        mensagem
-      );
-      formData.append(
-        "codigo",
-        codigoAtual
-      );
+      formData.append("nome", form.nome.trim());
+      formData.append("email", form.email.trim());
+      formData.append("categoria", categoria);
+      formData.append("assunto", assunto);
+      formData.append("mensagem", mensagem);
+      formData.append("codigo", codigoAtual);
 
       if (arquivo) {
-        formData.append(
-          "arquivo",
-          arquivo
-        );
+        formData.append("arquivo", arquivo);
       }
 
       const res = await fetch("/api/protocolo", {
@@ -456,9 +463,7 @@ export default function DashboardLayout() {
 
       setAlert({
         type: "success",
-        message:
-          data.message ||
-          "Protocolo criado com sucesso!",
+        message: data.message || "Protocolo criado com sucesso!",
       });
 
       setForm((prev) => ({
@@ -475,17 +480,12 @@ export default function DashboardLayout() {
 
       await atualizarProtocolos();
     } catch (error) {
-      console.error(
-        "Erro ao enviar protocolo:",
-        error
-      );
+      console.error("Erro ao enviar protocolo:", error);
 
       setAlert({
         type: "error",
         message:
-          error instanceof Error
-            ? error.message
-            : "Erro ao criar protocolo.",
+          error instanceof Error ? error.message : "Erro ao criar protocolo.",
       });
     } finally {
       setEnviando(false);
@@ -493,18 +493,14 @@ export default function DashboardLayout() {
   };
 
   const abrirChat = () => {
-    if (
-      typeof window !== "undefined" &&
-      (window as any).Huggy
-    ) {
+    if (typeof window !== "undefined" && (window as any).Huggy) {
       (window as any).Huggy.openBox();
       return;
     }
 
     setAlert({
       type: "error",
-      message:
-        "Chat indisponível no momento. Tente novamente mais tarde.",
+      message: "Chat indisponível no momento. Tente novamente mais tarde.",
     });
   };
 
@@ -562,64 +558,31 @@ export default function DashboardLayout() {
 
       <main className="mx-auto w-full max-w-full 2xl:max-w-[1600px]">
         {/* HERO */}
+
         <section className="relative overflow-hidden rounded-[24px] bg-gradient-to-br from-[#115e59] via-[#0f766e] to-[#0d9488] shadow-[0_30px_90px_rgba(15,118,110,0.20)] sm:rounded-[30px] lg:rounded-[36px]">
           <div className="absolute -right-40 -top-40 h-[320px] w-[320px] rounded-full border-[70px] border-white/[0.035] sm:h-[420px] sm:w-[420px] lg:h-[560px] lg:w-[560px] lg:border-[110px]" />
           <div className="absolute -bottom-52 left-[38%] hidden h-[520px] w-[520px] rounded-full border-[90px] border-white/[0.025] md:block" />
           <div className="absolute right-[25%] top-10 h-32 w-32 rounded-full bg-[#5eead4]/15 blur-[80px] lg:h-44 lg:w-44" />
           <div className="absolute bottom-0 left-0 h-40 w-72 rounded-full bg-[#14b8a6]/10 blur-[70px]" />
 
-          <div className="relative grid gap-6 px-5 py-7 sm:gap-8 sm:px-8 sm:py-9 lg:grid-cols-[1fr_auto] lg:gap-10 lg:px-12 lg:py-12 2xl:px-16 2xl:py-14">
-            <div className="max-w-3xl 2xl:max-w-4xl">
-              <h1 className="mt-2 text-3xl font-black leading-[1.05] tracking-[-0.04em] text-white sm:mt-3 sm:text-4xl lg:mt-4 lg:text-5xl 2xl:text-6xl">
+          <div className="relative grid gap-6 px-4 py-7 sm:gap-8 sm:px-7 sm:py-9 lg:grid-cols-[1fr_auto] lg:gap-10 lg:px-10 lg:py-11 xl:px-12 xl:py-12">
+            <div className="max-w-3xl">
+              <h1 className="mt-2 text-2xl font-black leading-[1.08] tracking-[-0.03em] text-white sm:mt-4 sm:text-3xl md:text-4xl">
                 Estamos aqui para
-                <span className="block text-[#99f6e4]">
-                  ajudar você.
-                </span>
+                <span className="block text-[#99f6e4]">ajudar você.</span>
               </h1>
 
-              <p className="mt-3 max-w-2xl text-xs leading-5 text-white/65 sm:mt-4 sm:text-sm sm:leading-6 2xl:max-w-3xl 2xl:text-base 2xl:leading-7">
-                Tire suas dúvidas, converse com nossa equipe
-                ou registre uma solicitação. Tudo organizado
-                em um único espaço de atendimento.
+              <p className="mt-3 max-w-2xl text-xs leading-6 text-white/65 sm:mt-4 sm:text-sm">
+                Tire suas dúvidas, converse com nossa equipe ou registre uma
+                solicitação. Tudo organizado em um único espaço de
+                atendimento.
               </p>
-            </div>
-
-            <div className="grid w-full grid-cols-2 gap-3 self-end sm:max-w-md lg:w-auto lg:min-w-[330px] 2xl:min-w-[380px] 2xl:gap-4">
-              <div className="rounded-[20px] border border-white/10 bg-white/[0.08] p-4 backdrop-blur-xl sm:rounded-[24px] sm:p-5">
-                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/10 text-white sm:h-11 sm:w-11">
-                  <FileText size={19} />
-                </div>
-
-                <p className="mt-4 text-[9px] font-black uppercase tracking-[0.18em] text-white/40 sm:mt-6 2xl:text-[10px]">
-                  Solicitações
-                </p>
-
-                <p className="mt-1 text-2xl font-black text-white sm:text-3xl 2xl:text-4xl">
-                  {statusCounts.total}
-                </p>
-              </div>
-
-              <div className="rounded-[20px] border border-white/10 bg-white/[0.08] p-4 backdrop-blur-xl sm:rounded-[24px] sm:p-5">
-                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#5eead4]/15 text-[#99f6e4] sm:h-11 sm:w-11">
-                  <ShieldCheck size={19} />
-                </div>
-
-                <p className="mt-4 text-[9px] font-black uppercase tracking-[0.18em] text-white/40 sm:mt-6 2xl:text-[10px]">
-                  Atendimento
-                </p>
-
-                <div className="mt-2 flex items-center gap-2">
-                  <span className="h-2 w-2 rounded-full bg-[#99f6e4] shadow-[0_0_10px_#99f6e4]" />
-                  <span className="text-sm font-black text-[#99f6e4] 2xl:text-base">
-                    Online
-                  </span>
-                </div>
-              </div>
             </div>
           </div>
         </section>
 
         {/* CANAIS */}
+
         <section className="mt-5 lg:mt-6">
           <div className="mb-4 sm:mb-5">
             <h2 className="mt-1 text-xl font-black tracking-tight text-white sm:text-2xl 2xl:text-3xl">
@@ -642,10 +605,7 @@ export default function DashboardLayout() {
 
               <div className="relative flex items-start justify-between">
                 <div className="flex h-12 w-12 items-center justify-center rounded-[16px] bg-[#eaf8f0] text-[#159447] sm:h-14 sm:w-14 sm:rounded-[18px]">
-                  <FontAwesomeIcon
-                    icon={faWhatsapp}
-                    size="lg"
-                  />
+                  <FontAwesomeIcon icon={faWhatsapp} size="lg" />
                 </div>
 
                 <ChevronRight
@@ -664,8 +624,7 @@ export default function DashboardLayout() {
                 </h3>
 
                 <p className="mt-2 text-xs leading-5 text-gray-400 sm:text-sm sm:leading-6">
-                  Converse diretamente com nossa equipe
-                  de atendimento.
+                  Converse diretamente com nossa equipe de atendimento.
                 </p>
 
                 <span className="mt-5 inline-flex items-center gap-1.5 text-xs font-black text-[#159447] sm:mt-6">
@@ -702,8 +661,7 @@ export default function DashboardLayout() {
                 </h3>
 
                 <p className="mt-2 text-xs leading-5 text-gray-400 sm:text-sm sm:leading-6">
-                  Envie sua solicitação com todos os
-                  detalhes necessários.
+                  Envie sua solicitação com todos os detalhes necessários.
                 </p>
 
                 <span className="mt-5 inline-flex items-center gap-1.5 text-xs font-black text-[#0f766e] sm:mt-6">
@@ -754,6 +712,7 @@ export default function DashboardLayout() {
         </section>
 
         {/* ABRIR PROTOCOLO */}
+
         <section
           id="abrir-protocolo"
           className="mt-6 overflow-hidden rounded-[24px] border border-gray-200/80 bg-white shadow-[0_18px_60px_rgba(15,118,110,0.07)] sm:mt-8 sm:rounded-[28px] lg:mt-9 lg:rounded-[32px]"
@@ -771,8 +730,7 @@ export default function DashboardLayout() {
                   </h2>
 
                   <p className="mt-0 text-xs text-gray-500 sm:text-sm 2xl:text-base">
-                    Preencha as informações para iniciar seu
-                    atendimento.
+                    Preencha as informações para iniciar seu atendimento.
                   </p>
                 </div>
               </div>
@@ -786,15 +744,9 @@ export default function DashboardLayout() {
                   }`}
                 >
                   {alert.type === "success" ? (
-                    <CheckCircle2
-                      size={19}
-                      className="mt-0.5 shrink-0"
-                    />
+                    <CheckCircle2 size={19} className="mt-0.5 shrink-0" />
                   ) : (
-                    <AlertCircle
-                      size={19}
-                      className="mt-0.5 shrink-0"
-                    />
+                    <AlertCircle size={19} className="mt-0.5 shrink-0" />
                   )}
 
                   <div className="min-w-0">
@@ -810,18 +762,14 @@ export default function DashboardLayout() {
 
                     {alert.type === "success" && (
                       <p className="mt-1 break-all text-xs">
-                        Protocolo:{" "}
-                        <strong>{codigo}</strong>
+                        Protocolo: <strong>{codigo}</strong>
                       </p>
                     )}
                   </div>
                 </div>
               )}
 
-              <form
-                onSubmit={handleSubmit}
-                className="mt-6 sm:mt-8"
-              >
+              <form onSubmit={handleSubmit} className="mt-6 sm:mt-8">
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5">
                   <div>
                     <label className="mb-2 block text-[9px] font-black uppercase tracking-[0.15em] text-gray-500 2xl:text-[10px]">
@@ -866,37 +814,23 @@ export default function DashboardLayout() {
                       }
                       className="h-11 w-full rounded-2xl border border-gray-200 bg-white px-4 text-sm text-gray-700 outline-none transition focus:border-[#0f766e] focus:ring-4 focus:ring-[#0f766e]/10 sm:h-12 2xl:h-14 2xl:text-base"
                     >
-                      <option value="">
-                        Selecione uma categoria
-                      </option>
+                      <option value="">Selecione uma categoria</option>
 
-                      <option value="Cancelamento">
-                        Cancelamento
-                      </option>
+                      <option value="Cancelamento">Cancelamento</option>
 
-                      <option value="Reembolso">
-                        Reembolso
-                      </option>
+                      <option value="Reembolso">Reembolso</option>
 
                       <option value="Alteração de viagem">
                         Alteração de viagem
                       </option>
 
-                      <option value="Pagamento">
-                        Pagamento
-                      </option>
+                      <option value="Pagamento">Pagamento</option>
 
-                      <option value="Bagagem">
-                        Bagagem
-                      </option>
+                      <option value="Bagagem">Bagagem</option>
 
-                      <option value="Conta">
-                        Conta
-                      </option>
+                      <option value="Conta">Conta</option>
 
-                      <option value="Outros">
-                        Outros
-                      </option>
+                      <option value="Outros">Outros</option>
                     </select>
                   </div>
 
@@ -972,8 +906,7 @@ export default function DashboardLayout() {
                       accept=".jpg,.jpeg,.png,.pdf,.webp"
                       className="hidden"
                       onChange={(e) => {
-                        const file =
-                          e.target.files?.[0] || null;
+                        const file = e.target.files?.[0] || null;
 
                         setArquivo(file);
                         e.target.value = "";
@@ -1019,9 +952,7 @@ export default function DashboardLayout() {
                   >
                     <Send size={16} />
 
-                    {enviando
-                      ? "Enviando..."
-                      : "Enviar solicitação"}
+                    {enviando ? "Enviando..." : "Enviar solicitação"}
                   </button>
                 </div>
               </form>
@@ -1050,8 +981,8 @@ export default function DashboardLayout() {
                   />
 
                   <p className="text-xs leading-5 text-white/60">
-                    Este número será utilizado para
-                    acompanhar sua solicitação.
+                    Este número será utilizado para acompanhar sua
+                    solicitação.
                   </p>
                 </div>
               </div>
@@ -1100,6 +1031,7 @@ export default function DashboardLayout() {
         </section>
 
         {/* FAQ + PROTOCOLOS */}
+
         <section className="mt-6 grid gap-5 sm:mt-8 lg:mt-9 lg:gap-6 xl:grid-cols-[340px_minmax(0,1fr)] 2xl:grid-cols-[400px_minmax(0,1fr)]">
           <aside className="rounded-[24px] border border-gray-200/80 bg-white p-5 shadow-[0_18px_60px_rgba(15,118,110,0.06)] sm:rounded-[28px] sm:p-6 lg:rounded-[32px] 2xl:p-8">
             <div className="flex items-center gap-3">
@@ -1119,51 +1051,65 @@ export default function DashboardLayout() {
             </div>
 
             <div className="mt-5 space-y-2 sm:mt-6">
-              {faq.map((item, index) => {
-                const aberto = faqAberto === index;
+              {faqLoading ? (
+                <div className="rounded-2xl border border-gray-100 bg-[#f8fbfa] p-4 text-center">
+                  <div className="mx-auto h-6 w-6 animate-spin rounded-full border-2 border-[#bce9df] border-t-[#0f766e]" />
+                  <p className="mt-3 text-xs text-gray-500">
+                    Carregando perguntas frequentes...
+                  </p>
+                </div>
+              ) : faqErro ? (
+                <div className="rounded-2xl border border-red-100 bg-red-50 p-4">
+                  <p className="text-xs text-red-700">{faqErro}</p>
+                </div>
+              ) : faq.length === 0 ? (
+                <div className="rounded-2xl border border-gray-100 bg-[#f8fbfa] p-4">
+                  <p className="text-xs text-gray-500">
+                    Nenhuma pergunta frequente disponível no momento.
+                  </p>
+                </div>
+              ) : (
+                faq.map((item) => {
+                  const aberto = faqAberto === item.id;
 
-                return (
-                  <div
-                    key={item.pergunta}
-                    className={`overflow-hidden rounded-2xl border transition-all ${
-                      aberto
-                        ? "border-[#bce9df] bg-[#f1fbf8]"
-                        : "border-gray-100 bg-[#f8fbfa]"
-                    }`}
-                  >
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setFaqAberto(
-                          aberto ? null : index
-                        )
-                      }
-                      className="flex w-full cursor-pointer items-center justify-between gap-3 px-4 py-3.5 text-left sm:py-4"
+                  return (
+                    <div
+                      key={item.id}
+                      className={`overflow-hidden rounded-2xl border transition-all ${
+                        aberto
+                          ? "border-[#bce9df] bg-[#f1fbf8]"
+                          : "border-gray-100 bg-[#f8fbfa]"
+                      }`}
                     >
-                      <span className="text-xs font-black text-gray-700 2xl:text-sm">
-                        {item.pergunta}
-                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setFaqAberto(aberto ? null : item.id)}
+                        aria-expanded={aberto}
+                        className="flex w-full cursor-pointer items-center justify-between gap-3 px-4 py-3.5 text-left sm:py-4"
+                      >
+                        <span className="text-xs font-black text-gray-700 2xl:text-sm">
+                          {item.pergunta}
+                        </span>
 
-                      <ChevronRight
-                        size={15}
-                        className={`shrink-0 text-gray-400 transition ${
-                          aberto
-                            ? "rotate-90 text-[#0f766e]"
-                            : ""
-                        }`}
-                      />
-                    </button>
+                        <ChevronRight
+                          size={15}
+                          className={`shrink-0 text-gray-400 transition ${
+                            aberto ? "rotate-90 text-[#0f766e]" : ""
+                          }`}
+                        />
+                      </button>
 
-                    {aberto && (
-                      <div className="border-t border-gray-200/70 px-4 pb-4 pt-3">
-                        <p className="text-[11px] leading-5 text-gray-500 2xl:text-xs 2xl:leading-6">
-                          {item.resposta}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+                      {aberto && (
+                        <div className="border-t border-gray-200/70 px-4 pb-4 pt-3">
+                          <p className="whitespace-pre-line text-[11px] leading-5 text-gray-500 2xl:text-xs 2xl:leading-6">
+                            {item.resposta}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
+              )}
             </div>
 
             <div className="relative mt-5 overflow-hidden rounded-[22px] bg-gradient-to-br from-[#115e59] to-[#0f766e] p-5 text-white sm:mt-6 sm:rounded-[26px]">
@@ -1274,9 +1220,7 @@ export default function DashboardLayout() {
 
                 <input
                   value={buscaProtocolo}
-                  onChange={(e) =>
-                    setBuscaProtocolo(e.target.value)
-                  }
+                  onChange={(e) => setBuscaProtocolo(e.target.value)}
                   placeholder="Pesquisar protocolo ou assunto..."
                   className="h-11 w-full rounded-2xl border border-gray-200 bg-[#f8fbfa] pl-11 pr-4 text-xs outline-none transition focus:border-[#0f766e] focus:bg-white focus:ring-4 focus:ring-[#0f766e]/10 sm:h-12 2xl:h-14 2xl:text-sm"
                 />
@@ -1284,26 +1228,16 @@ export default function DashboardLayout() {
 
               <select
                 value={filtroStatus}
-                onChange={(e) =>
-                  setFiltroStatus(e.target.value)
-                }
+                onChange={(e) => setFiltroStatus(e.target.value)}
                 className="h-11 w-full rounded-2xl border border-gray-200 bg-[#f8fbfa] px-4 text-xs text-gray-700 outline-none transition focus:border-[#0f766e] focus:bg-white focus:ring-4 focus:ring-[#0f766e]/10 sm:h-12 2xl:h-14 2xl:text-sm"
               >
-                <option value="Todos">
-                  Todos os status
-                </option>
+                <option value="Todos">Todos os status</option>
 
-                <option value="Aberto">
-                  Aberto
-                </option>
+                <option value="Aberto">Aberto</option>
 
-                <option value="Em andamento">
-                  Em andamento
-                </option>
+                <option value="Em andamento">Em andamento</option>
 
-                <option value="Finalizado">
-                  Finalizado
-                </option>
+                <option value="Finalizado">Finalizado</option>
               </select>
             </div>
 
@@ -1350,71 +1284,65 @@ export default function DashboardLayout() {
                           </p>
 
                           <p className="mt-1 text-[10px] text-gray-400 2xl:text-xs">
-                            Ajuste os filtros ou abra uma nova
-                            solicitação.
+                            Ajuste os filtros ou abra uma nova solicitação.
                           </p>
                         </td>
                       </tr>
                     ) : (
-                      protocolosFiltrados.map(
-                        (item, index) => (
-                          <tr
-                            key={`${item.codigo}-${index}`}
-                            className="group transition hover:bg-[#f8fcfb]"
-                          >
-                            <td className="whitespace-nowrap px-3 py-3 sm:px-4 lg:px-5 lg:py-4">
-                              <span className="rounded-lg border border-[#cfe9e5] bg-[#f1f9f7] px-2.5 py-1.5 text-[10px] font-black text-[#0f766e] 2xl:text-xs">
-                                {item.codigo || "-"}
-                              </span>
-                            </td>
+                      protocolosFiltrados.map((item, index) => (
+                        <tr
+                          key={`${item.codigo}-${index}`}
+                          className="group transition hover:bg-[#f8fcfb]"
+                        >
+                          <td className="whitespace-nowrap px-3 py-3 sm:px-4 lg:px-5 lg:py-4">
+                            <span className="rounded-lg border border-[#cfe9e5] bg-[#f1f9f7] px-2.5 py-1.5 text-[10px] font-black text-[#0f766e] 2xl:text-xs">
+                              {item.codigo || "-"}
+                            </span>
+                          </td>
 
-                            <td className="max-w-[180px] px-3 py-3 sm:max-w-[240px] sm:px-4 lg:max-w-[300px] lg:px-5 lg:py-4 2xl:max-w-[420px]">
-                              <p className="truncate text-[11px] font-bold text-gray-700 2xl:text-sm">
-                                {item.assunto || "-"}
-                              </p>
-                            </td>
+                          <td className="max-w-[180px] px-3 py-3 sm:max-w-[240px] sm:px-4 lg:max-w-[300px] lg:px-5 lg:py-4 2xl:max-w-[420px]">
+                            <p className="truncate text-[11px] font-bold text-gray-700 2xl:text-sm">
+                              {item.assunto || "-"}
+                            </p>
+                          </td>
 
-                            <td className="whitespace-nowrap px-3 py-3 sm:px-4 lg:px-5 lg:py-4">
-                              <div className="flex items-center gap-2 text-[10px] text-gray-400 2xl:text-xs">
-                                <Clock3 size={13} />
+                          <td className="whitespace-nowrap px-3 py-3 sm:px-4 lg:px-5 lg:py-4">
+                            <div className="flex items-center gap-2 text-[10px] text-gray-400 2xl:text-xs">
+                              <Clock3 size={13} />
 
-                                {item.criado_em
-                                  ? new Date(
-                                      item.criado_em
-                                    ).toLocaleString(
-                                      "pt-BR"
-                                    )
-                                  : "-"}
-                              </div>
-                            </td>
+                              {item.criado_em
+                                ? new Date(item.criado_em).toLocaleString(
+                                    "pt-BR"
+                                  )
+                                : "-"}
+                            </div>
+                          </td>
 
-                            <td className="whitespace-nowrap px-3 py-3 sm:px-4 lg:px-5 lg:py-4">
-                              <span
-                                className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[9px] font-black 2xl:text-[10px] ${statusClasses(
-                                  item.status
-                                )}`}
-                              >
-                                <span className="h-1.5 w-1.5 rounded-full bg-current" />
+                          <td className="whitespace-nowrap px-3 py-3 sm:px-4 lg:px-5 lg:py-4">
+                            <span
+                              className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[9px] font-black 2xl:text-[10px] ${statusClasses(
+                                item.status
+                              )}`}
+                            >
+                              <span className="h-1.5 w-1.5 rounded-full bg-current" />
 
-                                {item.status ||
-                                  "Pendente"}
-                              </span>
-                            </td>
+                              {item.status || "Pendente"}
+                            </span>
+                          </td>
 
-                            <td className="px-3 py-3 sm:px-4 lg:px-5 lg:py-4">
-                              <Link
-                                href={`/passageiro/protocolo/${encodeURIComponent(
-                                  item.codigo || ""
-                                )}`}
-                                title="Visualizar protocolo"
-                                className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 bg-white text-[#0f766e] shadow-sm transition hover:border-[#0f766e] hover:bg-[#0f766e] hover:text-white 2xl:h-10 2xl:w-10"
-                              >
-                                <Eye size={15} />
-                              </Link>
-                            </td>
-                          </tr>
-                        )
-                      )
+                          <td className="px-3 py-3 sm:px-4 lg:px-5 lg:py-4">
+                            <Link
+                              href={`/passageiro/protocolo/${encodeURIComponent(
+                                item.codigo || ""
+                              )}`}
+                              title="Visualizar protocolo"
+                              className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 bg-white text-[#0f766e] shadow-sm transition hover:border-[#0f766e] hover:bg-[#0f766e] hover:text-white 2xl:h-10 2xl:w-10"
+                            >
+                              <Eye size={15} />
+                            </Link>
+                          </td>
+                        </tr>
+                      ))
                     )}
                   </tbody>
                 </table>
@@ -1427,10 +1355,7 @@ export default function DashboardLayout() {
                 <strong className="text-gray-600">
                   {protocolosFiltrados.length}
                 </strong>{" "}
-                de{" "}
-                <strong className="text-gray-600">
-                  {protocolos.length}
-                </strong>{" "}
+                de <strong className="text-gray-600">{protocolos.length}</strong>{" "}
                 protocolos
               </span>
             </div>

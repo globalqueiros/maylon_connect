@@ -43,6 +43,13 @@ type Protocolo = {
   status?: string;
 };
 
+type FaqItem = {
+  id?: number | string;
+  pergunta: string;
+  resposta: string;
+  publico?: string; // 'passageiro' | 'motorista' | 'ambos'
+};
+
 type ApiResponse = {
   success?: boolean;
   message?: string;
@@ -51,58 +58,6 @@ type ApiResponse = {
   [key: string]: unknown;
 };
 
-const faq = [
-  {
-    pergunta: "Como começo a receber viagens?",
-    resposta:
-      "Após a aprovação do seu cadastro, acesse o aplicativo Maylon Motorista, fique disponível para receber solicitações e mantenha a localização do dispositivo ativada.",
-  },
-  {
-    pergunta: "Posso recusar uma viagem?",
-    resposta:
-      "Consulte as regras de aceitação e cancelamento vigentes na plataforma Maylon. Cancelamentos frequentes podem estar sujeitos às políticas operacionais da empresa.",
-  },
-  {
-    pergunta: "Como vejo minhas viagens?",
-    resposta:
-      "Acesse a área de histórico de viagens no aplicativo Maylon Motorista ou no Portal do Motorista, caso essa funcionalidade esteja disponível para sua conta.",
-  },
-  {
-    pergunta: "Quanto ganha um motorista Maylon?",
-    resposta:
-      "Os ganhos dependem da quantidade de viagens, das tarifas aplicáveis, da categoria e de eventuais incentivos. Consulte o aplicativo Maylon Motorista para informações detalhadas sobre ganhos e tarifas.",
-  },
-  {
-    pergunta: "Como consulto meus ganhos?",
-    resposta: "Entre no portal e procure a seção extrato financeiro.",
-  },
-  {
-    pergunta: "Quando recebo o pagamento?",
-    resposta:
-      "Consulte o calendário de repasses definido pela Maylon e confira se seus dados bancários ou PIX estão corretos.",
-  },
-  {
-    pergunta: "Onde vejo as taxas descontadas?",
-    resposta:
-      "Na seção de extrato financeiro, quando disponível, confira o valor das viagens, as taxas aplicadas e o saldo a receber.",
-  },
-  {
-    pergunta: "O que acontece se minha CNH vencer?",
-    resposta:
-      "Atualize o documento assim que possível. A atividade poderá ficar restrita até a regularização e aprovação.",
-  },
-  {
-    pergunta: "Posso cadastrar uma nova conta bancária?",
-    resposta:
-      "Solicite a atualização na área financeira e conclua a validação de titularidade exigida.",
-  },
-];
-
-/*
- * Lê a resposta da API com segurança.
- * Se o servidor devolver HTML (ex.: página 404), devolve uma
- * mensagem curta em vez de despejar o HTML no console/alerta.
- */
 async function lerResposta(res: Response): Promise<ApiResponse> {
   const texto = await res.text();
 
@@ -120,7 +75,7 @@ async function lerResposta(res: Response): Promise<ApiResponse> {
     return {};
   } catch {
     return {
-      error: `Resposta inválida do servidor (status ${res.status}).`,
+      error: texto.slice(0, 500),
     };
   }
 }
@@ -148,11 +103,7 @@ function gerarProtocoloPersistente() {
   const salvoTempo = localStorage.getItem("protocolo_time");
   const agora = Date.now();
 
-  if (
-    salvo &&
-    salvoTempo &&
-    agora - Number(salvoTempo) < tempoLimite
-  ) {
+  if (salvo && salvoTempo && agora - Number(salvoTempo) < tempoLimite) {
     return salvo;
   }
 
@@ -175,6 +126,24 @@ function extrairProtocolos(data: ApiResponse): Protocolo[] {
   return [];
 }
 
+function extrairFaq(data: unknown): FaqItem[] {
+  if (Array.isArray(data)) {
+    return data as FaqItem[];
+  }
+
+  const resposta = data as ApiResponse;
+
+  if (Array.isArray(resposta?.data)) {
+    return resposta.data as FaqItem[];
+  }
+
+  if (Array.isArray(resposta?.faq)) {
+    return resposta.faq as FaqItem[];
+  }
+
+  return [];
+}
+
 export default function DashboardLayout() {
   const [form, setForm] = useState<Formulario>({
     nome: "",
@@ -192,6 +161,8 @@ export default function DashboardLayout() {
   const [arquivo, setArquivo] = useState<File | null>(null);
   const [protocolos, setProtocolos] = useState<Protocolo[]>([]);
   const [alert, setAlert] = useState<Alerta>(null);
+  const [faq, setFaq] = useState<FaqItem[]>([]);
+  const [faqLoading, setFaqLoading] = useState(true);
   const [faqAberto, setFaqAberto] = useState<number | null>(null);
 
   useEffect(() => {
@@ -218,11 +189,7 @@ export default function DashboardLayout() {
         if (usuarioRes.ok) {
           setForm((prev) => ({
             ...prev,
-            nome: String(
-              usuarioData.full_name ||
-                usuarioData.nome ||
-                ""
-            ),
+            nome: String(usuarioData.full_name || usuarioData.nome || ""),
             email: String(usuarioData.email || ""),
           }));
         }
@@ -232,8 +199,7 @@ export default function DashboardLayout() {
         } else {
           console.error(
             "Erro ao carregar protocolos:",
-            protocolosData.error ||
-              `Status ${protocolosRes.status}`
+            protocolosData.error || `Status ${protocolosRes.status}`
           );
 
           setProtocolos([]);
@@ -243,8 +209,7 @@ export default function DashboardLayout() {
 
         setAlert({
           type: "error",
-          message:
-            "Não foi possível carregar seus protocolos.",
+          message: "Não foi possível carregar seus protocolos.",
         });
       } finally {
         setLoading(false);
@@ -252,6 +217,44 @@ export default function DashboardLayout() {
     }
 
     carregarDados();
+  }, []);
+
+  // FAQ vem da tabela "faq" (coluna "publico": motorista ou ambos)
+  useEffect(() => {
+    async function carregarFaq() {
+      try {
+        const res = await fetch("/api/faq?publico=motorista", {
+          credentials: "include",
+          cache: "no-store",
+        });
+
+        const data = (await lerResposta(res)) as unknown;
+
+        if (!res.ok) {
+          throw new Error(`Status ${res.status}`);
+        }
+
+        // mostra só "motorista" e "ambos", mesmo que a API devolva mais
+        setFaq(
+          extrairFaq(data).filter((item) => {
+            const publico = String(item.publico ?? "").trim().toLowerCase();
+
+            return (
+              item.pergunta &&
+              item.resposta &&
+              (publico === "motorista" || publico === "ambos")
+            );
+          })
+        );
+      } catch (error) {
+        console.error("Erro ao carregar FAQ:", error);
+        setFaq([]);
+      } finally {
+        setFaqLoading(false);
+      }
+    }
+
+    carregarFaq();
   }, []);
 
   useEffect(() => {
@@ -271,16 +274,14 @@ export default function DashboardLayout() {
 
     return protocolos.filter((item) => {
       const codigoItem = String(item.codigo || "").toLowerCase();
+
       const assuntoItem = String(item.assunto || "").toLowerCase();
 
       const correspondeBusca =
-        !busca ||
-        codigoItem.includes(busca) ||
-        assuntoItem.includes(busca);
+        !busca || codigoItem.includes(busca) || assuntoItem.includes(busca);
 
       const correspondeStatus =
-        filtroStatus === "Todos" ||
-        item.status === filtroStatus;
+        filtroStatus === "Todos" || item.status === filtroStatus;
 
       return correspondeBusca && correspondeStatus;
     });
@@ -288,15 +289,11 @@ export default function DashboardLayout() {
 
   const statusCounts = {
     total: protocolos.length,
-    aberto: protocolos.filter(
-      (item) => item.status === "Aberto"
-    ).length,
-    andamento: protocolos.filter(
-      (item) => item.status === "Em andamento"
-    ).length,
-    finalizado: protocolos.filter(
-      (item) => item.status === "Finalizado"
-    ).length,
+    aberto: protocolos.filter((item) => item.status === "Aberto").length,
+    andamento: protocolos.filter((item) => item.status === "Em andamento")
+      .length,
+    finalizado: protocolos.filter((item) => item.status === "Finalizado")
+      .length,
   };
 
   const atualizarProtocolos = async () => {
@@ -323,9 +320,7 @@ export default function DashboardLayout() {
     }
   };
 
-  const handleSubmit = async (
-    e: React.FormEvent<HTMLFormElement>
-  ) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     const categoria = form.categoria.trim();
@@ -382,10 +377,7 @@ export default function DashboardLayout() {
         "application/pdf",
       ];
 
-      if (
-        arquivo.type &&
-        !extensoesPermitidas.includes(arquivo.type)
-      ) {
+      if (arquivo.type && !extensoesPermitidas.includes(arquivo.type)) {
         setAlert({
           type: "error",
           message:
@@ -439,8 +431,7 @@ export default function DashboardLayout() {
 
       setAlert({
         type: "success",
-        message:
-          data.message || "Protocolo criado com sucesso!",
+        message: data.message || "Protocolo criado com sucesso!",
       });
 
       setForm((prev) => ({
@@ -462,9 +453,7 @@ export default function DashboardLayout() {
       setAlert({
         type: "error",
         message:
-          error instanceof Error
-            ? error.message
-            : "Erro ao criar protocolo.",
+          error instanceof Error ? error.message : "Erro ao criar protocolo.",
       });
     } finally {
       setEnviando(false);
@@ -472,18 +461,14 @@ export default function DashboardLayout() {
   };
 
   const abrirChat = () => {
-    if (
-      typeof window !== "undefined" &&
-      (window as any).Huggy
-    ) {
+    if (typeof window !== "undefined" && (window as any).Huggy) {
       (window as any).Huggy.openBox();
       return;
     }
 
     setAlert({
       type: "error",
-      message:
-        "Chat indisponível no momento. Tente novamente mais tarde.",
+      message: "Chat indisponível no momento. Tente novamente mais tarde.",
     });
   };
 
@@ -536,7 +521,7 @@ export default function DashboardLayout() {
   }
 
   return (
-    <div className="min-h-screen mb-3 min-w-0 text-gray-700">
+    <div className="min-h-screen min-w-0 text-gray-700">
       <NvoipWidget />
 
       <main className="mx-auto w-full min-w-0 max-w-8xl px-3 sm:px-4 md:px-6 lg:px-0 2xl:max-w-[1600px]">
@@ -550,15 +535,13 @@ export default function DashboardLayout() {
             <div className="max-w-3xl">
               <h1 className="mt-2 text-2xl font-black leading-[1.08] tracking-[-0.03em] text-white sm:mt-4 sm:text-3xl md:text-4xl">
                 Estamos aqui para
-                <span className="block text-[#99f6e4]">
-                  ajudar você.
-                </span>
+                <span className="block text-[#99f6e4]">ajudar você.</span>
               </h1>
 
               <p className="mt-3 max-w-2xl text-xs leading-6 text-white/65 sm:mt-4 sm:text-sm">
-                Tire suas dúvidas, converse com nossa equipe
-                ou registre uma solicitação. Tudo organizado
-                em um único espaço de atendimento.
+                Tire suas dúvidas, converse com nossa equipe ou registre uma
+                solicitação. Tudo organizado em um único espaço de
+                atendimento.
               </p>
             </div>
           </div>
@@ -605,8 +588,7 @@ export default function DashboardLayout() {
                 </h3>
 
                 <p className="mt-2 text-xs leading-6 text-gray-400 sm:text-sm">
-                  Converse diretamente com nossa equipe
-                  de atendimento.
+                  Converse diretamente com nossa equipe de atendimento.
                 </p>
 
                 <span className="mt-5 inline-flex items-center gap-1.5 text-xs font-black text-[#159447] sm:mt-6">
@@ -644,8 +626,7 @@ export default function DashboardLayout() {
                 </h3>
 
                 <p className="mt-2 text-xs leading-6 text-gray-400 sm:text-sm">
-                  Envie sua solicitação com todos os
-                  detalhes necessários.
+                  Envie sua solicitação com todos os detalhes necessários.
                 </p>
 
                 <span className="mt-5 inline-flex items-center gap-1.5 text-xs font-black text-[#0f766e] sm:mt-6">
@@ -714,8 +695,7 @@ export default function DashboardLayout() {
                   </h2>
 
                   <p className="mt-0 text-xs text-gray-500 sm:text-sm">
-                    Preencha as informações para iniciar seu
-                    atendimento.
+                    Preencha as informações para iniciar seu atendimento.
                   </p>
                 </div>
               </div>
@@ -729,15 +709,9 @@ export default function DashboardLayout() {
                   }`}
                 >
                   {alert.type === "success" ? (
-                    <CheckCircle2
-                      size={19}
-                      className="mt-0.5 shrink-0"
-                    />
+                    <CheckCircle2 size={19} className="mt-0.5 shrink-0" />
                   ) : (
-                    <AlertCircle
-                      size={19}
-                      className="mt-0.5 shrink-0"
-                    />
+                    <AlertCircle size={19} className="mt-0.5 shrink-0" />
                   )}
 
                   <div>
@@ -760,10 +734,7 @@ export default function DashboardLayout() {
                 </div>
               )}
 
-              <form
-                onSubmit={handleSubmit}
-                className="mt-7 sm:mt-8"
-              >
+              <form onSubmit={handleSubmit} className="mt-7 sm:mt-8">
                 <div className="grid gap-4 sm:grid-cols-2 sm:gap-5">
                   <div>
                     <label className="mb-2 block text-[9px] font-black uppercase tracking-[0.15em] text-gray-500">
@@ -808,37 +779,23 @@ export default function DashboardLayout() {
                       }
                       className="h-11 w-full rounded-xl border border-gray-200 bg-white px-4 text-xs text-gray-700 outline-none transition focus:border-[#0f766e] focus:ring-4 focus:ring-[#0f766e]/10 sm:h-12 sm:rounded-2xl sm:text-sm"
                     >
-                      <option value="">
-                        Selecione uma categoria
-                      </option>
+                      <option value="">Selecione uma categoria</option>
 
-                      <option value="Cancelamento">
-                        Cancelamento
-                      </option>
+                      <option value="Cancelamento">Cancelamento</option>
 
-                      <option value="Reembolso">
-                        Reembolso
-                      </option>
+                      <option value="Reembolso">Reembolso</option>
 
                       <option value="Alteração de viagem">
                         Alteração de viagem
                       </option>
 
-                      <option value="Pagamento">
-                        Pagamento
-                      </option>
+                      <option value="Pagamento">Pagamento</option>
 
-                      <option value="Bagagem">
-                        Bagagem
-                      </option>
+                      <option value="Bagagem">Bagagem</option>
 
-                      <option value="Conta">
-                        Conta
-                      </option>
+                      <option value="Conta">Conta</option>
 
-                      <option value="Outros">
-                        Outros
-                      </option>
+                      <option value="Outros">Outros</option>
                     </select>
                   </div>
 
@@ -960,9 +917,7 @@ export default function DashboardLayout() {
                   >
                     <Send size={16} />
 
-                    {enviando
-                      ? "Enviando..."
-                      : "Enviar solicitação"}
+                    {enviando ? "Enviando..." : "Enviar solicitação"}
                   </button>
                 </div>
               </form>
@@ -991,8 +946,8 @@ export default function DashboardLayout() {
                   />
 
                   <p className="text-[11px] leading-5 text-white/60 sm:text-xs">
-                    Este número será utilizado para
-                    acompanhar sua solicitação.
+                    Este número será utilizado para acompanhar sua
+                    solicitação.
                   </p>
                 </div>
               </div>
@@ -1059,49 +1014,58 @@ export default function DashboardLayout() {
             </div>
 
             <div className="mt-5 space-y-2 sm:mt-6">
-              {faq.map((item, index) => {
-                const aberto = faqAberto === index;
-
-                return (
+              {faqLoading ? (
+                [1, 2, 3].map((item) => (
                   <div
-                    key={item.pergunta}
-                    className={`overflow-hidden rounded-2xl border transition-all ${
-                      aberto
-                        ? "border-[#bce9df] bg-[#f1fbf8]"
-                        : "border-gray-100 bg-[#f8fbfa]"
-                    }`}
-                  >
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setFaqAberto(aberto ? null : index)
-                      }
-                      className="flex w-full cursor-pointer items-center justify-between gap-3 px-4 py-3.5 text-left sm:py-4"
+                    key={item}
+                    className="h-[52px] animate-pulse rounded-2xl bg-[#f1f6f5]"
+                  />
+                ))
+              ) : faq.length === 0 ? (
+                <p className="rounded-2xl border border-gray-100 bg-[#f8fbfa] px-4 py-6 text-center text-xs text-gray-400">
+                  Nenhuma pergunta frequente disponível no momento.
+                </p>
+              ) : (
+                faq.map((item, index) => {
+                  const aberto = faqAberto === index;
+
+                  return (
+                    <div
+                      key={item.id ?? item.pergunta}
+                      className={`overflow-hidden rounded-2xl border transition-all ${
+                        aberto
+                          ? "border-[#bce9df] bg-[#f1fbf8]"
+                          : "border-gray-100 bg-[#f8fbfa]"
+                      }`}
                     >
-                      <span className="text-xs font-black text-gray-700">
-                        {item.pergunta}
-                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setFaqAberto(aberto ? null : index)}
+                        className="flex w-full cursor-pointer items-center justify-between gap-3 px-4 py-3.5 text-left sm:py-4"
+                      >
+                        <span className="text-xs font-black text-gray-700">
+                          {item.pergunta}
+                        </span>
 
-                      <ChevronRight
-                        size={15}
-                        className={`shrink-0 text-gray-400 transition ${
-                          aberto
-                            ? "rotate-90 text-[#0f766e]"
-                            : ""
-                        }`}
-                      />
-                    </button>
+                        <ChevronRight
+                          size={15}
+                          className={`shrink-0 text-gray-400 transition ${
+                            aberto ? "rotate-90 text-[#0f766e]" : ""
+                          }`}
+                        />
+                      </button>
 
-                    {aberto && (
-                      <div className="border-t border-gray-200/70 px-4 pb-4 pt-3">
-                        <p className="text-[11px] leading-5 text-gray-500">
-                          {item.resposta}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+                      {aberto && (
+                        <div className="border-t border-gray-200/70 px-4 pb-4 pt-3">
+                          <p className="text-[11px] leading-5 text-gray-500">
+                            {item.resposta}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
+              )}
             </div>
 
             <div className="relative mt-5 overflow-hidden rounded-2xl bg-gradient-to-br from-[#115e59] to-[#0f766e] p-4 text-white sm:mt-6 sm:rounded-[26px] sm:p-5">
@@ -1212,9 +1176,7 @@ export default function DashboardLayout() {
 
                 <input
                   value={buscaProtocolo}
-                  onChange={(e) =>
-                    setBuscaProtocolo(e.target.value)
-                  }
+                  onChange={(e) => setBuscaProtocolo(e.target.value)}
                   placeholder="Pesquisar protocolo ou assunto..."
                   className="h-11 w-full rounded-xl border border-gray-200 bg-[#f8fbfa] pl-11 pr-4 text-xs outline-none transition focus:border-[#0f766e] focus:bg-white focus:ring-4 focus:ring-[#0f766e]/10 sm:h-12 sm:rounded-2xl"
                 />
@@ -1222,26 +1184,16 @@ export default function DashboardLayout() {
 
               <select
                 value={filtroStatus}
-                onChange={(e) =>
-                  setFiltroStatus(e.target.value)
-                }
+                onChange={(e) => setFiltroStatus(e.target.value)}
                 className="h-11 w-full rounded-xl border border-gray-200 bg-[#f8fbfa] px-4 text-xs text-gray-700 outline-none transition focus:border-[#0f766e] focus:bg-white focus:ring-4 focus:ring-[#0f766e]/10 sm:h-12 sm:rounded-2xl"
               >
-                <option value="Todos">
-                  Todos os status
-                </option>
+                <option value="Todos">Todos os status</option>
 
-                <option value="Aberto">
-                  Aberto
-                </option>
+                <option value="Aberto">Aberto</option>
 
-                <option value="Em andamento">
-                  Em andamento
-                </option>
+                <option value="Em andamento">Em andamento</option>
 
-                <option value="Finalizado">
-                  Finalizado
-                </option>
+                <option value="Finalizado">Finalizado</option>
               </select>
             </div>
 
@@ -1288,8 +1240,7 @@ export default function DashboardLayout() {
                           </p>
 
                           <p className="mt-1 text-[10px] text-gray-400">
-                            Ajuste os filtros ou abra uma nova
-                            solicitação.
+                            Ajuste os filtros ou abra uma nova solicitação.
                           </p>
                         </td>
                       </tr>
@@ -1316,9 +1267,9 @@ export default function DashboardLayout() {
                               <Clock3 size={13} />
 
                               {item.criado_em
-                                ? new Date(
-                                    item.criado_em
-                                  ).toLocaleString("pt-BR")
+                                ? new Date(item.criado_em).toLocaleString(
+                                    "pt-BR"
+                                  )
                                 : "-"}
                             </div>
                           </td>
@@ -1337,7 +1288,7 @@ export default function DashboardLayout() {
 
                           <td className="px-4 py-3.5 sm:px-5 sm:py-4">
                             <Link
-                              href={`/passageiro/protocolo/${encodeURIComponent(
+                              href={`/motorista/protocolo/${encodeURIComponent(
                                 item.codigo || ""
                               )}`}
                               title="Visualizar protocolo"
@@ -1360,10 +1311,7 @@ export default function DashboardLayout() {
                 <strong className="text-gray-600">
                   {protocolosFiltrados.length}
                 </strong>{" "}
-                de{" "}
-                <strong className="text-gray-600">
-                  {protocolos.length}
-                </strong>{" "}
+                de <strong className="text-gray-600">{protocolos.length}</strong>{" "}
                 protocolos
               </span>
             </div>

@@ -318,7 +318,7 @@ export default function ProtocoloPage() {
             </p>
 
             <Link
-              href="/passageiro/central_ajuda"
+              href="/protocolo"
               className="mt-7 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-teal-600 px-6 py-3 text-sm font-bold text-white transition hover:bg-teal-700 sm:w-auto"
             >
               <ArrowLeft size={17} />
@@ -357,7 +357,7 @@ export default function ProtocoloPage() {
       <div className="mx-auto w-full max-w-[1600px]">
         <div className="mb-5 flex flex-col gap-3 sm:mb-6 sm:flex-row sm:items-center sm:justify-between">
           <Link
-            href="/protocolo"
+            href="/motorista/central_ajuda"
             className="group inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-teal-200 hover:bg-teal-50 hover:text-teal-700 sm:w-fit"
           >
             <ArrowLeft
