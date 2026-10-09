@@ -79,14 +79,11 @@ const faq = [
   },
 ];
 
-<<<<<<< HEAD
 /*
  * Lê a resposta da API com segurança.
  * Se o servidor devolver HTML (ex.: página 404), não despeja o HTML
  * no console/alerta: devolve uma mensagem curta e legível.
  */
-=======
->>>>>>> bf7afa0b6409237a274208cf0288ae1bf31835e9
 async function lerResposta(res: Response): Promise<ApiResponse> {
   const texto = await res.text();
 
@@ -104,11 +101,7 @@ async function lerResposta(res: Response): Promise<ApiResponse> {
     return {};
   } catch {
     return {
-<<<<<<< HEAD
       error: `Resposta inválida do servidor (status ${res.status}).`,
-=======
-      error: texto.slice(0, 500),
->>>>>>> bf7afa0b6409237a274208cf0288ae1bf31835e9
     };
   }
 }
@@ -590,8 +583,6 @@ export default function DashboardLayout() {
                 em um único espaço de atendimento.
               </p>
             </div>
-<<<<<<< HEAD
-=======
 
             <div className="grid w-full grid-cols-2 gap-3 self-end sm:max-w-md lg:w-auto lg:min-w-[330px] 2xl:min-w-[380px] 2xl:gap-4">
               <div className="rounded-[20px] border border-white/10 bg-white/[0.08] p-4 backdrop-blur-xl sm:rounded-[24px] sm:p-5">
@@ -625,7 +616,6 @@ export default function DashboardLayout() {
                 </div>
               </div>
             </div>
->>>>>>> bf7afa0b6409237a274208cf0288ae1bf31835e9
           </div>
         </section>
 
