@@ -53,7 +53,6 @@ type ApiResponse = {
 
 const faq = [
   {
-<<<<<<< HEAD
     pergunta: "Como começo a receber viagens?",
     resposta:
       "Após a aprovação do seu cadastro, acesse o aplicativo Maylon Motorista, fique disponível para receber solicitações e mantenha a localização do dispositivo ativada.",
@@ -75,8 +74,7 @@ const faq = [
   },
   {
     pergunta: "Como consulto meus ganhos?",
-    resposta:
-      "Entre no portal e procure a seção extrato financeiro.",
+    resposta: "Entre no portal e procure a seção extrato financeiro.",
   },
   {
     pergunta: "Quando recebo o pagamento?",
@@ -97,34 +95,14 @@ const faq = [
     pergunta: "Posso cadastrar uma nova conta bancária?",
     resposta:
       "Solicite a atualização na área financeira e conclua a validação de titularidade exigida.",
-=======
-    pergunta: "Como cancelar uma passagem?",
-    resposta:
-      "Abra um protocolo selecionando a categoria Cancelamento e informe os dados da sua viagem.",
-  },
-  {
-    pergunta: "Como solicitar reembolso?",
-    resposta:
-      "Selecione a categoria Reembolso e descreva o motivo da solicitação. Nossa equipe analisará o pedido.",
-  },
-  {
-    pergunta: "Como alterar minha viagem?",
-    resposta:
-      "Utilize a categoria Alteração de viagem e informe a data e os dados que deseja modificar.",
-  },
-  {
-    pergunta: "Como acompanhar meu protocolo?",
-    resposta:
-      "Acompanhe todas as solicitações na área Meus Protocolos e clique no ícone de visualização.",
-  },
-  {
-    pergunta: "Problemas com pagamento",
-    resposta:
-      "Selecione Pagamento e envie uma descrição detalhada. Se possível, anexe um comprovante.",
->>>>>>> bf7afa0b6409237a274208cf0288ae1bf31835e9
   },
 ];
 
+/*
+ * Lê a resposta da API com segurança.
+ * Se o servidor devolver HTML (ex.: página 404), devolve uma
+ * mensagem curta em vez de despejar o HTML no console/alerta.
+ */
 async function lerResposta(res: Response): Promise<ApiResponse> {
   const texto = await res.text();
 
@@ -142,7 +120,7 @@ async function lerResposta(res: Response): Promise<ApiResponse> {
     return {};
   } catch {
     return {
-      error: texto.slice(0, 500),
+      error: `Resposta inválida do servidor (status ${res.status}).`,
     };
   }
 }
@@ -240,17 +218,11 @@ export default function DashboardLayout() {
         if (usuarioRes.ok) {
           setForm((prev) => ({
             ...prev,
-            nome:
-              String(
-                usuarioData.full_name ||
-<<<<<<< HEAD
+            nome: String(
+              usuarioData.full_name ||
                 usuarioData.nome ||
                 ""
-=======
-                  usuarioData.nome ||
-                  ""
->>>>>>> bf7afa0b6409237a274208cf0288ae1bf31835e9
-              ),
+            ),
             email: String(usuarioData.email || ""),
           }));
         }
@@ -261,11 +233,7 @@ export default function DashboardLayout() {
           console.error(
             "Erro ao carregar protocolos:",
             protocolosData.error ||
-<<<<<<< HEAD
-            `Status ${protocolosRes.status}`
-=======
               `Status ${protocolosRes.status}`
->>>>>>> bf7afa0b6409237a274208cf0288ae1bf31835e9
           );
 
           setProtocolos([]);
@@ -302,13 +270,8 @@ export default function DashboardLayout() {
     const busca = buscaProtocolo.toLowerCase().trim();
 
     return protocolos.filter((item) => {
-      const codigoItem = String(
-        item.codigo || ""
-      ).toLowerCase();
-
-      const assuntoItem = String(
-        item.assunto || ""
-      ).toLowerCase();
+      const codigoItem = String(item.codigo || "").toLowerCase();
+      const assuntoItem = String(item.assunto || "").toLowerCase();
 
       const correspondeBusca =
         !busca ||
@@ -349,22 +312,14 @@ export default function DashboardLayout() {
       if (!res.ok) {
         console.error(
           "Erro ao atualizar protocolos:",
-          data.error ||
-<<<<<<< HEAD
-          `Status ${res.status}`
-=======
-            `Status ${res.status}`
->>>>>>> bf7afa0b6409237a274208cf0288ae1bf31835e9
+          data.error || `Status ${res.status}`
         );
         return;
       }
 
       setProtocolos(extrairProtocolos(data));
     } catch (error) {
-      console.error(
-        "Erro ao atualizar protocolos:",
-        error
-      );
+      console.error("Erro ao atualizar protocolos:", error);
     }
   };
 
@@ -380,8 +335,7 @@ export default function DashboardLayout() {
     if (!categoria) {
       setAlert({
         type: "error",
-        message:
-          "Selecione uma categoria para o atendimento.",
+        message: "Selecione uma categoria para o atendimento.",
       });
       return;
     }
@@ -389,8 +343,7 @@ export default function DashboardLayout() {
     if (!assunto) {
       setAlert({
         type: "error",
-        message:
-          "Informe o assunto da solicitação.",
+        message: "Informe o assunto da solicitação.",
       });
       return;
     }
@@ -398,8 +351,7 @@ export default function DashboardLayout() {
     if (!mensagem) {
       setAlert({
         type: "error",
-        message:
-          "Digite uma mensagem para sua solicitação.",
+        message: "Digite uma mensagem para sua solicitação.",
       });
       return;
     }
@@ -407,8 +359,7 @@ export default function DashboardLayout() {
     if (!codigo) {
       setAlert({
         type: "error",
-        message:
-          "Aguarde a geração do número do protocolo.",
+        message: "Aguarde a geração do número do protocolo.",
       });
       return;
     }
@@ -419,8 +370,7 @@ export default function DashboardLayout() {
       if (arquivo.size > tamanhoMaximo) {
         setAlert({
           type: "error",
-          message:
-            "O arquivo não pode ter mais de 10 MB.",
+          message: "O arquivo não pode ter mais de 10 MB.",
         });
         return;
       }
@@ -452,36 +402,15 @@ export default function DashboardLayout() {
       const codigoAtual = codigo;
       const formData = new FormData();
 
-      formData.append(
-        "nome",
-        form.nome.trim()
-      );
-      formData.append(
-        "email",
-        form.email.trim()
-      );
-      formData.append(
-        "categoria",
-        categoria
-      );
-      formData.append(
-        "assunto",
-        assunto
-      );
-      formData.append(
-        "mensagem",
-        mensagem
-      );
-      formData.append(
-        "codigo",
-        codigoAtual
-      );
+      formData.append("nome", form.nome.trim());
+      formData.append("email", form.email.trim());
+      formData.append("categoria", categoria);
+      formData.append("assunto", assunto);
+      formData.append("mensagem", mensagem);
+      formData.append("codigo", codigoAtual);
 
       if (arquivo) {
-        formData.append(
-          "arquivo",
-          arquivo
-        );
+        formData.append("arquivo", arquivo);
       }
 
       const res = await fetch("/api/protocolo", {
@@ -495,34 +424,23 @@ export default function DashboardLayout() {
       if (!res.ok) {
         throw new Error(
           data.error ||
-<<<<<<< HEAD
-          String(data.message || "") ||
-          `Erro ao criar protocolo. Status: ${res.status}.`
-=======
             String(data.message || "") ||
             `Erro ao criar protocolo. Status: ${res.status}.`
->>>>>>> bf7afa0b6409237a274208cf0288ae1bf31835e9
         );
       }
 
       if (data.success === false) {
         throw new Error(
           data.error ||
-<<<<<<< HEAD
-          String(data.message || "") ||
-          "Erro ao criar protocolo."
-=======
             String(data.message || "") ||
             "Erro ao criar protocolo."
->>>>>>> bf7afa0b6409237a274208cf0288ae1bf31835e9
         );
       }
 
       setAlert({
         type: "success",
         message:
-          data.message ||
-          "Protocolo criado com sucesso!",
+          data.message || "Protocolo criado com sucesso!",
       });
 
       setForm((prev) => ({
@@ -539,10 +457,7 @@ export default function DashboardLayout() {
 
       await atualizarProtocolos();
     } catch (error) {
-      console.error(
-        "Erro ao enviar protocolo:",
-        error
-      );
+      console.error("Erro ao enviar protocolo:", error);
 
       setAlert({
         type: "error",
@@ -621,11 +536,7 @@ export default function DashboardLayout() {
   }
 
   return (
-<<<<<<< HEAD
     <div className="min-h-screen mb-3 min-w-0 text-gray-700">
-=======
-    <div className="min-h-screen min-w-0 text-gray-700">
->>>>>>> bf7afa0b6409237a274208cf0288ae1bf31835e9
       <NvoipWidget />
 
       <main className="mx-auto w-full min-w-0 max-w-8xl px-3 sm:px-4 md:px-6 lg:px-0 2xl:max-w-[1600px]">
@@ -650,44 +561,6 @@ export default function DashboardLayout() {
                 em um único espaço de atendimento.
               </p>
             </div>
-<<<<<<< HEAD
-=======
-
-            <div className="grid grid-cols-2 gap-3 self-end lg:min-w-[300px] xl:min-w-[330px]">
-              <div className="rounded-2xl border border-white/10 bg-white/[0.08] p-4 backdrop-blur-xl sm:rounded-[24px] sm:p-5">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/10 text-white sm:h-11 sm:w-11 sm:rounded-2xl">
-                  <FileText size={18} className="sm:hidden" />
-                  <FileText size={19} className="hidden sm:block" />
-                </div>
-
-                <p className="mt-5 text-[8px] font-black uppercase tracking-[0.18em] text-white/40 sm:mt-6 sm:text-[9px]">
-                  Solicitações
-                </p>
-
-                <p className="mt-1 text-2xl font-black text-white sm:text-3xl">
-                  {statusCounts.total}
-                </p>
-              </div>
-
-              <div className="rounded-2xl border border-white/10 bg-white/[0.08] p-4 backdrop-blur-xl sm:rounded-[24px] sm:p-5">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#5eead4]/15 text-[#99f6e4] sm:h-11 sm:w-11 sm:rounded-2xl">
-                  <ShieldCheck size={18} className="sm:hidden" />
-                  <ShieldCheck size={19} className="hidden sm:block" />
-                </div>
-
-                <p className="mt-5 text-[8px] font-black uppercase tracking-[0.18em] text-white/40 sm:mt-6 sm:text-[9px]">
-                  Atendimento
-                </p>
-
-                <div className="mt-2 flex items-center gap-2">
-                  <span className="h-2 w-2 rounded-full bg-[#99f6e4] shadow-[0_0_10px_#99f6e4]" />
-                  <span className="text-xs font-black text-[#99f6e4] sm:text-sm">
-                    Online
-                  </span>
-                </div>
-              </div>
-            </div>
->>>>>>> bf7afa0b6409237a274208cf0288ae1bf31835e9
           </div>
         </section>
 
@@ -713,10 +586,7 @@ export default function DashboardLayout() {
 
               <div className="relative flex items-start justify-between">
                 <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#eaf8f0] text-[#159447] sm:h-14 sm:w-14 sm:rounded-[18px]">
-                  <FontAwesomeIcon
-                    icon={faWhatsapp}
-                    size="lg"
-                  />
+                  <FontAwesomeIcon icon={faWhatsapp} size="lg" />
                 </div>
 
                 <ChevronRight
@@ -852,18 +722,11 @@ export default function DashboardLayout() {
 
               {alert && (
                 <div
-<<<<<<< HEAD
-                  className={`mt-6 flex items-start gap-3 rounded-xl border p-3.5 sm:mt-7 sm:rounded-2xl sm:p-4 ${alert.type === "success"
-                      ? "border-[#bce9df] bg-[#effcf9] text-[#0f766e]"
-                      : "border-red-200 bg-red-50 text-red-700"
-                    }`}
-=======
                   className={`mt-6 flex items-start gap-3 rounded-xl border p-3.5 sm:mt-7 sm:rounded-2xl sm:p-4 ${
                     alert.type === "success"
                       ? "border-[#bce9df] bg-[#effcf9] text-[#0f766e]"
                       : "border-red-200 bg-red-50 text-red-700"
                   }`}
->>>>>>> bf7afa0b6409237a274208cf0288ae1bf31835e9
                 >
                   {alert.type === "success" ? (
                     <CheckCircle2
@@ -890,8 +753,7 @@ export default function DashboardLayout() {
 
                     {alert.type === "success" && (
                       <p className="mt-1 text-[11px] sm:text-xs">
-                        Protocolo:{" "}
-                        <strong>{codigo}</strong>
+                        Protocolo: <strong>{codigo}</strong>
                       </p>
                     )}
                   </div>
@@ -1052,8 +914,7 @@ export default function DashboardLayout() {
                       accept=".jpg,.jpeg,.png,.pdf,.webp"
                       className="hidden"
                       onChange={(e) => {
-                        const file =
-                          e.target.files?.[0] || null;
+                        const file = e.target.files?.[0] || null;
 
                         setArquivo(file);
                         e.target.value = "";
@@ -1091,18 +952,11 @@ export default function DashboardLayout() {
                   <button
                     type="submit"
                     disabled={enviando}
-<<<<<<< HEAD
-                    className={`inline-flex h-11 cursor-pointer items-center justify-center gap-2 rounded-xl px-6 text-xs font-black text-white shadow-lg transition sm:h-12 sm:rounded-2xl sm:px-7 ${enviando
-                        ? "cursor-not-allowed bg-gray-400"
-                        : "bg-[#0f766e] shadow-[#0f766e]/20 hover:-translate-y-0.5 hover:bg-[#115e59]"
-                      }`}
-=======
                     className={`inline-flex h-11 cursor-pointer items-center justify-center gap-2 rounded-xl px-6 text-xs font-black text-white shadow-lg transition sm:h-12 sm:rounded-2xl sm:px-7 ${
                       enviando
                         ? "cursor-not-allowed bg-gray-400"
                         : "bg-[#0f766e] shadow-[#0f766e]/20 hover:-translate-y-0.5 hover:bg-[#115e59]"
                     }`}
->>>>>>> bf7afa0b6409237a274208cf0288ae1bf31835e9
                   >
                     <Send size={16} />
 
@@ -1211,25 +1065,16 @@ export default function DashboardLayout() {
                 return (
                   <div
                     key={item.pergunta}
-<<<<<<< HEAD
-                    className={`overflow-hidden rounded-2xl border transition-all ${aberto
-                        ? "border-[#bce9df] bg-[#f1fbf8]"
-                        : "border-gray-100 bg-[#f8fbfa]"
-                      }`}
-=======
                     className={`overflow-hidden rounded-2xl border transition-all ${
                       aberto
                         ? "border-[#bce9df] bg-[#f1fbf8]"
                         : "border-gray-100 bg-[#f8fbfa]"
                     }`}
->>>>>>> bf7afa0b6409237a274208cf0288ae1bf31835e9
                   >
                     <button
                       type="button"
                       onClick={() =>
-                        setFaqAberto(
-                          aberto ? null : index
-                        )
+                        setFaqAberto(aberto ? null : index)
                       }
                       className="flex w-full cursor-pointer items-center justify-between gap-3 px-4 py-3.5 text-left sm:py-4"
                     >
@@ -1239,18 +1084,11 @@ export default function DashboardLayout() {
 
                       <ChevronRight
                         size={15}
-<<<<<<< HEAD
-                        className={`shrink-0 text-gray-400 transition ${aberto
-                            ? "rotate-90 text-[#0f766e]"
-                            : ""
-                          }`}
-=======
                         className={`shrink-0 text-gray-400 transition ${
                           aberto
                             ? "rotate-90 text-[#0f766e]"
                             : ""
                         }`}
->>>>>>> bf7afa0b6409237a274208cf0288ae1bf31835e9
                       />
                     </button>
 
@@ -1456,72 +1294,60 @@ export default function DashboardLayout() {
                         </td>
                       </tr>
                     ) : (
-                      protocolosFiltrados.map(
-                        (item, index) => (
-                          <tr
-                            key={`${item.codigo}-${index}`}
-                            className="group transition hover:bg-[#f8fcfb]"
-                          >
-                            <td className="whitespace-nowrap px-4 py-3.5 sm:px-5 sm:py-4">
-                              <span className="rounded-lg border border-[#cfe9e5] bg-[#f1f9f7] px-2.5 py-1.5 text-[10px] font-black text-[#0f766e]">
-                                {item.codigo || "-"}
-                              </span>
-                            </td>
+                      protocolosFiltrados.map((item, index) => (
+                        <tr
+                          key={`${item.codigo}-${index}`}
+                          className="group transition hover:bg-[#f8fcfb]"
+                        >
+                          <td className="whitespace-nowrap px-4 py-3.5 sm:px-5 sm:py-4">
+                            <span className="rounded-lg border border-[#cfe9e5] bg-[#f1f9f7] px-2.5 py-1.5 text-[10px] font-black text-[#0f766e]">
+                              {item.codigo || "-"}
+                            </span>
+                          </td>
 
-                            <td className="max-w-[220px] px-4 py-3.5 sm:max-w-[300px] sm:px-5 sm:py-4">
-                              <p className="truncate text-[11px] font-bold text-gray-700">
-                                {item.assunto || "-"}
-                              </p>
-                            </td>
+                          <td className="max-w-[220px] px-4 py-3.5 sm:max-w-[300px] sm:px-5 sm:py-4">
+                            <p className="truncate text-[11px] font-bold text-gray-700">
+                              {item.assunto || "-"}
+                            </p>
+                          </td>
 
-                            <td className="whitespace-nowrap px-4 py-3.5 sm:px-5 sm:py-4">
-                              <div className="flex items-center gap-2 text-[10px] text-gray-400">
-                                <Clock3 size={13} />
+                          <td className="whitespace-nowrap px-4 py-3.5 sm:px-5 sm:py-4">
+                            <div className="flex items-center gap-2 text-[10px] text-gray-400">
+                              <Clock3 size={13} />
 
-                                {item.criado_em
-                                  ? new Date(
-<<<<<<< HEAD
+                              {item.criado_em
+                                ? new Date(
                                     item.criado_em
-                                  ).toLocaleString(
-                                    "pt-BR"
-                                  )
-=======
-                                      item.criado_em
-                                    ).toLocaleString(
-                                      "pt-BR"
-                                    )
->>>>>>> bf7afa0b6409237a274208cf0288ae1bf31835e9
-                                  : "-"}
-                              </div>
-                            </td>
+                                  ).toLocaleString("pt-BR")
+                                : "-"}
+                            </div>
+                          </td>
 
-                            <td className="whitespace-nowrap px-4 py-3.5 sm:px-5 sm:py-4">
-                              <span
-                                className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[9px] font-black ${statusClasses(
-                                  item.status
-                                )}`}
-                              >
-                                <span className="h-1.5 w-1.5 rounded-full bg-current" />
+                          <td className="whitespace-nowrap px-4 py-3.5 sm:px-5 sm:py-4">
+                            <span
+                              className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[9px] font-black ${statusClasses(
+                                item.status
+                              )}`}
+                            >
+                              <span className="h-1.5 w-1.5 rounded-full bg-current" />
 
-                                {item.status ||
-                                  "Pendente"}
-                              </span>
-                            </td>
+                              {item.status || "Pendente"}
+                            </span>
+                          </td>
 
-                            <td className="px-4 py-3.5 sm:px-5 sm:py-4">
-                              <Link
-                                href={`/passageiro/protocolo/${encodeURIComponent(
-                                  item.codigo || ""
-                                )}`}
-                                title="Visualizar protocolo"
-                                className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 bg-white text-[#0f766e] shadow-sm transition hover:border-[#0f766e] hover:bg-[#0f766e] hover:text-white"
-                              >
-                                <Eye size={15} />
-                              </Link>
-                            </td>
-                          </tr>
-                        )
-                      )
+                          <td className="px-4 py-3.5 sm:px-5 sm:py-4">
+                            <Link
+                              href={`/passageiro/protocolo/${encodeURIComponent(
+                                item.codigo || ""
+                              )}`}
+                              title="Visualizar protocolo"
+                              className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 bg-white text-[#0f766e] shadow-sm transition hover:border-[#0f766e] hover:bg-[#0f766e] hover:text-white"
+                            >
+                              <Eye size={15} />
+                            </Link>
+                          </td>
+                        </tr>
+                      ))
                     )}
                   </tbody>
                 </table>
