@@ -53,6 +53,51 @@ type ApiResponse = {
 
 const faq = [
   {
+<<<<<<< HEAD
+    pergunta: "Como começo a receber viagens?",
+    resposta:
+      "Após a aprovação do seu cadastro, acesse o aplicativo Maylon Motorista, fique disponível para receber solicitações e mantenha a localização do dispositivo ativada.",
+  },
+  {
+    pergunta: "Posso recusar uma viagem?",
+    resposta:
+      "Consulte as regras de aceitação e cancelamento vigentes na plataforma Maylon. Cancelamentos frequentes podem estar sujeitos às políticas operacionais da empresa.",
+  },
+  {
+    pergunta: "Como vejo minhas viagens?",
+    resposta:
+      "Acesse a área de histórico de viagens no aplicativo Maylon Motorista ou no Portal do Motorista, caso essa funcionalidade esteja disponível para sua conta.",
+  },
+  {
+    pergunta: "Quanto ganha um motorista Maylon?",
+    resposta:
+      "Os ganhos dependem da quantidade de viagens, das tarifas aplicáveis, da categoria e de eventuais incentivos. Consulte o aplicativo Maylon Motorista para informações detalhadas sobre ganhos e tarifas.",
+  },
+  {
+    pergunta: "Como consulto meus ganhos?",
+    resposta:
+      "Entre no portal e procure a seção extrato financeiro.",
+  },
+  {
+    pergunta: "Quando recebo o pagamento?",
+    resposta:
+      "Consulte o calendário de repasses definido pela Maylon e confira se seus dados bancários ou PIX estão corretos.",
+  },
+  {
+    pergunta: "Onde vejo as taxas descontadas?",
+    resposta:
+      "Na seção de extrato financeiro, quando disponível, confira o valor das viagens, as taxas aplicadas e o saldo a receber.",
+  },
+  {
+    pergunta: "O que acontece se minha CNH vencer?",
+    resposta:
+      "Atualize o documento assim que possível. A atividade poderá ficar restrita até a regularização e aprovação.",
+  },
+  {
+    pergunta: "Posso cadastrar uma nova conta bancária?",
+    resposta:
+      "Solicite a atualização na área financeira e conclua a validação de titularidade exigida.",
+=======
     pergunta: "Como cancelar uma passagem?",
     resposta:
       "Abra um protocolo selecionando a categoria Cancelamento e informe os dados da sua viagem.",
@@ -76,6 +121,7 @@ const faq = [
     pergunta: "Problemas com pagamento",
     resposta:
       "Selecione Pagamento e envie uma descrição detalhada. Se possível, anexe um comprovante.",
+>>>>>>> bf7afa0b6409237a274208cf0288ae1bf31835e9
   },
 ];
 
@@ -197,8 +243,13 @@ export default function DashboardLayout() {
             nome:
               String(
                 usuarioData.full_name ||
+<<<<<<< HEAD
+                usuarioData.nome ||
+                ""
+=======
                   usuarioData.nome ||
                   ""
+>>>>>>> bf7afa0b6409237a274208cf0288ae1bf31835e9
               ),
             email: String(usuarioData.email || ""),
           }));
@@ -210,7 +261,11 @@ export default function DashboardLayout() {
           console.error(
             "Erro ao carregar protocolos:",
             protocolosData.error ||
+<<<<<<< HEAD
+            `Status ${protocolosRes.status}`
+=======
               `Status ${protocolosRes.status}`
+>>>>>>> bf7afa0b6409237a274208cf0288ae1bf31835e9
           );
 
           setProtocolos([]);
@@ -295,7 +350,11 @@ export default function DashboardLayout() {
         console.error(
           "Erro ao atualizar protocolos:",
           data.error ||
+<<<<<<< HEAD
+          `Status ${res.status}`
+=======
             `Status ${res.status}`
+>>>>>>> bf7afa0b6409237a274208cf0288ae1bf31835e9
         );
         return;
       }
@@ -436,16 +495,26 @@ export default function DashboardLayout() {
       if (!res.ok) {
         throw new Error(
           data.error ||
+<<<<<<< HEAD
+          String(data.message || "") ||
+          `Erro ao criar protocolo. Status: ${res.status}.`
+=======
             String(data.message || "") ||
             `Erro ao criar protocolo. Status: ${res.status}.`
+>>>>>>> bf7afa0b6409237a274208cf0288ae1bf31835e9
         );
       }
 
       if (data.success === false) {
         throw new Error(
           data.error ||
+<<<<<<< HEAD
+          String(data.message || "") ||
+          "Erro ao criar protocolo."
+=======
             String(data.message || "") ||
             "Erro ao criar protocolo."
+>>>>>>> bf7afa0b6409237a274208cf0288ae1bf31835e9
         );
       }
 
@@ -552,7 +621,11 @@ export default function DashboardLayout() {
   }
 
   return (
+<<<<<<< HEAD
+    <div className="min-h-screen mb-3 min-w-0 text-gray-700">
+=======
     <div className="min-h-screen min-w-0 text-gray-700">
+>>>>>>> bf7afa0b6409237a274208cf0288ae1bf31835e9
       <NvoipWidget />
 
       <main className="mx-auto w-full min-w-0 max-w-8xl px-3 sm:px-4 md:px-6 lg:px-0 2xl:max-w-[1600px]">
@@ -577,6 +650,8 @@ export default function DashboardLayout() {
                 em um único espaço de atendimento.
               </p>
             </div>
+<<<<<<< HEAD
+=======
 
             <div className="grid grid-cols-2 gap-3 self-end lg:min-w-[300px] xl:min-w-[330px]">
               <div className="rounded-2xl border border-white/10 bg-white/[0.08] p-4 backdrop-blur-xl sm:rounded-[24px] sm:p-5">
@@ -612,6 +687,7 @@ export default function DashboardLayout() {
                 </div>
               </div>
             </div>
+>>>>>>> bf7afa0b6409237a274208cf0288ae1bf31835e9
           </div>
         </section>
 
@@ -776,11 +852,18 @@ export default function DashboardLayout() {
 
               {alert && (
                 <div
+<<<<<<< HEAD
+                  className={`mt-6 flex items-start gap-3 rounded-xl border p-3.5 sm:mt-7 sm:rounded-2xl sm:p-4 ${alert.type === "success"
+                      ? "border-[#bce9df] bg-[#effcf9] text-[#0f766e]"
+                      : "border-red-200 bg-red-50 text-red-700"
+                    }`}
+=======
                   className={`mt-6 flex items-start gap-3 rounded-xl border p-3.5 sm:mt-7 sm:rounded-2xl sm:p-4 ${
                     alert.type === "success"
                       ? "border-[#bce9df] bg-[#effcf9] text-[#0f766e]"
                       : "border-red-200 bg-red-50 text-red-700"
                   }`}
+>>>>>>> bf7afa0b6409237a274208cf0288ae1bf31835e9
                 >
                   {alert.type === "success" ? (
                     <CheckCircle2
@@ -1008,11 +1091,18 @@ export default function DashboardLayout() {
                   <button
                     type="submit"
                     disabled={enviando}
+<<<<<<< HEAD
+                    className={`inline-flex h-11 cursor-pointer items-center justify-center gap-2 rounded-xl px-6 text-xs font-black text-white shadow-lg transition sm:h-12 sm:rounded-2xl sm:px-7 ${enviando
+                        ? "cursor-not-allowed bg-gray-400"
+                        : "bg-[#0f766e] shadow-[#0f766e]/20 hover:-translate-y-0.5 hover:bg-[#115e59]"
+                      }`}
+=======
                     className={`inline-flex h-11 cursor-pointer items-center justify-center gap-2 rounded-xl px-6 text-xs font-black text-white shadow-lg transition sm:h-12 sm:rounded-2xl sm:px-7 ${
                       enviando
                         ? "cursor-not-allowed bg-gray-400"
                         : "bg-[#0f766e] shadow-[#0f766e]/20 hover:-translate-y-0.5 hover:bg-[#115e59]"
                     }`}
+>>>>>>> bf7afa0b6409237a274208cf0288ae1bf31835e9
                   >
                     <Send size={16} />
 
@@ -1121,11 +1211,18 @@ export default function DashboardLayout() {
                 return (
                   <div
                     key={item.pergunta}
+<<<<<<< HEAD
+                    className={`overflow-hidden rounded-2xl border transition-all ${aberto
+                        ? "border-[#bce9df] bg-[#f1fbf8]"
+                        : "border-gray-100 bg-[#f8fbfa]"
+                      }`}
+=======
                     className={`overflow-hidden rounded-2xl border transition-all ${
                       aberto
                         ? "border-[#bce9df] bg-[#f1fbf8]"
                         : "border-gray-100 bg-[#f8fbfa]"
                     }`}
+>>>>>>> bf7afa0b6409237a274208cf0288ae1bf31835e9
                   >
                     <button
                       type="button"
@@ -1142,11 +1239,18 @@ export default function DashboardLayout() {
 
                       <ChevronRight
                         size={15}
+<<<<<<< HEAD
+                        className={`shrink-0 text-gray-400 transition ${aberto
+                            ? "rotate-90 text-[#0f766e]"
+                            : ""
+                          }`}
+=======
                         className={`shrink-0 text-gray-400 transition ${
                           aberto
                             ? "rotate-90 text-[#0f766e]"
                             : ""
                         }`}
+>>>>>>> bf7afa0b6409237a274208cf0288ae1bf31835e9
                       />
                     </button>
 
@@ -1376,10 +1480,17 @@ export default function DashboardLayout() {
 
                                 {item.criado_em
                                   ? new Date(
+<<<<<<< HEAD
+                                    item.criado_em
+                                  ).toLocaleString(
+                                    "pt-BR"
+                                  )
+=======
                                       item.criado_em
                                     ).toLocaleString(
                                       "pt-BR"
                                     )
+>>>>>>> bf7afa0b6409237a274208cf0288ae1bf31835e9
                                   : "-"}
                               </div>
                             </td>
