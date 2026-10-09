@@ -53,6 +53,7 @@ type ApiResponse = {
 
 const faq = [
   {
+<<<<<<< HEAD
     pergunta: "Como começo a receber viagens?",
     resposta:
       "Após a aprovação do seu cadastro, acesse o aplicativo Maylon Motorista, fique disponível para receber solicitações e mantenha a localização do dispositivo ativada.",
@@ -96,6 +97,31 @@ const faq = [
     pergunta: "Posso cadastrar uma nova conta bancária?",
     resposta:
       "Solicite a atualização na área financeira e conclua a validação de titularidade exigida.",
+=======
+    pergunta: "Como cancelar uma passagem?",
+    resposta:
+      "Abra um protocolo selecionando a categoria Cancelamento e informe os dados da sua viagem.",
+  },
+  {
+    pergunta: "Como solicitar reembolso?",
+    resposta:
+      "Selecione a categoria Reembolso e descreva o motivo da solicitação. Nossa equipe analisará o pedido.",
+  },
+  {
+    pergunta: "Como alterar minha viagem?",
+    resposta:
+      "Utilize a categoria Alteração de viagem e informe a data e os dados que deseja modificar.",
+  },
+  {
+    pergunta: "Como acompanhar meu protocolo?",
+    resposta:
+      "Acompanhe todas as solicitações na área Meus Protocolos e clique no ícone de visualização.",
+  },
+  {
+    pergunta: "Problemas com pagamento",
+    resposta:
+      "Selecione Pagamento e envie uma descrição detalhada. Se possível, anexe um comprovante.",
+>>>>>>> bf7afa0b6409237a274208cf0288ae1bf31835e9
   },
 ];
 
@@ -217,8 +243,13 @@ export default function DashboardLayout() {
             nome:
               String(
                 usuarioData.full_name ||
+<<<<<<< HEAD
                 usuarioData.nome ||
                 ""
+=======
+                  usuarioData.nome ||
+                  ""
+>>>>>>> bf7afa0b6409237a274208cf0288ae1bf31835e9
               ),
             email: String(usuarioData.email || ""),
           }));
@@ -230,7 +261,11 @@ export default function DashboardLayout() {
           console.error(
             "Erro ao carregar protocolos:",
             protocolosData.error ||
+<<<<<<< HEAD
             `Status ${protocolosRes.status}`
+=======
+              `Status ${protocolosRes.status}`
+>>>>>>> bf7afa0b6409237a274208cf0288ae1bf31835e9
           );
 
           setProtocolos([]);
@@ -315,7 +350,11 @@ export default function DashboardLayout() {
         console.error(
           "Erro ao atualizar protocolos:",
           data.error ||
+<<<<<<< HEAD
           `Status ${res.status}`
+=======
+            `Status ${res.status}`
+>>>>>>> bf7afa0b6409237a274208cf0288ae1bf31835e9
         );
         return;
       }
@@ -456,16 +495,26 @@ export default function DashboardLayout() {
       if (!res.ok) {
         throw new Error(
           data.error ||
+<<<<<<< HEAD
           String(data.message || "") ||
           `Erro ao criar protocolo. Status: ${res.status}.`
+=======
+            String(data.message || "") ||
+            `Erro ao criar protocolo. Status: ${res.status}.`
+>>>>>>> bf7afa0b6409237a274208cf0288ae1bf31835e9
         );
       }
 
       if (data.success === false) {
         throw new Error(
           data.error ||
+<<<<<<< HEAD
           String(data.message || "") ||
           "Erro ao criar protocolo."
+=======
+            String(data.message || "") ||
+            "Erro ao criar protocolo."
+>>>>>>> bf7afa0b6409237a274208cf0288ae1bf31835e9
         );
       }
 
@@ -572,7 +621,11 @@ export default function DashboardLayout() {
   }
 
   return (
+<<<<<<< HEAD
     <div className="min-h-screen mb-3 min-w-0 text-gray-700">
+=======
+    <div className="min-h-screen min-w-0 text-gray-700">
+>>>>>>> bf7afa0b6409237a274208cf0288ae1bf31835e9
       <NvoipWidget />
 
       <main className="mx-auto w-full min-w-0 max-w-8xl px-3 sm:px-4 md:px-6 lg:px-0 2xl:max-w-[1600px]">
@@ -597,6 +650,44 @@ export default function DashboardLayout() {
                 em um único espaço de atendimento.
               </p>
             </div>
+<<<<<<< HEAD
+=======
+
+            <div className="grid grid-cols-2 gap-3 self-end lg:min-w-[300px] xl:min-w-[330px]">
+              <div className="rounded-2xl border border-white/10 bg-white/[0.08] p-4 backdrop-blur-xl sm:rounded-[24px] sm:p-5">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/10 text-white sm:h-11 sm:w-11 sm:rounded-2xl">
+                  <FileText size={18} className="sm:hidden" />
+                  <FileText size={19} className="hidden sm:block" />
+                </div>
+
+                <p className="mt-5 text-[8px] font-black uppercase tracking-[0.18em] text-white/40 sm:mt-6 sm:text-[9px]">
+                  Solicitações
+                </p>
+
+                <p className="mt-1 text-2xl font-black text-white sm:text-3xl">
+                  {statusCounts.total}
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-white/10 bg-white/[0.08] p-4 backdrop-blur-xl sm:rounded-[24px] sm:p-5">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#5eead4]/15 text-[#99f6e4] sm:h-11 sm:w-11 sm:rounded-2xl">
+                  <ShieldCheck size={18} className="sm:hidden" />
+                  <ShieldCheck size={19} className="hidden sm:block" />
+                </div>
+
+                <p className="mt-5 text-[8px] font-black uppercase tracking-[0.18em] text-white/40 sm:mt-6 sm:text-[9px]">
+                  Atendimento
+                </p>
+
+                <div className="mt-2 flex items-center gap-2">
+                  <span className="h-2 w-2 rounded-full bg-[#99f6e4] shadow-[0_0_10px_#99f6e4]" />
+                  <span className="text-xs font-black text-[#99f6e4] sm:text-sm">
+                    Online
+                  </span>
+                </div>
+              </div>
+            </div>
+>>>>>>> bf7afa0b6409237a274208cf0288ae1bf31835e9
           </div>
         </section>
 
@@ -761,10 +852,18 @@ export default function DashboardLayout() {
 
               {alert && (
                 <div
+<<<<<<< HEAD
                   className={`mt-6 flex items-start gap-3 rounded-xl border p-3.5 sm:mt-7 sm:rounded-2xl sm:p-4 ${alert.type === "success"
                       ? "border-[#bce9df] bg-[#effcf9] text-[#0f766e]"
                       : "border-red-200 bg-red-50 text-red-700"
                     }`}
+=======
+                  className={`mt-6 flex items-start gap-3 rounded-xl border p-3.5 sm:mt-7 sm:rounded-2xl sm:p-4 ${
+                    alert.type === "success"
+                      ? "border-[#bce9df] bg-[#effcf9] text-[#0f766e]"
+                      : "border-red-200 bg-red-50 text-red-700"
+                  }`}
+>>>>>>> bf7afa0b6409237a274208cf0288ae1bf31835e9
                 >
                   {alert.type === "success" ? (
                     <CheckCircle2
@@ -992,10 +1091,18 @@ export default function DashboardLayout() {
                   <button
                     type="submit"
                     disabled={enviando}
+<<<<<<< HEAD
                     className={`inline-flex h-11 cursor-pointer items-center justify-center gap-2 rounded-xl px-6 text-xs font-black text-white shadow-lg transition sm:h-12 sm:rounded-2xl sm:px-7 ${enviando
                         ? "cursor-not-allowed bg-gray-400"
                         : "bg-[#0f766e] shadow-[#0f766e]/20 hover:-translate-y-0.5 hover:bg-[#115e59]"
                       }`}
+=======
+                    className={`inline-flex h-11 cursor-pointer items-center justify-center gap-2 rounded-xl px-6 text-xs font-black text-white shadow-lg transition sm:h-12 sm:rounded-2xl sm:px-7 ${
+                      enviando
+                        ? "cursor-not-allowed bg-gray-400"
+                        : "bg-[#0f766e] shadow-[#0f766e]/20 hover:-translate-y-0.5 hover:bg-[#115e59]"
+                    }`}
+>>>>>>> bf7afa0b6409237a274208cf0288ae1bf31835e9
                   >
                     <Send size={16} />
 
@@ -1104,10 +1211,18 @@ export default function DashboardLayout() {
                 return (
                   <div
                     key={item.pergunta}
+<<<<<<< HEAD
                     className={`overflow-hidden rounded-2xl border transition-all ${aberto
                         ? "border-[#bce9df] bg-[#f1fbf8]"
                         : "border-gray-100 bg-[#f8fbfa]"
                       }`}
+=======
+                    className={`overflow-hidden rounded-2xl border transition-all ${
+                      aberto
+                        ? "border-[#bce9df] bg-[#f1fbf8]"
+                        : "border-gray-100 bg-[#f8fbfa]"
+                    }`}
+>>>>>>> bf7afa0b6409237a274208cf0288ae1bf31835e9
                   >
                     <button
                       type="button"
@@ -1124,10 +1239,18 @@ export default function DashboardLayout() {
 
                       <ChevronRight
                         size={15}
+<<<<<<< HEAD
                         className={`shrink-0 text-gray-400 transition ${aberto
                             ? "rotate-90 text-[#0f766e]"
                             : ""
                           }`}
+=======
+                        className={`shrink-0 text-gray-400 transition ${
+                          aberto
+                            ? "rotate-90 text-[#0f766e]"
+                            : ""
+                        }`}
+>>>>>>> bf7afa0b6409237a274208cf0288ae1bf31835e9
                       />
                     </button>
 
@@ -1357,10 +1480,17 @@ export default function DashboardLayout() {
 
                                 {item.criado_em
                                   ? new Date(
+<<<<<<< HEAD
                                     item.criado_em
                                   ).toLocaleString(
                                     "pt-BR"
                                   )
+=======
+                                      item.criado_em
+                                    ).toLocaleString(
+                                      "pt-BR"
+                                    )
+>>>>>>> bf7afa0b6409237a274208cf0288ae1bf31835e9
                                   : "-"}
                               </div>
                             </td>

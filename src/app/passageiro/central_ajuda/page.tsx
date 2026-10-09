@@ -79,11 +79,14 @@ const faq = [
   },
 ];
 
+<<<<<<< HEAD
 /*
  * Lê a resposta da API com segurança.
  * Se o servidor devolver HTML (ex.: página 404), não despeja o HTML
  * no console/alerta: devolve uma mensagem curta e legível.
  */
+=======
+>>>>>>> bf7afa0b6409237a274208cf0288ae1bf31835e9
 async function lerResposta(res: Response): Promise<ApiResponse> {
   const texto = await res.text();
 
@@ -101,7 +104,11 @@ async function lerResposta(res: Response): Promise<ApiResponse> {
     return {};
   } catch {
     return {
+<<<<<<< HEAD
       error: `Resposta inválida do servidor (status ${res.status}).`,
+=======
+      error: texto.slice(0, 500),
+>>>>>>> bf7afa0b6409237a274208cf0288ae1bf31835e9
     };
   }
 }
@@ -583,6 +590,42 @@ export default function DashboardLayout() {
                 em um único espaço de atendimento.
               </p>
             </div>
+<<<<<<< HEAD
+=======
+
+            <div className="grid w-full grid-cols-2 gap-3 self-end sm:max-w-md lg:w-auto lg:min-w-[330px] 2xl:min-w-[380px] 2xl:gap-4">
+              <div className="rounded-[20px] border border-white/10 bg-white/[0.08] p-4 backdrop-blur-xl sm:rounded-[24px] sm:p-5">
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/10 text-white sm:h-11 sm:w-11">
+                  <FileText size={19} />
+                </div>
+
+                <p className="mt-4 text-[9px] font-black uppercase tracking-[0.18em] text-white/40 sm:mt-6 2xl:text-[10px]">
+                  Solicitações
+                </p>
+
+                <p className="mt-1 text-2xl font-black text-white sm:text-3xl 2xl:text-4xl">
+                  {statusCounts.total}
+                </p>
+              </div>
+
+              <div className="rounded-[20px] border border-white/10 bg-white/[0.08] p-4 backdrop-blur-xl sm:rounded-[24px] sm:p-5">
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#5eead4]/15 text-[#99f6e4] sm:h-11 sm:w-11">
+                  <ShieldCheck size={19} />
+                </div>
+
+                <p className="mt-4 text-[9px] font-black uppercase tracking-[0.18em] text-white/40 sm:mt-6 2xl:text-[10px]">
+                  Atendimento
+                </p>
+
+                <div className="mt-2 flex items-center gap-2">
+                  <span className="h-2 w-2 rounded-full bg-[#99f6e4] shadow-[0_0_10px_#99f6e4]" />
+                  <span className="text-sm font-black text-[#99f6e4] 2xl:text-base">
+                    Online
+                  </span>
+                </div>
+              </div>
+            </div>
+>>>>>>> bf7afa0b6409237a274208cf0288ae1bf31835e9
           </div>
         </section>
 

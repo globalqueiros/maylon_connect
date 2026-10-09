@@ -156,15 +156,25 @@ export default function Relatorio() {
                             item.current_status ??
                                 item.status ??
                                 "pending"
+<<<<<<< HEAD
                         )
                             .trim()
                             .toLowerCase();
+=======
+                        ).trim();
+>>>>>>> bf7afa0b6409237a274208cf0288ae1bf31835e9
 
                         return {
                             trip_request_id: tripId,
                             pickup_address: String(pickup),
+<<<<<<< HEAD
                             destination_address:
                                 String(destination),
+=======
+                            destination_address: String(
+                                destination
+                            ),
+>>>>>>> bf7afa0b6409237a274208cf0288ae1bf31835e9
                             valor,
                             current_status:
                                 status || "pending",
@@ -221,7 +231,10 @@ export default function Relatorio() {
 
             case "cancelled":
             case "canceled":
+<<<<<<< HEAD
             case "failed":
+=======
+>>>>>>> bf7afa0b6409237a274208cf0288ae1bf31835e9
                 return "Cancelada";
 
             case "in_progress":
@@ -246,6 +259,12 @@ export default function Relatorio() {
             case "returning":
                 return "Retornando";
 
+<<<<<<< HEAD
+=======
+            case "failed":
+                return "Falhou";
+
+>>>>>>> bf7afa0b6409237a274208cf0288ae1bf31835e9
             default:
                 return status || "Desconhecido";
         }
@@ -315,6 +334,7 @@ export default function Relatorio() {
         };
     };
 
+<<<<<<< HEAD
     /*
      * Define como o valor deve aparecer de acordo
      * com o status da viagem.
@@ -364,6 +384,8 @@ export default function Relatorio() {
         };
     };
 
+=======
+>>>>>>> bf7afa0b6409237a274208cf0288ae1bf31835e9
     const totalViagens = rows.length;
 
     const totalViagensFinalizadas = useMemo(() => {
@@ -688,11 +710,14 @@ export default function Relatorio() {
                                             const StatusIcon =
                                                 status.icon;
 
+<<<<<<< HEAD
                                             const valorViagem =
                                                 obterValorViagem(
                                                     item
                                                 );
 
+=======
+>>>>>>> bf7afa0b6409237a274208cf0288ae1bf31835e9
                                             return (
                                                 <tr
                                                     key={
@@ -783,6 +808,7 @@ export default function Relatorio() {
                                                     </td>
 
                                                     <td className="whitespace-nowrap px-6 py-5">
+<<<<<<< HEAD
                                                         <div>
                                                             <p className="text-xs font-medium text-slate-400">
                                                                 {
@@ -809,6 +835,32 @@ export default function Relatorio() {
                                                                 }
                                                             </p>
                                                         </div>
+=======
+                                                        {item.valor <=
+                                                        0 ? (
+                                                            <div>
+                                                                <p className="text-xs font-medium text-slate-400">
+                                                                    Valor
+                                                                </p>
+
+                                                                <p className="mt-1 text-sm font-medium text-slate-400">
+                                                                    Aguardando
+                                                                </p>
+                                                            </div>
+                                                        ) : (
+                                                            <div>
+                                                                <p className="text-xs font-medium text-slate-400">
+                                                                    Recebido
+                                                                </p>
+
+                                                                <p className="mt-1 text-sm font-extrabold text-slate-800">
+                                                                    {formatCurrency(
+                                                                        item.valor
+                                                                    )}
+                                                                </p>
+                                                            </div>
+                                                        )}
+>>>>>>> bf7afa0b6409237a274208cf0288ae1bf31835e9
                                                     </td>
 
                                                     <td className="px-6 py-5">
@@ -860,11 +912,14 @@ export default function Relatorio() {
                                     const StatusIcon =
                                         status.icon;
 
+<<<<<<< HEAD
                                     const valorViagem =
                                         obterValorViagem(
                                             item
                                         );
 
+=======
+>>>>>>> bf7afa0b6409237a274208cf0288ae1bf31835e9
                                     return (
                                         <article
                                             key={
@@ -957,6 +1012,7 @@ export default function Relatorio() {
                                                         Valor
                                                     </p>
 
+<<<<<<< HEAD
                                                     <p
                                                         className={`mt-1 text-sm ${
                                                             valorViagem.type ===
@@ -974,6 +1030,15 @@ export default function Relatorio() {
                                                         {
                                                             valorViagem.value
                                                         }
+=======
+                                                    <p className="mt-1 text-sm font-extrabold text-slate-800">
+                                                        {item.valor <=
+                                                        0
+                                                            ? "Aguardando"
+                                                            : formatCurrency(
+                                                                  item.valor
+                                                              )}
+>>>>>>> bf7afa0b6409237a274208cf0288ae1bf31835e9
                                                     </p>
                                                 </div>
 
