@@ -270,11 +270,376 @@ export default function Relatorio() {
       try {
         setLoading(true);
 
+<<<<<<< HEAD
         const response = await fetch("/api/trips/drives", {
           method: "GET",
           credentials: "include",
           cache: "no-store",
           headers: { Accept: "application/json" },
+=======
+                const response = await fetch(
+                    "/api/trips/drives",
+                    {
+                        method: "GET",
+                        credentials: "include",
+                        cache: "no-store",
+                        headers: {
+                            Accept: "application/json",
+                        },
+                    }
+                );
+
+                let data: TripsResponse = {};
+
+                try {
+                    data = await response.json();
+                } catch {
+                    data = {};
+                }
+
+                if (!response.ok) {
+                    throw new Error(
+                        data?.message ||
+                            "Erro ao buscar viagens."
+                    );
+                }
+
+                const viagens = Array.isArray(data?.trips)
+                    ? data.trips
+                    : [];
+
+                const viagensFormatadas: Trip[] = viagens
+                    .map((item) => {
+                        const tripId = String(
+                            item.trip_request_id ??
+                                item.request_id ??
+                                item.id ??
+                                ""
+                        ).trim();
+
+                        const pickup =
+                            item.pickup_address ??
+                            item.origin ??
+                            item.pickup_location ??
+                            "Origem não informada";
+
+                        const destination =
+                            item.destination_address ??
+                            item.destination ??
+                            item.dropoff_address ??
+                            item.dropoff_location ??
+                            "Destino não informado";
+
+                        let valor = Number(
+                            item.valor ??
+                                item.fare ??
+                                item.amount ??
+                                0
+                        );
+
+                        if (!Number.isFinite(valor)) {
+                            valor = 0;
+                        }
+
+                        const status = String(
+                            item.current_status ??
+                                item.status ??
+                                "pending"
+                        )
+                            .trim()
+                            .toLowerCase();
+
+                        return {
+                            trip_request_id: tripId,
+                            pickup_address: String(pickup),
+                            destination_address:
+                                String(destination),
+                            valor,
+                            current_status:
+                                status || "pending",
+                        };
+                    })
+                    .filter(
+                        (item) =>
+                            item.trip_request_id.length > 0
+                    );
+
+                if (ativo) {
+                    setRows(viagensFormatadas);
+                    setPaginaAtual(1);
+                }
+            } catch (error) {
+                console.error(
+                    "ERRO AO CARREGAR VIAGENS:",
+                    error
+                );
+
+                if (ativo) {
+                    setRows([]);
+                    setPaginaAtual(1);
+                }
+            } finally {
+                if (ativo) {
+                    setLoading(false);
+                }
+            }
+        }
+
+        buscarViagens();
+
+        return () => {
+            ativo = false;
+        };
+    }, []);
+
+    const normalizarStatus = (status: string) => {
+        return String(status || "")
+            .toLowerCase()
+            .trim();
+    };
+
+    const traduzirStatus = (status: string) => {
+        const statusNormalizado =
+            normalizarStatus(status);
+
+        switch (statusNormalizado) {
+            case "completed":
+            case "complete":
+            case "finished":
+                return "Finalizada";
+
+            case "cancelled":
+            case "canceled":
+            case "failed":
+                return "Cancelada";
+
+            case "in_progress":
+            case "ongoing":
+                return "Em andamento";
+
+            case "accepted":
+                return "Aceita";
+
+            case "picked_up":
+                return "Passageiro embarcou";
+
+            case "out_for_pickup":
+                return "A caminho";
+
+            case "pending":
+                return "Pendente";
+
+            case "returned":
+                return "Retornada";
+
+            case "returning":
+                return "Retornando";
+
+            default:
+                return status || "Desconhecido";
+        }
+    };
+
+    const statusConfig = (status: string) => {
+        const statusNormalizado =
+            normalizarStatus(status);
+
+        if (
+            STATUS_FINALIZADOS.includes(
+                statusNormalizado
+            )
+        ) {
+            return {
+                label: "Finalizada",
+                className:
+                    "bg-emerald-50 text-emerald-700 border-emerald-100",
+                icon: CheckCircle2,
+            };
+        }
+
+        if (
+            STATUS_CANCELADOS.includes(
+                statusNormalizado
+            )
+        ) {
+            return {
+                label: "Cancelada",
+                className:
+                    "bg-red-50 text-red-700 border-red-100",
+                icon: XCircle,
+            };
+        }
+
+        if (
+            STATUS_EM_ANDAMENTO.includes(
+                statusNormalizado
+            )
+        ) {
+            return {
+                label: traduzirStatus(status),
+                className:
+                    "bg-amber-50 text-amber-700 border-amber-100",
+                icon: Clock3,
+            };
+        }
+
+        if (
+            STATUS_RETORNADOS.includes(
+                statusNormalizado
+            )
+        ) {
+            return {
+                label: traduzirStatus(status),
+                className:
+                    "bg-blue-50 text-blue-700 border-blue-100",
+                icon: Route,
+            };
+        }
+
+        return {
+            label: traduzirStatus(status),
+            className:
+                "bg-slate-50 text-slate-600 border-slate-200",
+            icon: Clock3,
+        };
+    };
+
+    /*
+     * Define como o valor deve aparecer de acordo
+     * com o status da viagem.
+     *
+     * Cancelada:
+     * R$ 0,00
+     *
+     * Finalizada:
+     * mostra o valor da corrida
+     *
+     * Outros status:
+     * Aguardando caso ainda não exista valor.
+     */
+    const obterValorViagem = (item: Trip) => {
+        const status = normalizarStatus(
+            item.current_status
+        );
+
+        if (STATUS_CANCELADOS.includes(status)) {
+            return {
+                label: "Valor",
+                value: formatCurrency(0),
+                type: "cancelada" as const,
+            };
+        }
+
+        if (STATUS_FINALIZADOS.includes(status)) {
+            return {
+                label: "Recebido",
+                value: formatCurrency(item.valor),
+                type: "finalizada" as const,
+            };
+        }
+
+        if (item.valor <= 0) {
+            return {
+                label: "Valor",
+                value: "Aguardando",
+                type: "aguardando" as const,
+            };
+        }
+
+        return {
+            label: "Valor",
+            value: formatCurrency(item.valor),
+            type: "normal" as const,
+        };
+    };
+
+    const totalViagens = rows.length;
+
+    const totalViagensFinalizadas = useMemo(() => {
+        return rows.filter((viagem) => {
+            const status = normalizarStatus(
+                viagem.current_status
+            );
+
+            return STATUS_FINALIZADOS.includes(status);
+        }).length;
+    }, [rows]);
+
+    const totalEmAndamento = useMemo(() => {
+        return rows.filter((viagem) => {
+            const status = normalizarStatus(
+                viagem.current_status
+            );
+
+            return STATUS_EM_ANDAMENTO.includes(status);
+        }).length;
+    }, [rows]);
+
+    const totalCanceladas = useMemo(() => {
+        return rows.filter((viagem) => {
+            const status = normalizarStatus(
+                viagem.current_status
+            );
+
+            return STATUS_CANCELADOS.includes(status);
+        }).length;
+    }, [rows]);
+
+    const totalGasto = useMemo(() => {
+        return rows.reduce((total, viagem) => {
+            const status = normalizarStatus(
+                viagem.current_status
+            );
+
+            if (
+                STATUS_FINALIZADOS.includes(status)
+            ) {
+                return total + viagem.valor;
+            }
+
+            return total;
+        }, 0);
+    }, [rows]);
+
+    const totalPaginas = Math.max(
+        1,
+        Math.ceil(
+            totalViagens / VIAGENS_POR_PAGINA
+        )
+    );
+
+    const paginaSegura = Math.min(
+        paginaAtual,
+        totalPaginas
+    );
+
+    const indiceInicio =
+        (paginaSegura - 1) *
+        VIAGENS_POR_PAGINA;
+
+    const indiceFim =
+        indiceInicio +
+        VIAGENS_POR_PAGINA;
+
+    const viagensPaginadas = rows.slice(
+        indiceInicio,
+        indiceFim
+    );
+
+    const irParaPagina = (pagina: number) => {
+        if (
+            pagina < 1 ||
+            pagina > totalPaginas
+        ) {
+            return;
+        }
+
+        setPaginaAtual(pagina);
+
+        window.scrollTo({
+            top: 0,
+            behavior: "smooth",
+>>>>>>> 9c9d572 (Fist Commit)
         });
 
         let data: TripsResponse = {};
@@ -543,6 +908,7 @@ export default function Relatorio() {
                               className="shrink-0 text-slate-300"
                             />
 
+<<<<<<< HEAD
                             <div className="flex min-w-0 flex-1 items-center gap-2">
                               <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-red-50">
                                 <MapPin size={14} className="text-red-500" />
@@ -554,6 +920,403 @@ export default function Relatorio() {
                                 <p
                                   className="mt-0.5 truncate text-sm font-medium text-slate-700"
                                   title={item.destination_address}
+=======
+                        <h3 className="text-base font-bold text-slate-800 sm:text-lg">
+                            Nenhuma viagem encontrada
+                        </h3>
+
+                        <p className="mt-1.5 max-w-sm text-sm leading-6 text-slate-400">
+                            Suas viagens aparecerão aqui
+                            assim que você realizar uma
+                            corrida.
+                        </p>
+                    </div>
+                ) : (
+                    <>
+                        <div className="hidden overflow-x-auto md:block">
+                            <table className="w-full min-w-[900px] border-collapse">
+                                <thead>
+                                    <tr className="border-b border-slate-100 bg-slate-50/70">
+                                        <th className="px-6 py-4 text-left text-[11px] font-bold uppercase tracking-[0.08em] text-slate-400">
+                                            Viagem
+                                        </th>
+
+                                        <th className="px-6 py-4 text-left text-[11px] font-bold uppercase tracking-[0.08em] text-slate-400">
+                                            Rota
+                                        </th>
+
+                                        <th className="px-6 py-4 text-left text-[11px] font-bold uppercase tracking-[0.08em] text-slate-400">
+                                            Valor
+                                        </th>
+
+                                        <th className="px-6 py-4 text-left text-[11px] font-bold uppercase tracking-[0.08em] text-slate-400">
+                                            Status
+                                        </th>
+
+                                        <th className="px-6 py-4 text-right text-[11px] font-bold uppercase tracking-[0.08em] text-slate-400">
+                                            Ação
+                                        </th>
+                                    </tr>
+                                </thead>
+
+                                <tbody>
+                                    {viagensPaginadas.map(
+                                        (item) => {
+                                            const status =
+                                                statusConfig(
+                                                    item.current_status
+                                                );
+
+                                            const StatusIcon =
+                                                status.icon;
+
+                                            const valorViagem =
+                                                obterValorViagem(
+                                                    item
+                                                );
+
+                                            return (
+                                                <tr
+                                                    key={
+                                                        item.trip_request_id
+                                                    }
+                                                    className="group border-b border-slate-100 last:border-0 hover:bg-slate-50/50"
+                                                >
+                                                    <td className="px-6 py-5">
+                                                        <div>
+                                                            <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-slate-400">
+                                                                ID
+                                                            </span>
+
+                                                            <p className="mt-1 font-bold text-slate-700">
+                                                                #
+                                                                {
+                                                                    item.trip_request_id
+                                                                }
+                                                            </p>
+                                                        </div>
+                                                    </td>
+
+                                                    <td className="px-6 py-5">
+                                                        <div className="flex min-w-[430px] max-w-[650px] items-center gap-3">
+                                                            <div className="flex min-w-0 flex-1 items-center gap-2">
+                                                                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-50">
+                                                                    <MapPin
+                                                                        size={
+                                                                            14
+                                                                        }
+                                                                        className="text-emerald-500"
+                                                                    />
+                                                                </div>
+
+                                                                <div className="min-w-0">
+                                                                    <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                                                                        Origem
+                                                                    </p>
+
+                                                                    <p
+                                                                        className="mt-0.5 truncate text-sm font-medium text-slate-700"
+                                                                        title={
+                                                                            item.pickup_address
+                                                                        }
+                                                                    >
+                                                                        {
+                                                                            item.pickup_address
+                                                                        }
+                                                                    </p>
+                                                                </div>
+                                                            </div>
+
+                                                            <ArrowRight
+                                                                size={
+                                                                    16
+                                                                }
+                                                                className="shrink-0 text-slate-300"
+                                                            />
+
+                                                            <div className="flex min-w-0 flex-1 items-center gap-2">
+                                                                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-red-50">
+                                                                    <MapPin
+                                                                        size={
+                                                                            14
+                                                                        }
+                                                                        className="text-red-500"
+                                                                    />
+                                                                </div>
+
+                                                                <div className="min-w-0">
+                                                                    <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                                                                        Destino
+                                                                    </p>
+
+                                                                    <p
+                                                                        className="mt-0.5 truncate text-sm font-medium text-slate-700"
+                                                                        title={
+                                                                            item.destination_address
+                                                                        }
+                                                                    >
+                                                                        {
+                                                                            item.destination_address
+                                                                        }
+                                                                    </p>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </td>
+
+                                                    <td className="whitespace-nowrap px-6 py-5">
+                                                        <div>
+                                                            <p className="text-xs font-medium text-slate-400">
+                                                                {
+                                                                    valorViagem.label
+                                                                }
+                                                            </p>
+
+                                                            <p
+                                                                className={`mt-1 text-sm ${
+                                                                    valorViagem.type ===
+                                                                    "finalizada"
+                                                                        ? "font-extrabold text-slate-800"
+                                                                        : valorViagem.type ===
+                                                                          "cancelada"
+                                                                        ? "font-extrabold text-slate-600"
+                                                                        : valorViagem.type ===
+                                                                          "aguardando"
+                                                                        ? "font-medium text-slate-400"
+                                                                        : "font-extrabold text-slate-800"
+                                                                }`}
+                                                            >
+                                                                {
+                                                                    valorViagem.value
+                                                                }
+                                                            </p>
+                                                        </div>
+                                                    </td>
+
+                                                    <td className="px-6 py-5">
+                                                        <span
+                                                            className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-bold ${status.className}`}
+                                                        >
+                                                            <StatusIcon
+                                                                size={
+                                                                    13
+                                                                }
+                                                            />
+
+                                                            {
+                                                                status.label
+                                                            }
+                                                        </span>
+                                                    </td>
+
+                                                    <td className="px-6 py-5 text-right">
+                                                        <Link
+                                                            href={`/motorista/viagens/${item.trip_request_id}`}
+                                                            className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-xs font-bold text-slate-600 transition-all hover:border-teal-200 hover:bg-teal-50 hover:text-teal-700"
+                                                        >
+                                                            <Eye
+                                                                size={
+                                                                    15
+                                                                }
+                                                            />
+
+                                                            Ver detalhes
+                                                        </Link>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        }
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div className="grid grid-cols-1 gap-3 p-4 md:hidden">
+                            {viagensPaginadas.map(
+                                (item) => {
+                                    const status =
+                                        statusConfig(
+                                            item.current_status
+                                        );
+
+                                    const StatusIcon =
+                                        status.icon;
+
+                                    const valorViagem =
+                                        obterValorViagem(
+                                            item
+                                        );
+
+                                    return (
+                                        <article
+                                            key={
+                                                item.trip_request_id
+                                            }
+                                            className="rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_3px_15px_rgba(15,23,42,0.04)]"
+                                        >
+                                            <div className="flex items-start justify-between gap-3">
+                                                <div>
+                                                    <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-slate-400">
+                                                        ID da viagem
+                                                    </p>
+
+                                                    <p className="mt-1 text-sm font-extrabold text-slate-800">
+                                                        #
+                                                        {
+                                                            item.trip_request_id
+                                                        }
+                                                    </p>
+                                                </div>
+
+                                                <span
+                                                    className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[10px] font-bold ${status.className}`}
+                                                >
+                                                    <StatusIcon
+                                                        size={
+                                                            12
+                                                        }
+                                                    />
+
+                                                    {
+                                                        status.label
+                                                    }
+                                                </span>
+                                            </div>
+
+                                            <div className="mt-5">
+                                                <div className="flex items-start gap-3">
+                                                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-50">
+                                                        <MapPin
+                                                            size={
+                                                                14
+                                                            }
+                                                            className="text-emerald-500"
+                                                        />
+                                                    </div>
+
+                                                    <div className="min-w-0 flex-1">
+                                                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                                                            Origem
+                                                        </p>
+
+                                                        <p className="mt-1 text-sm leading-5 text-slate-700">
+                                                            {
+                                                                item.pickup_address
+                                                            }
+                                                        </p>
+                                                    </div>
+                                                </div>
+
+                                                <div className="ml-4 h-6 border-l border-dashed border-slate-200" />
+
+                                                <div className="flex items-start gap-3">
+                                                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-red-50">
+                                                        <MapPin
+                                                            size={
+                                                                14
+                                                            }
+                                                            className="text-red-500"
+                                                        />
+                                                    </div>
+
+                                                    <div className="min-w-0 flex-1">
+                                                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                                                            Destino
+                                                        </p>
+
+                                                        <p className="mt-1 text-sm leading-5 text-slate-700">
+                                                            {
+                                                                item.destination_address
+                                                            }
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div className="mt-5 grid grid-cols-2 gap-3 border-t border-slate-100 pt-4">
+                                                <div>
+                                                    <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                                                        Valor
+                                                    </p>
+
+                                                    <p
+                                                        className={`mt-1 text-sm ${
+                                                            valorViagem.type ===
+                                                            "finalizada"
+                                                                ? "font-extrabold text-slate-800"
+                                                                : valorViagem.type ===
+                                                                  "cancelada"
+                                                                ? "font-extrabold text-slate-600"
+                                                                : valorViagem.type ===
+                                                                  "aguardando"
+                                                                ? "font-medium text-slate-400"
+                                                                : "font-extrabold text-slate-800"
+                                                        }`}
+                                                    >
+                                                        {
+                                                            valorViagem.value
+                                                        }
+                                                    </p>
+                                                </div>
+
+                                                <div className="flex justify-end">
+                                                    <Link
+                                                        href={`/motorista/viagens/${item.trip_request_id}`}
+                                                        className="inline-flex h-9 items-center gap-2 rounded-lg bg-teal-50 px-3 text-xs font-bold text-teal-700 transition hover:bg-teal-100"
+                                                    >
+                                                        <Eye
+                                                            size={
+                                                                14
+                                                            }
+                                                        />
+
+                                                        Detalhes
+                                                    </Link>
+                                                </div>
+                                            </div>
+                                        </article>
+                                    );
+                                }
+                            )}
+                        </div>
+                    </>
+                )}
+
+                {!loading && totalViagens > 0 && (
+                    <div className="flex flex-col gap-4 border-t border-slate-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+                        <p className="text-xs text-slate-400">
+                            Mostrando{" "}
+                            <strong className="text-slate-600">
+                                {indiceInicio + 1}
+                            </strong>{" "}
+                            até{" "}
+                            <strong className="text-slate-600">
+                                {Math.min(
+                                    indiceFim,
+                                    totalViagens
+                                )}
+                            </strong>{" "}
+                            de{" "}
+                            <strong className="text-slate-600">
+                                {totalViagens}
+                            </strong>{" "}
+                            viagens
+                        </p>
+
+                        {totalPaginas > 1 && (
+                            <div className="flex items-center justify-center gap-1.5">
+                                <button
+                                    type="button"
+                                    onClick={() =>
+                                        irParaPagina(
+                                            paginaSegura - 1
+                                        )
+                                    }
+                                    disabled={
+                                        paginaSegura === 1
+                                    }
+                                    className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+>>>>>>> 9c9d572 (Fist Commit)
                                 >
                                   {item.destination_address}
                                 </p>

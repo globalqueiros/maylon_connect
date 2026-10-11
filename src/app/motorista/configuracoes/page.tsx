@@ -622,7 +622,7 @@ export default function ConfiguracoesPage() {
                 </div>
 
                 <a
-                  href="/passageiro/sessoes"
+                  href="/motorista/sessoes"
                   className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-[#149C8B]/20 bg-[#149C8B]/10 px-5 py-3 text-sm font-bold text-[#11897D] transition hover:bg-[#149C8B] hover:text-white md:w-auto 2xl:text-base"
                 >
                   Gerenciar dispositivos

@@ -94,7 +94,9 @@ type UserData = {
 type VerificationStep = "dados" | "didit";
 
 function normalizeTransactionType(type: unknown): TransactionType {
-  const normalized = String(type ?? "").trim().toLowerCase();
+  const normalized = String(type ?? "")
+    .trim()
+    .toLowerCase();
 
   if (
     normalized === "in" ||
@@ -171,16 +173,26 @@ export default function MaylonServicosPage() {
   const [creatingWallet, setCreatingWallet] = useState(false);
   const [walletNotFound, setWalletNotFound] = useState(false);
   const [error, setError] = useState("");
+<<<<<<< HEAD
   const [alert, setAlert] = useState<AlertData | null>(null);
+=======
+
+>>>>>>> 9c9d572 (Fist Commit)
   const [showCreateWalletModal, setShowCreateWalletModal] = useState(false);
+
   const [userData, setUserData] = useState<UserData | null>(null);
   const [userLoading, setUserLoading] = useState(false);
+
   const [verificationStep, setVerificationStep] =
     useState<VerificationStep>("dados");
+
   const [verificacaoUrl, setVerificacaoUrl] = useState<string | null>(null);
   const [verificacaoLoading, setVerificacaoLoading] = useState(false);
   const [verificacaoFalhou, setVerificacaoFalhou] = useState(false);
-  const [verificacaoAviso, setVerificacaoAviso] = useState<string | null>(null);
+
+  const [verificacaoAviso, setVerificacaoAviso] = useState<string | null>(
+    null
+  );
 
   // Encerrar conta
   const [showCloseAccountModal, setShowCloseAccountModal] = useState(false);
@@ -257,7 +269,9 @@ export default function MaylonServicosPage() {
         method: "GET",
         credentials: "include",
         cache: "no-store",
-        headers: { Accept: "application/json" },
+        headers: {
+          Accept: "application/json",
+        },
       });
 
       if (!response.ok) {
@@ -316,7 +330,9 @@ export default function MaylonServicosPage() {
 
   const loadWallet = useCallback(async (showLoading = true) => {
     try {
-      if (showLoading) setLoading(true);
+      if (showLoading) {
+        setLoading(true);
+      }
 
       setError("");
 
@@ -324,10 +340,13 @@ export default function MaylonServicosPage() {
         method: "GET",
         credentials: "include",
         cache: "no-store",
-        headers: { Accept: "application/json" },
+        headers: {
+          Accept: "application/json",
+        },
       });
 
       const contentType = response.headers.get("content-type") || "";
+
       let data: any = null;
 
       if (contentType.includes("application/json")) {
@@ -378,8 +397,8 @@ export default function MaylonServicosPage() {
       )
         ? data.transactions
         : Array.isArray(data.movimentacoes)
-        ? data.movimentacoes
-        : [];
+          ? data.movimentacoes
+          : [];
 
       const normalizedTransactions = apiTransactions
         .map(
@@ -396,6 +415,7 @@ export default function MaylonServicosPage() {
         .sort((a, b) => {
           const dateA = new Date(a.created_at).getTime();
           const dateB = new Date(b.created_at).getTime();
+
           return dateB - dateA;
         })
         .slice(0, 10);
@@ -406,14 +426,21 @@ export default function MaylonServicosPage() {
       setWallet(null);
       setTransactions([]);
       setWalletNotFound(false);
+<<<<<<< HEAD
       const message =
+=======
+
+      setError(
+>>>>>>> 9c9d572 (Fist Commit)
         err instanceof Error
           ? err.message
           : "Não foi possível carregar sua carteira.";
       setError(message);
       showAlert(message, "error");
     } finally {
-      if (showLoading) setLoading(false);
+      if (showLoading) {
+        setLoading(false);
+      }
     }
   }, []);
 
@@ -506,10 +533,14 @@ export default function MaylonServicosPage() {
         method: "GET",
         credentials: "include",
         cache: "no-store",
-        headers: { Accept: "application/json" },
+        headers: {
+          Accept: "application/json",
+        },
       });
 
-      if (!response.ok) return null;
+      if (!response.ok) {
+        return null;
+      }
 
       const data = await response.json();
 
@@ -525,7 +556,9 @@ export default function MaylonServicosPage() {
   }, []);
 
   const createWallet = useCallback(async () => {
-    if (creatingWallet) return;
+    if (creatingWallet) {
+      return;
+    }
 
     try {
       setCreatingWallet(true);
@@ -544,6 +577,7 @@ export default function MaylonServicosPage() {
       });
 
       const contentType = response.headers.get("content-type") || "";
+
       let data: any = null;
 
       if (contentType.includes("application/json")) {
@@ -606,7 +640,9 @@ export default function MaylonServicosPage() {
     const interval = window.setInterval(async () => {
       const status = await buscarStatusVerificacao();
 
-      if (!active) return;
+      if (!active) {
+        return;
+      }
 
       if (status === "aprovado" || status === "approved") {
         setVerificacaoUrl(null);
@@ -635,7 +671,9 @@ export default function MaylonServicosPage() {
   ]);
 
   async function iniciarVerificacao(forceNew = false) {
-    if (verificacaoUrl && !forceNew) return;
+    if (verificacaoUrl && !forceNew) {
+      return;
+    }
 
     setVerificacaoAviso(null);
     setVerificacaoFalhou(false);
@@ -674,7 +712,9 @@ export default function MaylonServicosPage() {
   }
 
   async function openCreateWalletModal() {
-    if (creatingWallet) return;
+    if (creatingWallet) {
+      return;
+    }
 
     setError("");
     setVerificacaoAviso(null);
@@ -690,6 +730,7 @@ export default function MaylonServicosPage() {
     }
 
     await loadUserData();
+
     setShowCreateWalletModal(true);
   }
 
@@ -704,7 +745,9 @@ export default function MaylonServicosPage() {
   }
 
   function closeCreateWalletModal() {
-    if (creatingWallet) return;
+    if (creatingWallet) {
+      return;
+    }
 
     setShowCreateWalletModal(false);
     setVerificationStep("dados");
@@ -718,13 +761,44 @@ export default function MaylonServicosPage() {
     const cpf = value.replace(/\D/g, "").slice(0, 11);
 
     setUserData((current) => {
-      if (!current) return current;
+      if (!current) {
+        return current;
+      }
 
       return {
         ...current,
         cpf,
       };
     });
+  }
+
+  async function encerrarConta() {
+    try {
+      const response = await fetch("/api/encerrar-conta", {
+        method: "POST",
+        credentials: "include",
+        cache: "no-store",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({}),
+      });
+
+      if (response.ok) {
+        window.location.href = "/";
+        return;
+      }
+
+      const data = await response.json().catch(() => null);
+
+      console.error(
+        "Erro ao encerrar conta:",
+        data?.message || data?.error || `HTTP ${response.status}`
+      );
+    } catch (error) {
+      console.error("Erro ao encerrar conta:", error);
+    }
   }
 
   const balance = wallet?.balance ?? 0;
@@ -738,11 +812,15 @@ export default function MaylonServicosPage() {
   }
 
   function formatDate(date: string) {
-    if (!date) return "";
+    if (!date) {
+      return "";
+    }
 
     const parsed = new Date(date);
 
-    if (Number.isNaN(parsed.getTime())) return "";
+    if (Number.isNaN(parsed.getTime())) {
+      return "";
+    }
 
     return parsed.toLocaleString("pt-BR", {
       day: "2-digit",
@@ -753,6 +831,7 @@ export default function MaylonServicosPage() {
     });
   }
 
+<<<<<<< HEAD
   function renderCloseAccountModal() {
     if (!showCloseAccountModal) return null;
 
@@ -820,6 +899,12 @@ export default function MaylonServicosPage() {
 
   function renderCreateWalletModal() {
     if (!showCreateWalletModal) return null;
+=======
+  function CreateWalletModal() {
+    if (!showCreateWalletModal) {
+      return null;
+    }
+>>>>>>> 9c9d572 (Fist Commit)
 
     return (
       <div
@@ -855,7 +940,7 @@ export default function MaylonServicosPage() {
                 type="button"
                 onClick={closeCreateWalletModal}
                 disabled={creatingWallet}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-gray-400 transition hover:bg-gray-100 hover:text-gray-700 disabled:cursor-not-allowed disabled:opacity-40"
+                className="flex h-9 w-9 cursor-pointer shrink-0 items-center justify-center rounded-xl text-gray-400 transition hover:bg-gray-100 hover:text-gray-700 disabled:cursor-not-allowed disabled:opacity-40"
                 aria-label="Fechar"
               >
                 <X size={19} />
@@ -885,6 +970,7 @@ export default function MaylonServicosPage() {
                     <p className="truncate text-xs font-black text-gray-900">
                       Seus dados
                     </p>
+
                     <p className="truncate text-[10px] text-gray-400">
                       Confirme seus dados
                     </p>
@@ -1234,6 +1320,7 @@ export default function MaylonServicosPage() {
             <section className="mt-8">
               <div className="relative mx-auto max-w-2xl overflow-hidden rounded-[32px] bg-gradient-to-br from-[#062b4f] via-[#07566b] to-[#08a89d] p-7 shadow-[0_25px_70px_rgba(8,168,157,0.22)] sm:p-10">
                 <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-[#5be0c8]/20 blur-3xl" />
+
                 <div className="absolute -bottom-32 -left-20 h-64 w-64 rounded-full bg-[#08a89d]/20 blur-3xl" />
 
                 <div className="relative text-center">
@@ -1274,9 +1361,11 @@ export default function MaylonServicosPage() {
                   <div className="mt-8 grid gap-3 text-left sm:grid-cols-3">
                     <div className="rounded-2xl bg-white/10 p-4">
                       <Wallet size={19} className="text-[#83ead9]" />
+
                       <p className="mt-3 text-xs font-black text-white">
                         Conta digital
                       </p>
+
                       <p className="mt-1 text-[10px] leading-4 text-white/45">
                         Tenha sua própria conta Maylon.
                       </p>
@@ -1284,9 +1373,11 @@ export default function MaylonServicosPage() {
 
                     <div className="rounded-2xl bg-white/10 p-4">
                       <QrCode size={19} className="text-[#83ead9]" />
+
                       <p className="mt-3 text-xs font-black text-white">
                         Pix
                       </p>
+
                       <p className="mt-1 text-[10px] leading-4 text-white/45">
                         Envie e receba dinheiro.
                       </p>
@@ -1294,9 +1385,11 @@ export default function MaylonServicosPage() {
 
                     <div className="rounded-2xl bg-white/10 p-4">
                       <History size={19} className="text-[#83ead9]" />
+
                       <p className="mt-3 text-xs font-black text-white">
                         Extrato
                       </p>
+
                       <p className="mt-1 text-[10px] leading-4 text-white/45">
                         Acompanhe suas movimentações.
                       </p>
@@ -1347,6 +1440,7 @@ export default function MaylonServicosPage() {
           <section className="mt-6">
             <div className="relative overflow-hidden rounded-[30px] bg-gradient-to-br from-[#062b4f] via-[#07566b] to-[#08a89d] p-6 shadow-[0_20px_55px_rgba(8,168,157,0.20)] sm:p-8">
               <div className="absolute -right-20 -top-24 h-64 w-64 rounded-full bg-[#5be0c8]/20 blur-3xl" />
+
               <div className="absolute -bottom-32 left-1/3 h-64 w-64 rounded-full bg-[#08a89d]/20 blur-3xl" />
 
               <div className="relative">
@@ -1399,6 +1493,7 @@ export default function MaylonServicosPage() {
 
                     <div className="min-w-0">
                       <p className="text-xs font-black">Pix</p>
+
                       <p className="mt-0.5 text-[10px] text-[#8ca0b2]">
                         Enviar ou receber
                       </p>
@@ -1420,6 +1515,7 @@ export default function MaylonServicosPage() {
 
                     <div className="min-w-0">
                       <p className="text-xs font-black">Depositar</p>
+
                       <p className="mt-0.5 text-[10px] text-white/50">
                         Adicionar dinheiro
                       </p>
@@ -1682,12 +1778,20 @@ export default function MaylonServicosPage() {
 
                 <button
                   type="button"
+<<<<<<< HEAD
                   onClick={openCloseAccountModal}
                   disabled={encerrandoConta}
                   className="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/10 px-5 text-xs font-black text-white transition hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   <Trash2 size={16} />
                   {encerrandoConta ? "Encerrando..." : "Encerrar minha conta"}
+=======
+                  onClick={encerrarConta}
+                  className="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/10 px-5 text-xs font-black text-white transition hover:bg-white/20"
+                >
+                  <Trash2 size={16} />
+                  Encerrar minha conta
+>>>>>>> 9c9d572 (Fist Commit)
                 </button>
               </div>
             </div>

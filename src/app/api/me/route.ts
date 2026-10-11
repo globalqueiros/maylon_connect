@@ -24,6 +24,20 @@ type JwtPayloadCustom = jwt.JwtPayload & {
   user_type?: unknown;
 };
 
+type UserRow = {
+  id: string | number;
+  full_name: string | null;
+  phone: string | null;
+  email: string | null;
+  user_type: string | null;
+  profile_image: string | null;
+  identification_number: string | null;
+  identification_type: string | null;
+  phone_verified_at: string | null;
+  email_verified_at: string | null;
+  created_at: string | Date | null;
+};
+
 function cleanSecret(value?: string): string {
   if (!value) return "";
 
@@ -40,9 +54,7 @@ function cleanSecret(value?: string): string {
 }
 
 function safeString(value: unknown): string | null {
-  if (value === null || value === undefined) {
-    return null;
-  }
+  if (value === null || value === undefined) return null;
 
   const result = String(value).trim();
 
@@ -52,9 +64,7 @@ function safeString(value: unknown): string | null {
 function isValidUserId(value: unknown): boolean {
   const normalized = safeString(value);
 
-  if (!normalized) {
-    return false;
-  }
+  if (!normalized) return false;
 
   if (/^[0-9]+$/.test(normalized)) {
     const number = Number(normalized);
@@ -68,9 +78,7 @@ function isValidUserId(value: unknown): boolean {
 }
 
 function normalizeUserType(value: unknown): string {
-  return String(value ?? "")
-    .trim()
-    .toLowerCase();
+  return String(value ?? "").trim().toLowerCase();
 }
 
 function jsonError(message: string, status: number) {
@@ -91,37 +99,38 @@ function jsonError(message: string, status: number) {
 export async function GET() {
   try {
     const cookieStore = await cookies();
-
     const token = cookieStore.get("access_token")?.value;
 
     if (!token) {
-      return jsonError("Não autenticado", 401);
+      return jsonError("Não autenticado.", 401);
     }
 
     const jwtSecret = cleanSecret(process.env.JWT_SECRET);
 
     if (!jwtSecret) {
-      console.error("GET /api/me: JWT_SECRET não configurada");
+      console.error("GET /api/me: JWT_SECRET não configurada.");
 
-      return jsonError("JWT_SECRET não configurada", 500);
+      return jsonError("Configuração de autenticação indisponível.", 500);
     }
 
     let decoded: JwtPayloadCustom;
 
     try {
-      decoded = jwt.verify(token, jwtSecret) as JwtPayloadCustom;
+      decoded = jwt.verify(token, jwtSecret, {
+        algorithms: ["HS256"],
+      }) as JwtPayloadCustom;
     } catch (error) {
-      console.error("GET /api/me: token inválido:", error);
+      console.error("GET /api/me: token inválido ou expirado.", error);
 
-      return jsonError("Token inválido ou expirado", 401);
+      return jsonError("Token inválido ou expirado. Faça login novamente.", 401);
     }
 
     const candidates = [
+      decoded.sub,
       decoded.id,
       decoded.usuario_id,
       decoded.userId,
       decoded.user_id,
-      decoded.sub,
     ];
 
     let userId: string | null = null;
@@ -140,97 +149,90 @@ export async function GET() {
 
     if (!userId && !email) {
       return jsonError(
-        "Token não possui identificador de usuário",
+        "Token não possui identificador de usuário válido.",
         401
       );
     }
 
-    let rows: any[] = [];
+    let rows: UserRow[] = [];
 
     try {
       if (userId) {
-        const [result]: any = await db.query(
+        const [result] = await db.query(
           `
-          SELECT
-            id,
-            full_name,
-            phone,
-            email,
-            user_type,
-            profile_image,
-            identification_number,
-            identification_type,
-            phone_verified_at,
-            email_verified_at,
-            created_at
-          FROM users
-          WHERE id = ?
-          LIMIT 1
+            SELECT
+              id,
+              full_name,
+              phone,
+              email,
+              user_type,
+              profile_image,
+              identification_number,
+              identification_type,
+              phone_verified_at,
+              email_verified_at,
+              created_at
+            FROM users
+            WHERE id = ?
+            LIMIT 1
           `,
           [userId]
         );
 
         if (Array.isArray(result)) {
-          rows = result;
+          rows = result as UserRow[];
         }
       }
 
       if (!rows.length && email) {
-        const [result]: any = await db.query(
+        const [result] = await db.query(
           `
-          SELECT
-            id,
-            full_name,
-            phone,
-            email,
-            user_type,
-            profile_image,
-            identification_number,
-            identification_type,
-            phone_verified_at,
-            email_verified_at,
-            created_at
-          FROM users
-          WHERE LOWER(email) = LOWER(?)
-          LIMIT 1
+            SELECT
+              id,
+              full_name,
+              phone,
+              email,
+              user_type,
+              profile_image,
+              identification_number,
+              identification_type,
+              phone_verified_at,
+              email_verified_at,
+              created_at
+            FROM users
+            WHERE LOWER(email) = LOWER(?)
+            LIMIT 1
           `,
           [email]
         );
 
         if (Array.isArray(result)) {
-          rows = result;
+          rows = result as UserRow[];
         }
       }
-    } catch (dbError: any) {
+    } catch (dbError) {
       console.error("GET /api/me: erro no banco:", dbError);
 
-      const code = String(dbError?.code || "");
+      const code = String(
+        (dbError as { code?: string })?.code || ""
+      );
 
       if (code === "ER_ACCESS_DENIED_ERROR") {
         return jsonError(
-          "Falha de autenticação com o banco. Verifique DB_USER e DB_PASSWORD.",
+          "Falha de autenticação com o banco de dados.",
           500
         );
       }
 
       if (code === "ECONNREFUSED") {
-        return jsonError(
-          "Não foi possível conectar ao banco.",
-          500
-        );
+        return jsonError("Não foi possível conectar ao banco de dados.", 500);
       }
 
       if (code === "ECONNRESET") {
-        return jsonError(
-          "A conexão com o banco foi encerrada.",
-          500
-        );
+        return jsonError("A conexão com o banco de dados foi encerrada.", 500);
       }
 
-      return jsonError(
-        "Erro ao consultar o usuário no banco.",
-        500
-      );
+      return jsonError("Erro ao consultar o usuário no banco de dados.", 500);
     }
 
     if (!rows.length) {
@@ -241,55 +243,66 @@ export async function GET() {
     }
 
     const user = rows[0];
-
     const resolvedId = safeString(user.id);
 
     if (!resolvedId || !isValidUserId(resolvedId)) {
-      console.error(
-        "GET /api/me: ID de usuário inválido:",
-        user.id
-      );
+      console.error("GET /api/me: ID de usuário inválido.");
 
-      return jsonError(
-        "ID do usuário possui formato inválido.",
-        500
-      );
+      return jsonError("ID do usuário possui formato inválido.", 500);
     }
 
     const userType = normalizeUserType(user.user_type);
 
-    let verificacaoDocumento = null;
-    let provaVida = null;
-    let verificacaoProcessos = null;
+    let verificacaoDocumento: {
+      status: ReturnType<typeof mapearStatusDidit>;
+      didit_status: string | null;
+      is_verified: boolean;
+      identity_match: unknown;
+    } | null = null;
+
+    let provaVida: {
+      devida: boolean;
+      last_liveness_at: string | null;
+    } | null = null;
+
+    let verificacaoProcessos: {
+      status: string;
+      total: number;
+      checked_at: unknown;
+    } | null = null;
 
     if (userType === "driver") {
       try {
-        const [driverDetails] = (await db.query(
+        const [driverDetails] = await db.query(
           `
-          SELECT is_verified
-          FROM driver_details
-          WHERE user_id = ?
-          LIMIT 1
+            SELECT is_verified
+            FROM driver_details
+            WHERE user_id = ?
+            LIMIT 1
           `,
           [resolvedId]
-        )) as unknown as [Array<{ is_verified?: number }>];
+        ) as unknown as [
+          Array<{ is_verified?: number | boolean }>
+        ];
 
-        const [verificacoes] = (await db.query(
+        const [verificacoes] = await db.query(
           `
-          SELECT current_status, attempt_details
-          FROM driver_identity_verifications
-          WHERE driver_id = ?
-          ORDER BY updated_at DESC
-          LIMIT 1
+            SELECT current_status, attempt_details
+            FROM driver_identity_verifications
+            WHERE driver_id = ?
+            ORDER BY updated_at DESC
+            LIMIT 1
           `,
           [resolvedId]
-        )) as unknown as [
-          Array<{ current_status?: string | null; attempt_details?: unknown }>
+        ) as unknown as [
+          Array<{
+            current_status?: string | null;
+            attempt_details?: unknown;
+          }>
         ];
 
         const detailsRow = driverDetails[0];
         const verifRow = verificacoes[0];
-
         const isVerified = detailsRow?.is_verified ?? 0;
 
         const diditStatus =
@@ -299,18 +312,21 @@ export async function GET() {
 
         let lastLivenessAt: string | null = null;
         let identityMatch: unknown = null;
+
         if (verifRow?.attempt_details) {
           try {
             const detalhes =
               typeof verifRow.attempt_details === "string"
                 ? JSON.parse(verifRow.attempt_details)
                 : verifRow.attempt_details;
+
             if (
               typeof detalhes?.[LAST_LIVENESS_KEY] === "string" &&
               detalhes[LAST_LIVENESS_KEY]
             ) {
               lastLivenessAt = detalhes[LAST_LIVENESS_KEY];
             }
+
             if (detalhes?.[IDENTITY_MATCH_KEY]) {
               identityMatch = detalhes[IDENTITY_MATCH_KEY];
             }
@@ -343,7 +359,7 @@ export async function GET() {
         };
       } catch (dbError) {
         console.error(
-          "GET /api/me: erro ao consultar verificação do motorista:",
+          "GET /api/me: erro ao consultar verificações do motorista:",
           dbError
         );
       }
@@ -354,16 +370,18 @@ export async function GET() {
       userType === "2"
     ) {
       try {
-        const [verificacoes] = (await db.query(
+        const [verificacoes] = await db.query(
           `
-          SELECT current_status
-          FROM driver_identity_verifications
-          WHERE driver_id = ?
-          ORDER BY updated_at DESC
-          LIMIT 1
+            SELECT current_status
+            FROM driver_identity_verifications
+            WHERE driver_id = ?
+            ORDER BY updated_at DESC
+            LIMIT 1
           `,
           [resolvedId]
-        )) as unknown as [Array<{ current_status?: string | null }>];
+        ) as unknown as [
+          Array<{ current_status?: string | null }>
+        ];
 
         const diditStatus =
           typeof verificacoes[0]?.current_status === "string"
@@ -391,7 +409,7 @@ export async function GET() {
         };
       } catch (dbError) {
         console.error(
-          "GET /api/me: erro ao consultar verificação do passageiro:",
+          "GET /api/me: erro ao consultar verificações do passageiro:",
           dbError
         );
       }
@@ -399,6 +417,7 @@ export async function GET() {
 
     const newToken = jwt.sign(
       {
+        sub: resolvedId,
         id: resolvedId,
         usuario_id: resolvedId,
         userId: resolvedId,
@@ -408,6 +427,7 @@ export async function GET() {
       },
       jwtSecret,
       {
+        algorithm: "HS256",
         expiresIn: "10d",
       }
     );
@@ -423,14 +443,10 @@ export async function GET() {
         phone: user.phone ?? null,
         email: user.email ?? null,
         profile_image: user.profile_image ?? null,
-        identification_number:
-          user.identification_number ?? null,
-        identification_type:
-          user.identification_type ?? null,
-        phone_verified_at:
-          user.phone_verified_at ?? null,
-        email_verified_at:
-          user.email_verified_at ?? null,
+        identification_number: user.identification_number ?? null,
+        identification_type: user.identification_type ?? null,
+        phone_verified_at: user.phone_verified_at ?? null,
+        email_verified_at: user.email_verified_at ?? null,
         created_at: user.created_at ?? null,
         user_type: userType,
         verification: {
@@ -441,6 +457,12 @@ export async function GET() {
       },
       {
         status: 200,
+        headers: {
+          "Cache-Control":
+            "no-store, no-cache, must-revalidate, proxy-revalidate",
+          Pragma: "no-cache",
+          Expires: "0",
+        },
       }
     );
 
@@ -450,25 +472,17 @@ export async function GET() {
       authCookieOptions(60 * 60 * 24 * 10)
     );
 
-    response.headers.set(
-      "Cache-Control",
-      "no-store, no-cache, must-revalidate, proxy-revalidate"
-    );
-
-    response.headers.set("Pragma", "no-cache");
-    response.headers.set("Expires", "0");
-
     return response;
-  } catch (error: any) {
-    console.error("GET /api/me - ERRO INTERNO:", error);
+  } catch (error) {
+    console.error("GET /api/me: erro interno:", error);
 
     return NextResponse.json(
       {
         success: false,
-        message: "Erro interno",
+        message: "Erro interno.",
         error:
           process.env.NODE_ENV === "development"
-            ? String(error?.message || error)
+            ? String((error as Error)?.message || error)
             : undefined,
       },
       {
