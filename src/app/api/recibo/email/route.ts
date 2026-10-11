@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import nodemailer from "nodemailer";
+import { db } from "../../../lib/db";
+import { sessaoDaRequisicao } from "../../../lib/sessaoServidor";
 
 export async function POST(req: Request) {
   try {
@@ -16,14 +18,28 @@ export async function POST(req: Request) {
       status,
     } = body;
 
-    if (!email || typeof email !== "string") {
+    // O recibo só vai para o e-mail do usuário logado (do banco). O "email"
+    // do body é ignorado: antes dava pra mandar e-mail com a marca Maylon
+    // para qualquer endereço.
+    void email;
+    const sessao = await sessaoDaRequisicao(req);
+    if (!sessao.ok) {
+      return NextResponse.json({ error: "Não autenticado." }, { status: 401 });
+    }
+    const [usuarios]: any = await db.query(
+      "SELECT email FROM users WHERE id = ? LIMIT 1",
+      [sessao.userId]
+    );
+    const emailDoUsuario = usuarios?.[0]?.email;
+
+    if (!emailDoUsuario || typeof emailDoUsuario !== "string") {
       return NextResponse.json(
         { error: "E-mail não informado." },
         { status: 400 }
       );
     }
 
-    const emailDestino = email.trim();
+    const emailDestino = emailDoUsuario.trim();
 
     if (!emailDestino) {
       return NextResponse.json(

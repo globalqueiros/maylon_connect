@@ -212,8 +212,10 @@ function ymd(date: Date) {
   return date.toISOString().slice(0, 10);
 }
 
-export function buildPixContractId(usuarioId: number, beneficioId: number) {
-  return `MAY${usuarioId}B${beneficioId}${Date.now()}`.slice(0, 35);
+export function buildPixContractId(usuarioId: string | number, beneficioId: number) {
+  // Ids de usuário são UUID: sem hífens e encurtado, pra caber benefício + horário em 35.
+  const usuario = String(usuarioId).replace(/[^0-9a-z]/gi, "").slice(0, 12);
+  return `MAY${usuario}B${beneficioId}${Date.now()}`.slice(0, 35);
 }
 
 /** Step 1: Pix Automático authorization QR (Journey 2) */

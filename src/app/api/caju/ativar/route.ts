@@ -1,10 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "../../../lib/db";
+import { sessaoDaRequisicao } from "../../../lib/sessaoServidor";
 
 export async function POST(req: NextRequest) {
   try {
+    // Usuário vem da sessão; "usuario_id" do body é ignorado.
+    const sessao = await sessaoDaRequisicao(req);
+    if (!sessao.ok) {
+      return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
+    }
+    const usuario_id = sessao.userId;
+
     const {
-      usuario_id,
       beneficio_id,
       cep,
       endereco,
@@ -18,6 +25,21 @@ export async function POST(req: NextRequest) {
     if (!usuario_id || !beneficio_id) {
       return NextResponse.json(
         { error: "Dados inválidos" },
+        { status: 400 }
+      );
+    }
+
+    // Benefício com valor só ativa pelo checkout (antes ativava qualquer um de graça).
+    const [beneficioRows]: any = await db.query(
+      "SELECT id, valor FROM beneficios WHERE id = ? LIMIT 1",
+      [beneficio_id]
+    );
+    if (!beneficioRows?.length) {
+      return NextResponse.json({ error: "Benefício não encontrado" }, { status: 404 });
+    }
+    if (Number(beneficioRows[0].valor) > 0) {
+      return NextResponse.json(
+        { error: "Este benefício exige checkout de pagamento." },
         { status: 400 }
       );
     }

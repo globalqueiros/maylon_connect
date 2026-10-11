@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "../../lib/db";
+import { sessaoDaRequisicao } from "../../lib/sessaoServidor";
 
 type Preferencias = {
   email: boolean;
@@ -25,9 +26,15 @@ function booleano(valor: unknown): boolean {
 
 export async function GET(request: NextRequest) {
   try {
-    const usuarioId = String(
-      request.nextUrl.searchParams.get("usuario_id") || ""
-    ).trim();
+    // Preferências sempre do usuário da sessão ("usuario_id" da URL é ignorado).
+    const sessao = await sessaoDaRequisicao(request);
+    if (!sessao.ok) {
+      return NextResponse.json(
+        { success: false, message: "Sessão não encontrada. Faça login novamente." },
+        { status: 401 }
+      );
+    }
+    const usuarioId = sessao.userId;
 
     if (!usuarioId) {
       return NextResponse.json(
@@ -109,9 +116,15 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
-    const usuarioId = String(
-      body?.usuarioId || ""
-    ).trim();
+    // Preferências sempre do usuário da sessão ("usuarioId" do body é ignorado).
+    const sessao = await sessaoDaRequisicao(request);
+    if (!sessao.ok) {
+      return NextResponse.json(
+        { success: false, message: "Sessão não encontrada. Faça login novamente." },
+        { status: 401 }
+      );
+    }
+    const usuarioId = sessao.userId;
 
     if (!usuarioId) {
       return NextResponse.json(

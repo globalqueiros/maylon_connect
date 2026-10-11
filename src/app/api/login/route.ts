@@ -2,7 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { db } from "../../lib/db";
-import { criarSessao, novoSessionUuid } from "../../lib/sessaoServidor";
+import {
+  criarSessao,
+  fimDaSessao,
+  ipDaRequisicao,
+  novoSessionUuid,
+  SESSAO_SEGUNDOS,
+} from "../../lib/sessaoServidor";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -139,7 +145,7 @@ export async function POST(request: NextRequest) {
         sid: sessionUuid,
       },
       secret,
-      { expiresIn: "7d" }
+      { expiresIn: SESSAO_SEGUNDOS }
     );
 
     const refreshToken = jwt.sign(
@@ -156,20 +162,12 @@ export async function POST(request: NextRequest) {
       sessionUuid,
       userId,
       token: accessToken,
-      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      expiresAt: fimDaSessao(),
       req: request,
     });
 
-    const forwardedFor = request.headers.get("x-forwarded-for");
-    const realIp = request.headers.get("x-real-ip");
-
-    let ip = "unknown";
-
-    if (forwardedFor) {
-      ip = forwardedFor.split(",")[0].trim();
-    } else if (realIp) {
-      ip = realIp.trim();
-    }
+    // Mesmo IP real usado em user_sessions (Cloudflare → X-Forwarded-For → X-Real-IP).
+    const ip = ipDaRequisicao(request) || "unknown";
 
     const userAgent =
       request.headers.get("user-agent") || "unknown";
@@ -205,7 +203,7 @@ export async function POST(request: NextRequest) {
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
       path: "/",
-      maxAge: 60 * 60 * 24 * 7,
+      maxAge: SESSAO_SEGUNDOS,
     });
 
     response.cookies.set("refresh_token", refreshToken, {

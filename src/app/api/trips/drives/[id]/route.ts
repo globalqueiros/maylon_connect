@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { sessaoDaRequisicao } from "../../../../lib/sessaoServidor";
 import { db, db2 } from "../../../../lib/db";
 
 export const runtime = "nodejs";
@@ -488,6 +489,20 @@ export async function GET(
 
         const viagem =
             resultado.row;
+
+        // Só o motorista ou o passageiro da viagem podem ver os detalhes
+        // (antes qualquer pessoa via qualquer viagem pelo número).
+        const sessao = await sessaoDaRequisicao(request);
+        const donos = [
+            pegar(viagem, ["driver_id", "driver_user_id", "motorista_id"]),
+            pegar(viagem, ["customer_id", "passenger_id", "passageiro_id", "usuario_id", "user_id"]),
+        ].map((v) => (v == null ? "" : String(v)));
+        if (!sessao.ok || !donos.includes(sessao.userId)) {
+            return NextResponse.json(
+                { success: false, message: "Viagem não encontrada." },
+                { status: sessao.ok ? 404 : 401 }
+            );
+        }
 
         const database =
             resultado.database;

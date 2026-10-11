@@ -3,7 +3,12 @@ import { cookies } from "next/headers";
 import jwt from "jsonwebtoken";
 import { db } from "../../lib/db";
 import { authCookieOptions } from "../../lib/authCookies";
-import { estenderSessao, jwtSecret } from "../../lib/sessaoServidor";
+import {
+  estenderSessao,
+  fimDaSessao,
+  jwtSecret,
+  SESSAO_SEGUNDOS,
+} from "../../lib/sessaoServidor";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -76,16 +81,16 @@ export async function POST() {
         sid,
       },
       secret,
-      { expiresIn: "10d" }
+      { expiresIn: SESSAO_SEGUNDOS }
     );
 
-    await estenderSessao(sid, new Date(Date.now() + 10 * 24 * 60 * 60 * 1000));
+    await estenderSessao(sid, fimDaSessao());
 
     const res = NextResponse.json({ success: true });
     res.cookies.set(
       "access_token",
       newAccessToken,
-      authCookieOptions(60 * 60 * 24 * 10)
+      authCookieOptions(SESSAO_SEGUNDOS)
     );
     return res;
   } catch {

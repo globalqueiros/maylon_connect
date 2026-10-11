@@ -37,6 +37,8 @@ type Session = {
   expires_at: string;
   ended_at: string | null;
   end_reason: string | null;
+  /** true na sessão do aparelho que está abrindo a página. */
+  is_current?: boolean;
 };
 
 type Counts = {
@@ -175,7 +177,13 @@ export default function SessoesPage() {
         );
       }
 
-      setSessions(Array.isArray(data.sessions) ? data.sessions : []);
+      const lista = Array.isArray(data.sessions) ? data.sessions : [];
+      // O aparelho atual aparece sempre primeiro.
+      setSessions(
+        [...lista].sort(
+          (a, b) => Number(Boolean(b.is_current)) - Number(Boolean(a.is_current))
+        )
+      );
 
       setCounts({
         total: Number(data.counts?.total ?? 0),
@@ -241,6 +249,21 @@ export default function SessoesPage() {
         throw new Error(
           data.error || "Não foi possível encerrar a sessão."
         );
+      }
+
+      if (session.is_current) {
+        // Encerrou o próprio aparelho: apaga os cookies e volta pro login.
+        // (Não dá pra passar pela página "saindo": sem sessão válida o proxy
+        // manda direto pro login antes dela limpar os cookies.)
+        await fetch("/api/auth/logout", {
+          method: "POST",
+          credentials: "same-origin",
+          cache: "no-store",
+        }).catch(() => null);
+        localStorage.removeItem("token");
+        sessionStorage.clear();
+        window.location.replace("/?logout=success");
+        return;
       }
 
       setSessionToRevoke(null);
@@ -454,7 +477,11 @@ export default function SessoesPage() {
               return (
                 <article
                   key={session.session_uuid}
-                  className="flex min-w-0 flex-col rounded-[25px] border border-[#e2ecea] bg-white p-5 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-lg sm:p-6"
+                  className={`flex min-w-0 flex-col rounded-[25px] border bg-white p-5 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-lg sm:p-6 ${
+                    session.is_current
+                      ? "border-[#0ba895] ring-2 ring-[#0ba895]/25"
+                      : "border-[#e2ecea]"
+                  }`}
                 >
                   <div className="flex min-w-0 items-start gap-4">
                     <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[#e9f7f4] text-[#0ba895]">
@@ -467,6 +494,12 @@ export default function SessoesPage() {
                           {deviceName}
                         </h3>
                         <StatusBadge status={session.effective_status} />
+                        {session.is_current && (
+                          <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-[#0ba895] px-2.5 py-1 text-[10px] font-extrabold tracking-wide text-white">
+                            <CheckCircle2 size={12} />
+                            ESTE APARELHO
+                          </span>
+                        )}
                       </div>
 
                       <p className="mt-1 break-words text-sm font-semibold text-[#119e8e]">
@@ -716,10 +749,17 @@ export default function SessoesPage() {
                 </div>
               </div>
 
-              <p className="text-xs leading-5 text-slate-500">
-                O acesso será marcado como revogado no histórico de sessões.
-                Talvez seja necessário entrar novamente nesse dispositivo.
-              </p>
+              {sessionToRevoke.is_current ? (
+                <p className="rounded-xl bg-amber-50 px-3 py-2 text-xs font-semibold leading-5 text-amber-800">
+                  Este é o aparelho que você está usando agora. Ao encerrar,
+                  você sairá da sua conta e precisará entrar novamente.
+                </p>
+              ) : (
+                <p className="text-xs leading-5 text-slate-500">
+                  O acesso será marcado como revogado no histórico de sessões.
+                  Talvez seja necessário entrar novamente nesse dispositivo.
+                </p>
+              )}
 
               <div className="flex flex-col-reverse gap-3 pt-1 sm:flex-row sm:justify-end">
                 <button

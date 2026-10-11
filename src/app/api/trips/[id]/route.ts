@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { sessaoDaRequisicao } from "../../../lib/sessaoServidor";
 import { db } from "../../../lib/db";
 
 function normalizarNumero(
@@ -35,6 +36,14 @@ export async function GET(
           error: "ID da corrida não informado",
         },
         { status: 400 }
+      );
+    }
+
+    const sessao = await sessaoDaRequisicao(req);
+    if (!sessao.ok) {
+      return NextResponse.json(
+        { success: false, error: "Não autenticado" },
+        { status: 401 }
       );
     }
 
@@ -182,6 +191,18 @@ export async function GET(
     }
 
     const trip = rows[0];
+
+    // Só o passageiro ou o motorista da corrida podem ver os detalhes
+    // (antes qualquer pessoa via qualquer corrida pelo número).
+    if (
+      String(trip.passenger_id ?? "") !== sessao.userId &&
+      String(trip.driver_id ?? "") !== sessao.userId
+    ) {
+      return NextResponse.json(
+        { success: false, error: "Corrida não encontrada" },
+        { status: 404 }
+      );
+    }
 
     /*
      * ============================================================

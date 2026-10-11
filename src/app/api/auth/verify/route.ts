@@ -1,7 +1,13 @@
 import { db } from "../../../lib/db";
 import jwt from "jsonwebtoken";
 import { NextResponse } from "next/server";
-import { criarSessao, jwtSecret, novoSessionUuid } from "../../../lib/sessaoServidor";
+import {
+  criarSessao,
+  fimDaSessao,
+  jwtSecret,
+  novoSessionUuid,
+  SESSAO_SEGUNDOS,
+} from "../../../lib/sessaoServidor";
 
 // Atrás do proxy o req.url chega como http://localhost:3000, então os
 // redirects usam o domínio do NEXT_PUBLIC_APP_URL.
@@ -73,14 +79,14 @@ export async function GET(req: Request) {
         sid: sessionUuid,
       },
       jwtSecret(),
-      { expiresIn: "7d" }
+      { expiresIn: SESSAO_SEGUNDOS }
     );
 
     await criarSessao({
       sessionUuid,
       userId: String(user.id),
       token: jwtToken,
-      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      expiresAt: fimDaSessao(),
       req,
     });
 
@@ -101,7 +107,7 @@ export async function GET(req: Request) {
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
       path: "/",
-      maxAge: 60 * 60 * 24 * 7,
+      maxAge: SESSAO_SEGUNDOS,
     });
 
     return response;

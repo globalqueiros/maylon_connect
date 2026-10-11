@@ -42,6 +42,17 @@ function limparSecret(value?: string) {
   return cleaned;
 }
 
+/**
+ * Duração única da sessão: login, link mágico, /api/me e /api/refresh usam
+ * este mesmo valor (antes o login dava 7 dias e o /api/me esticava pra 10).
+ */
+export const SESSAO_DIAS = 7;
+export const SESSAO_SEGUNDOS = SESSAO_DIAS * 24 * 60 * 60;
+
+export function fimDaSessao(): Date {
+  return new Date(Date.now() + SESSAO_SEGUNDOS * 1000);
+}
+
 export function jwtSecret(): string {
   return limparSecret(process.env.JWT_SECRET);
 }
@@ -135,10 +146,21 @@ export function infoDispositivo(userAgent: string | null) {
   return { device_name, browser_name, operating_system };
 }
 
+/**
+ * IP real do cliente. No servidor o site fica atrás de Cloudflare + Nginx, então
+ * a ordem é: CF-Connecting-IP (Cloudflare), X-Forwarded-For (1º da lista),
+ * X-Real-IP (Nginx). Sem isso todas as sessões mostrariam o IP do proxy.
+ * (Rotas do Next não expõem o IP do socket; o X-Real-IP do Nginx é esse IP.)
+ */
 export function ipDaRequisicao(req?: Request | null): string | null {
   if (!req) return null;
+  const cf = req.headers.get("cf-connecting-ip")?.trim();
+  if (cf) return cf;
   const forwarded = req.headers.get("x-forwarded-for");
-  if (forwarded) return forwarded.split(",")[0].trim() || null;
+  if (forwarded) {
+    const primeiro = forwarded.split(",")[0].trim();
+    if (primeiro) return primeiro;
+  }
   return req.headers.get("x-real-ip")?.trim() || null;
 }
 
@@ -274,7 +296,7 @@ async function validarSemCache(token: string, req?: Request | null): Promise<Res
     const expiresAt =
       typeof payload.exp === "number"
         ? new Date(payload.exp * 1000)
-        : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+        : fimDaSessao();
     const sessionUuid = novoSessionUuid();
     const userAgent = req?.headers.get("user-agent") || null;
     const info = infoDispositivo(userAgent);

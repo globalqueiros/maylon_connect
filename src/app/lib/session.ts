@@ -88,17 +88,16 @@ export async function getSessionUser(
 }
 
 /**
- * Id do usuário logado. Sem sessão, ainda aceita o id enviado no body
- * (compatibilidade com os apps até termos a lista de rotas que eles usam).
- * TODO(seguranca): remover o fallback do body depois da lista dos apps.
+ * Id do usuário logado, sempre da sessão. O primeiro parâmetro (id vindo do
+ * body/URL) é ignorado de propósito: aceitar esse id deixava uma pessoa agir
+ * no lugar de outra. Mantido na assinatura só para não quebrar quem chama.
  */
 export async function getSessionUserId(
-  bodyUserId?: unknown,
+  _bodyUserIdIgnorado?: unknown,
   req?: Request
 ): Promise<string | null> {
   const session = await getSessionUser(req);
-  if (session?.id) return session.id;
-  return toUserId(bodyUserId);
+  return session?.id ?? null;
 }
 
 export function pickBeneficioId(body: Record<string, unknown>) {

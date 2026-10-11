@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { sessaoDaRequisicao } from "../../../lib/sessaoServidor";
 import {
   findActiveOrPending,
   getBeneficio,
@@ -13,8 +14,14 @@ import {
 
 export async function POST(req: Request) {
   try {
+    // Usuário vem da sessão; usuario_id do body é ignorado.
+    const sessao = await sessaoDaRequisicao(req);
+    if (!sessao.ok) {
+      return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
+    }
+    const usuario_id = sessao.userId;
     const body = await req.json();
-    const { usuario_id, beneficio_id } = body;
+    const { beneficio_id } = body;
 
     if (!usuario_id || !beneficio_id) {
       return NextResponse.json(
@@ -23,7 +30,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const usuario = await getUsuario(Number(usuario_id));
+    const usuario = await getUsuario(usuario_id);
     if (!usuario) {
       return NextResponse.json(
         { error: "Usuário não encontrado" },
@@ -54,7 +61,7 @@ export async function POST(req: Request) {
     }
 
     const existing = await findActiveOrPending(
-      Number(usuario_id),
+      usuario_id,
       Number(beneficio_id)
     );
 
@@ -84,7 +91,7 @@ export async function POST(req: Request) {
     }
 
     const contract = buildPixContractId(
-      Number(usuario_id),
+      usuario_id,
       Number(beneficio_id)
     );
 
@@ -104,7 +111,7 @@ export async function POST(req: Request) {
       null;
 
     const assinaturaId = await upsertPendingAssinatura({
-      usuarioId: Number(usuario_id),
+      usuarioId: usuario_id,
       beneficioId: Number(beneficio_id),
       metodo: "pix_btg",
       status: "aguardando_autorizacao",

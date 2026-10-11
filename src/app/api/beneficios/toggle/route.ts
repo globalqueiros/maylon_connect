@@ -1,9 +1,19 @@
 import { NextResponse } from "next/server";
 import { db } from "../../../lib/db";
+import { sessaoDaRequisicao } from "../../../lib/sessaoServidor";
 
 export async function POST(req: Request) {
   try {
-    const { usuario_id, beneficio_id, metodo_pagamento } = await req.json();
+    // O usuário vem da sessão; "usuario_id" do body é ignorado.
+    const sessao = await sessaoDaRequisicao(req);
+    if (!sessao.ok) {
+      return NextResponse.json(
+        { error: "Sessão não encontrada. Faça login novamente." },
+        { status: 401 }
+      );
+    }
+    const usuario_id = sessao.userId;
+    const { beneficio_id, metodo_pagamento } = await req.json();
 
     if (!usuario_id || !beneficio_id) {
       return NextResponse.json(
@@ -50,7 +60,7 @@ export async function POST(req: Request) {
     const tipoUsuario = normalizar(userRows[0].user_type);
 
     const [beneficioRows]: any = await db.query(
-      "SELECT id, tipo FROM beneficios WHERE id = ?",
+      "SELECT id, tipo, valor FROM beneficios WHERE id = ?",
       [beneficio_id]
     );
 
@@ -75,10 +85,25 @@ export async function POST(req: Request) {
       );
     }
 
+    // Benefício com valor só ativa pelo checkout (Stripe/Pix). Antes bastava
+    // não mandar "metodo_pagamento" pra ativar um benefício pago de graça.
+    const beneficioPago = Number(beneficioRows[0].valor) > 0;
+
     const [rows]: any = await db.query(
       "SELECT id, ativo, metodo_pagamento, status_assinatura FROM usuario_beneficios WHERE usuario_id = ? AND beneficio_id = ?",
       [usuario_id, beneficio_id]
     );
+
+    const vaiAtivar = rows.length === 0 || !rows[0].ativo;
+    if (beneficioPago && vaiAtivar) {
+      return NextResponse.json(
+        {
+          error:
+            "Este benefício exige checkout de pagamento. Use Cartão (Stripe) ou Pix (BTG).",
+        },
+        { status: 400 }
+      );
+    }
 
     if (rows.length > 0) {
       const row = rows[0];

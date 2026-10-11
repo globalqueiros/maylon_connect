@@ -13,7 +13,7 @@ export type StatusAssinatura =
 export type MetodoPagamento = "stripe_recorrente" | "pix_btg";
 
 export async function findActiveOrPending(
-  usuarioId: number,
+  usuarioId: string | number,
   beneficioId: number
 ) {
   const [rows]: any = await db.execute(
@@ -36,7 +36,7 @@ export async function findActiveOrPending(
 }
 
 export async function upsertPendingAssinatura(params: {
-  usuarioId: number;
+  usuarioId: string | number;
   beneficioId: number;
   metodo: MetodoPagamento;
   status: StatusAssinatura;
@@ -133,7 +133,7 @@ export async function getBeneficio(beneficioId: number) {
   return rows[0] || null;
 }
 
-export async function getUsuario(usuarioId: number) {
+export async function getUsuario(usuarioId: string | number) {
   const [rows]: any = await db.execute(
     `
     SELECT id, full_name, email, identification_number, identification_type

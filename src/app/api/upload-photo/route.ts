@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { sessaoDaRequisicao } from "../../lib/sessaoServidor";
 import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import crypto from "crypto";
 import { db } from "../../lib/db";
@@ -110,11 +111,18 @@ export async function POST(request: NextRequest) {
       Array.from(formData.keys())
     );
 
-    const userIdValue = formData.get("userId");
+    // A foto é sempre do usuário da sessão; o "userId" do formulário é ignorado
+    // (antes dava pra trocar a foto de qualquer pessoa).
+    const sessao = await sessaoDaRequisicao(request);
+    if (!sessao.ok) {
+      return NextResponse.json(
+        { success: false, message: "Sessão não encontrada. Faça login novamente." },
+        { status: 401 }
+      );
+    }
+    const userIdValue = sessao.userId;
 
     const fileValue = formData.get("photo");
-
-    console.log("userId recebido:", userIdValue);
 
     console.log(
       "arquivo recebido:",

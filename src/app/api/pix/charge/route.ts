@@ -6,6 +6,7 @@ import {
   updateAssinaturaById,
 } from "../../../lib/assinaturas";
 import { createPixInstantCharge } from "../../../lib/btg";
+import { sessaoDaRequisicao } from "../../../lib/sessaoServidor";
 
 export async function POST(req: Request) {
   try {
@@ -19,8 +20,14 @@ export async function POST(req: Request) {
       );
     }
 
+    // Só o dono da assinatura pode gerar a cobrança dela.
+    const sessao = await sessaoDaRequisicao(req);
+    if (!sessao.ok) {
+      return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
+    }
+
     const assinatura = await getAssinaturaById(Number(assinatura_id));
-    if (!assinatura) {
+    if (!assinatura || String(assinatura.usuario_id) !== sessao.userId) {
       return NextResponse.json(
         { error: "Assinatura não encontrada" },
         { status: 404 }

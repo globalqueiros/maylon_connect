@@ -10,7 +10,13 @@ import {
   provaVidaDevida,
 } from "../../lib/didit";
 import { obterConsulta } from "../../lib/lawsuitDb";
-import { estenderSessao, tokenDaRequisicao, validarSessao } from "../../lib/sessaoServidor";
+import {
+  estenderSessao,
+  fimDaSessao,
+  SESSAO_SEGUNDOS,
+  tokenDaRequisicao,
+  validarSessao,
+} from "../../lib/sessaoServidor";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -439,14 +445,11 @@ export async function GET(req: Request) {
       jwtSecret,
       {
         algorithm: "HS256",
-        expiresIn: "10d",
+        expiresIn: SESSAO_SEGUNDOS,
       }
     );
 
-    await estenderSessao(
-      sessao.sessionUuid,
-      new Date(Date.now() + 10 * 24 * 60 * 60 * 1000)
-    ).catch((error) => console.error("GET /api/me: erro ao estender sessão:", error));
+    await estenderSessao(sessao.sessionUuid, fimDaSessao()).catch((error) => console.error("GET /api/me: erro ao estender sessão:", error));
 
     const response = NextResponse.json(
       {
@@ -485,7 +488,7 @@ export async function GET(req: Request) {
     response.cookies.set(
       "access_token",
       newToken,
-      authCookieOptions(60 * 60 * 24 * 10)
+      authCookieOptions(SESSAO_SEGUNDOS)
     );
 
     return response;

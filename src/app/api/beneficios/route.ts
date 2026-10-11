@@ -43,11 +43,9 @@ async function getUsuarioId(body: Record<string, unknown>) {
     }
   }
 
-  return toUserId(
-    body.usuario_id ??
-      body.usuarioId ??
-      body.user_id,
-  );
+  // Sem sessão não há usuário: o id do body não é aceito (deixava agir por outra pessoa).
+  void body;
+  return null;
 }
 
 async function loadBeneficios(usuarioId: string) {

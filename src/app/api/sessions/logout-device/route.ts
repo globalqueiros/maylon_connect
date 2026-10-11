@@ -1,9 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "../../../lib/db";
+import { sessaoDaRequisicao } from "../../../lib/sessaoServidor";
 
+export const runtime = "nodejs";
+
+/**
+ * Remove um registro da tabela antiga "sessions" — só do próprio usuário.
+ * (Antes apagava qualquer sessão de qualquer pessoa, sem login.)
+ * Para desconectar um aparelho de verdade use DELETE /api/motorista/sessoes/{session_uuid}.
+ */
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
+    const sessao = await sessaoDaRequisicao(req);
+    if (!sessao.ok) {
+      return NextResponse.json({ error: "Não autenticado." }, { status: 401 });
+    }
+
+    const body = await req.json().catch(() => ({}));
 
     const sessionId =
       body?.id ??
@@ -25,9 +38,9 @@ export async function POST(req: NextRequest) {
     const [result]: any = await db.query(
       `
       DELETE FROM sessions
-      WHERE id = ?
+      WHERE id = ? AND CAST(user_id AS CHAR) = ?
       `,
-      [sessionId]
+      [sessionId, sessao.userId]
     );
 
     if (!result || result.affectedRows === 0) {
