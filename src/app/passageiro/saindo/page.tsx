@@ -8,15 +8,33 @@ export default function LogoutPage() {
   const router = useRouter();
 
   useEffect(() => {
-    localStorage.removeItem("token");
-    sessionStorage.clear();
-    document.cookie = "token=; path=/; max-age=0";
+    let cancelled = false;
 
-    const timer = setTimeout(() => {
-      router.replace("/?logout=success");
-    }, 1200);
+    // Encerra a sessão no servidor (antes só limpava um cookie "token" que
+    // nem era o do login, e o access_token continuava valendo por dias).
+    async function logout() {
+      try {
+        await fetch("/api/auth/logout", {
+          method: "POST",
+          credentials: "same-origin",
+          cache: "no-store",
+        });
+      } catch (error) {
+        console.error("Erro ao sair:", error);
+      } finally {
+        localStorage.removeItem("token");
+        sessionStorage.clear();
+        if (!cancelled) {
+          router.replace("/?logout=success");
+        }
+      }
+    }
 
-    return () => clearTimeout(timer);
+    void logout();
+
+    return () => {
+      cancelled = true;
+    };
   }, [router]);
 
   return (

@@ -1,3 +1,4 @@
+import { payloadDaSessao } from "../../../lib/sessaoServidor";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import jwt from "jsonwebtoken";
@@ -58,10 +59,7 @@ async function getUsuarioId(
 
       if (secret) {
         try {
-          const decoded = jwt.verify(
-            token,
-            secret
-          ) as JwtPayload;
+          const decoded = (await payloadDaSessao(token)) as JwtPayload;
 
           const tokenId = normalizarId(
             decoded.id ??

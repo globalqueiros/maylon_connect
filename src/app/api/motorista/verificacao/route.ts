@@ -1,3 +1,4 @@
+import { payloadDaSessao } from "../../../lib/sessaoServidor";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import crypto from "crypto";
@@ -32,7 +33,7 @@ async function usuarioDoToken(): Promise<{
     const secret = cleanSecret(process.env.JWT_SECRET);
     if (!secret) return { id: null, tipo: null };
 
-    const decoded = jwt.verify(token, secret) as jwt.JwtPayload & {
+    const decoded = (await payloadDaSessao(token)) as jwt.JwtPayload & {
       id?: unknown;
       usuario_id?: unknown;
       user_id?: unknown;

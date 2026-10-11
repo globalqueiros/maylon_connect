@@ -1,3 +1,4 @@
+import { payloadDaSessao } from "../../lib/sessaoServidor";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import jwt from "jsonwebtoken";
@@ -88,7 +89,7 @@ export async function GET(req: Request) {
     let decoded: TokenPayload;
 
     try {
-      decoded = jwt.verify(accessToken, jwtSecret) as TokenPayload;
+      decoded = (await payloadDaSessao(accessToken)) as TokenPayload;
     } catch {
       return NextResponse.json(
         {

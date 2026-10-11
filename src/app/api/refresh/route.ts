@@ -2,11 +2,19 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import jwt from "jsonwebtoken";
 import { db } from "../../lib/db";
-import { toPositiveInt } from "../../lib/session";
 import { authCookieOptions } from "../../lib/authCookies";
+import { estenderSessao, jwtSecret } from "../../lib/sessaoServidor";
 
 export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
+/**
+ * Gera um novo access_token a partir do refresh_token.
+ * O refresh precisa estar ligado a uma sessão ativa ("sid"): sessão
+ * revogada ou encerrada não gera token novo.
+ * (Antes verificava com JWT_REFRESH_SECRET, mas o login assina com
+ * JWT_SECRET, e convertia o id UUID em número — falhava sempre.)
+ */
 export async function POST() {
   try {
     const cookieStore = await cookies();
@@ -16,21 +24,39 @@ export async function POST() {
       return NextResponse.json({ error: "Sem refresh token" }, { status: 401 });
     }
 
-    if (!process.env.JWT_REFRESH_SECRET || !process.env.JWT_SECRET) {
+    const secret = jwtSecret();
+    if (!secret) {
       return NextResponse.json(
         { error: "Secrets JWT não configuradas" },
         { status: 500 }
       );
     }
 
-    const decoded = jwt.verify(
-      refreshToken,
-      process.env.JWT_REFRESH_SECRET
-    ) as { id?: unknown; email?: string };
+    type RefreshPayload = { id?: unknown; sid?: unknown; type?: unknown };
+    let decoded: RefreshPayload | null = null;
+    for (const s of [secret, process.env.JWT_REFRESH_SECRET?.trim()].filter(Boolean) as string[]) {
+      try {
+        const result = jwt.verify(refreshToken, s, { algorithms: ["HS256"] });
+        decoded = typeof result === "string" ? null : (result as RefreshPayload);
+        break;
+      } catch {
+        decoded = null;
+      }
+    }
 
-    const userId = toPositiveInt(decoded.id);
-    if (!userId) {
+    const userId = decoded?.id != null ? String(decoded.id).trim() : "";
+    const sid = typeof decoded?.sid === "string" ? decoded.sid : "";
+    if (!userId || !sid) {
       return NextResponse.json({ error: "Refresh inválido" }, { status: 403 });
+    }
+
+    const [sessoes]: any = await db.execute(
+      `SELECT user_id, status, expires_at FROM user_sessions WHERE session_uuid = ? LIMIT 1`,
+      [sid]
+    );
+    const sessao = sessoes?.[0];
+    if (!sessao || String(sessao.user_id) !== userId || String(sessao.status) !== "active") {
+      return NextResponse.json({ error: "Sessão encerrada" }, { status: 401 });
     }
 
     const [rows]: any = await db.query(
@@ -44,22 +70,23 @@ export async function POST() {
 
     const newAccessToken = jwt.sign(
       {
-        id: Number(user.id),
-        user_type: user.user_type,
+        id: String(user.id),
+        user_type: String(user.user_type || "").trim().toLowerCase(),
         email: user.email,
+        sid,
       },
-      process.env.JWT_SECRET,
+      secret,
       { expiresIn: "10d" }
     );
 
-    const res = NextResponse.json({ success: true });
+    await estenderSessao(sid, new Date(Date.now() + 10 * 24 * 60 * 60 * 1000));
 
+    const res = NextResponse.json({ success: true });
     res.cookies.set(
       "access_token",
       newAccessToken,
       authCookieOptions(60 * 60 * 24 * 10)
     );
-
     return res;
   } catch {
     return NextResponse.json({ error: "Refresh inválido" }, { status: 403 });

@@ -10,6 +10,7 @@ import {
   provaVidaDevida,
 } from "../../lib/didit";
 import { obterConsulta } from "../../lib/lawsuitDb";
+import { estenderSessao, tokenDaRequisicao, validarSessao } from "../../lib/sessaoServidor";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -96,10 +97,12 @@ function jsonError(message: string, status: number) {
   );
 }
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
     const cookieStore = await cookies();
-    const token = cookieStore.get("access_token")?.value;
+    // Cookie (web e apps hoje) ou Authorization: Bearer.
+    const token =
+      cookieStore.get("access_token")?.value || tokenDaRequisicao(req) || undefined;
 
     if (!token) {
       return jsonError("Não autenticado.", 401);
@@ -123,6 +126,12 @@ export async function GET() {
       console.error("GET /api/me: token inválido ou expirado.", error);
 
       return jsonError("Token inválido ou expirado. Faça login novamente.", 401);
+    }
+
+    // Sessão encerrada/revogada não passa, mesmo com o token ainda assinado.
+    const sessao = await validarSessao(token, req);
+    if (!sessao.ok) {
+      return jsonError("Sessão encerrada. Faça login novamente.", 401);
     }
 
     const candidates = [
@@ -424,6 +433,8 @@ export async function GET() {
         user_id: resolvedId,
         user_type: userType,
         email: user.email ?? null,
+        // Mantém a mesma sessão: o token muda, a sessão (e a lista de aparelhos) não.
+        sid: sessao.sessionUuid,
       },
       jwtSecret,
       {
@@ -431,6 +442,11 @@ export async function GET() {
         expiresIn: "10d",
       }
     );
+
+    await estenderSessao(
+      sessao.sessionUuid,
+      new Date(Date.now() + 10 * 24 * 60 * 60 * 1000)
+    ).catch((error) => console.error("GET /api/me: erro ao estender sessão:", error));
 
     const response = NextResponse.json(
       {

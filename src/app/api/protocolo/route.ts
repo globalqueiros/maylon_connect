@@ -1,3 +1,4 @@
+import { payloadDaSessao } from "../../lib/sessaoServidor";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import jwt from "jsonwebtoken";
@@ -158,7 +159,7 @@ async function obterUsuarioIdAutenticado(): Promise<string | null> {
     let decoded: JwtPayloadCustom;
 
     try {
-      const payload = jwt.verify(token, jwtSecret);
+      const payload = (await payloadDaSessao(token));
 
       if (typeof payload !== "object" || payload === null) {
         return null;

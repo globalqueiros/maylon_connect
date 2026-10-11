@@ -1,6 +1,7 @@
 import { db } from "../../../lib/db";
 import jwt from "jsonwebtoken";
 import { NextResponse } from "next/server";
+import { criarSessao, jwtSecret, novoSessionUuid } from "../../../lib/sessaoServidor";
 
 // Atrás do proxy o req.url chega como http://localhost:3000, então os
 // redirects usam o domínio do NEXT_PUBLIC_APP_URL.
@@ -22,10 +23,12 @@ export async function GET(req: Request) {
       );
     }
 
+    // "used = FALSE": o mesmo link do e-mail entra uma vez só.
     const [rows]: any = await db.query(
-      `SELECT * FROM auth_tokens 
-       WHERE token = ? 
-       AND type='magic'`,
+      `SELECT * FROM auth_tokens
+       WHERE token = ?
+       AND type='magic'
+       AND (used = FALSE OR used IS NULL)`,
       [token]
     );
 
@@ -61,15 +64,25 @@ export async function GET(req: Request) {
       [record.id]
     );
 
+    const sessionUuid = novoSessionUuid();
     const jwtToken = jwt.sign(
       {
-        id: user.id,
+        id: String(user.id),
         email: user.email,
-        user_type: user.user_type,
+        user_type: String(user.user_type || "").trim().toLowerCase(),
+        sid: sessionUuid,
       },
-      process.env.JWT_SECRET!,
+      jwtSecret(),
       { expiresIn: "7d" }
     );
+
+    await criarSessao({
+      sessionUuid,
+      userId: String(user.id),
+      token: jwtToken,
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      req,
+    });
 
     const response = NextResponse.redirect(
       new URL("/auth/success", base)

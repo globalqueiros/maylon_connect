@@ -1,7 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
-import { cookies } from "next/headers";
-import { jwtVerify } from "jose";
 import { db } from "../lib/db";
+import { tokenAtual, validarSessao } from "./sessaoServidor";
 import type { RowDataPacket, ResultSetHeader } from "mysql2";
 
 type AuthUser = {
@@ -30,22 +29,20 @@ export function hashToken(token: string) {
   return createHash("sha256").update(token).digest("hex");
 }
 
-export async function getAuthenticatedUser(): Promise<{
+export async function getAuthenticatedUser(req?: Request): Promise<{
   user: AuthUser;
   token: string;
+  sessionUuid: string;
 } | null> {
-  const token = (await cookies()).get("access_token")?.value;
+  // Usa o validador central: aceita o token do login (campo "id", não "sub"),
+  // cookie ou Bearer, e recusa sessão revogada/encerrada.
+  const token = await tokenAtual(req);
+  const sessao = await validarSessao(token, req);
 
-  if (!token) return null;
+  if (!token || !sessao.ok) return null;
 
   try {
-    const { payload } = await jwtVerify(token, getSecret(), {
-      algorithms: ["HS256"],
-    });
-
-    const userId = payload.sub;
-
-    if (!userId) return null;
+    const userId = sessao.userId;
 
     const [rows] = await db.execute<RowDataPacket[]>(
       `SELECT id, user_level_id
@@ -63,6 +60,7 @@ export async function getAuthenticatedUser(): Promise<{
         user_level_id: Number(rows[0].user_level_id),
       },
       token,
+      sessionUuid: sessao.sessionUuid,
     };
   } catch {
     return null;

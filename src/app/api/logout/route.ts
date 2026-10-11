@@ -1,16 +1,13 @@
-import { NextResponse } from "next/server";
-import { clearAuthCookieOptions } from "../../lib/authCookies";
+import { sair } from "../../lib/logoutServidor";
 
 export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
-export async function POST() {
-  const res = NextResponse.json({ ok: true });
-  const clear = clearAuthCookieOptions();
-  res.cookies.set("access_token", "", clear);
-  res.cookies.set("refresh_token", "", clear);
-  return res;
+/** Mesmo comportamento de /api/auth/logout (mantido por compatibilidade com os apps). */
+export async function POST(req: Request) {
+  return sair(req);
 }
 
-export async function GET() {
-  return POST();
+export async function GET(req: Request) {
+  return sair(req);
 }

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthenticatedUser } from "../../../../lib/session-auth";
+import { encerrarSessao } from "../../../../lib/sessaoServidor";
 import { db } from "../../../../lib/db";
 
 export const dynamic = "force-dynamic";
@@ -20,7 +21,7 @@ export async function DELETE(
   context: RouteContext
 ) {
   try {
-    const authenticated = await getAuthenticatedUser();
+    const authenticated = await getAuthenticatedUser(request);
 
     if (!authenticated?.user?.id) {
       return NextResponse.json(
@@ -45,19 +46,15 @@ export async function DELETE(
 
     const userId = authenticated.user.id;
 
-    const [result] = await db.execute(
-      `UPDATE user_sessions
-       SET status = 'revoked',
-           ended_at = NOW(),
-           end_reason = 'Encerrada pelo usuário'
-       WHERE session_uuid = ?
-         AND user_id = ?
-         AND status = 'active'
-         AND expires_at > NOW()`,
-      [session_uuid, userId]
-    );
-
-    const updateResult = result as UpdateResult;
+    // encerrarSessao limpa o cache do validador: o aparelho cai na próxima requisição.
+    const updateResult: UpdateResult = {
+      affectedRows: await encerrarSessao(
+        session_uuid,
+        "revoked",
+        "Encerrada pelo usuário",
+        userId
+      ),
+    };
 
     if (updateResult.affectedRows === 0) {
       const [rows] = await db.execute(

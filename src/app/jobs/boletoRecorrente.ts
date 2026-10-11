@@ -18,7 +18,9 @@ cron.schedule("0 1 * * *", async () => {
             {
                 method: "POST",
                 headers: {
-                    "Content-Type": "application/json"
+                    "Content-Type": "application/json",
+                    // Rota interna: precisa do mesmo INTERNAL_API_TOKEN do .env.
+                    "x-internal-token": process.env.INTERNAL_API_TOKEN || ""
                 },
                 body: JSON.stringify({
                     nome: assinatura.nome,

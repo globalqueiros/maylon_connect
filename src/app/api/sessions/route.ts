@@ -1,3 +1,4 @@
+import { payloadDaSessao } from "../../lib/sessaoServidor";
 import { NextRequest, NextResponse } from "next/server";
 import jwt from "jsonwebtoken";
 import { db } from "../../lib/db";
@@ -236,10 +237,7 @@ export async function GET(
     let decoded: JwtPayload;
 
     try {
-      decoded = jwt.verify(
-        accessToken,
-        secret
-      ) as JwtPayload;
+      decoded = (await payloadDaSessao(accessToken)) as JwtPayload;
     } catch (error) {
       console.error(
         "[SESSIONS] JWT inválido:",

@@ -42,7 +42,7 @@ export async function proxy(request: NextRequest) {
   let tipo: TipoUsuario;
 
   try {
-    const resultado = await verificarTokenAcesso(token);
+    const resultado = await verificarTokenAcesso(token, request);
 
     if (!resultado?.valido) {
       return redirecionarInicio();

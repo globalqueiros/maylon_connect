@@ -1,32 +1,22 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import jwt from "jsonwebtoken";
 import { db } from "../../lib/db";
+import { limparCookiesDeLogin, sair } from "../../lib/logoutServidor";
+import { sessaoDaRequisicao } from "../../lib/sessaoServidor";
 
-export async function POST() {
-    try {
-        const cookieStore = cookies();
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
-        const token = (await cookieStore).get("access_token")?.value;
-
-        if (!token) {
-            return NextResponse.json({ message: "Sem token" }, { status: 401 });
-        }
-
-        const decoded: any = jwt.verify(token, process.env.JWT_SECRET!);
-        const userId = decoded.id;
-
-        await db.query("DELETE FROM sessions WHERE user_id = ?", [userId]);
-
-        const res = NextResponse.json({ success: true });
-
-        res.cookies.set("access_token", "", { path: "/", maxAge: 0 });
-        res.cookies.set("refresh_token", "", { path: "/", maxAge: 0 });
-
-        return res;
-
-    } catch (error) {
-        console.error(error);
-        return NextResponse.json({ message: "Erro interno" }, { status: 500 });
-    }
+/** Sai de todos os aparelhos: revoga todas as sessões do usuário. */
+export async function POST(req: Request) {
+  const sessao = await sessaoDaRequisicao(req);
+  if (!sessao.ok) {
+    return limparCookiesDeLogin(
+      NextResponse.json({ message: "Sem sessão" }, { status: 401 })
+    );
+  }
+  // Mantém a limpeza da tabela antiga, que outras telas ainda leem.
+  await db
+    .query("DELETE FROM sessions WHERE user_id = ?", [sessao.userId])
+    .catch((error) => console.error("[logout-all] tabela sessions:", error));
+  return sair(req, true);
 }

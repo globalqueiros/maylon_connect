@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { db } from "../../lib/db";
+import { criarSessao, novoSessionUuid } from "../../lib/sessaoServidor";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -126,11 +127,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Cada login vira uma sessão em user_sessions; o "sid" no token liga
+    // o token a ela (revogar a sessão desloga esse aparelho).
+    const sessionUuid = novoSessionUuid();
+
     const accessToken = jwt.sign(
       {
         id: userId,
         email: user.email,
         user_type: userType,
+        sid: sessionUuid,
       },
       secret,
       { expiresIn: "7d" }
@@ -140,10 +146,19 @@ export async function POST(request: NextRequest) {
       {
         id: userId,
         type: "refresh",
+        sid: sessionUuid,
       },
       secret,
       { expiresIn: "30d" }
     );
+
+    await criarSessao({
+      sessionUuid,
+      userId,
+      token: accessToken,
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      req: request,
+    });
 
     const forwardedFor = request.headers.get("x-forwarded-for");
     const realIp = request.headers.get("x-real-ip");

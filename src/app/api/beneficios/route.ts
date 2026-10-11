@@ -1,8 +1,9 @@
+import { payloadDaSessao } from "../../lib/sessaoServidor";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import jwt from "jsonwebtoken";
 import { db } from "../../lib/db";
-import { toPositiveInt } from "../../lib/session";
+import { toUserId } from "../../lib/session";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -22,12 +23,9 @@ async function getUsuarioId(body: Record<string, unknown>) {
 
     if (secret) {
       try {
-        const decoded = jwt.verify(
-          token,
-          secret,
-        ) as JwtPayload;
+        const decoded = (await payloadDaSessao(token)) as JwtPayload;
 
-        const tokenId = toPositiveInt(
+        const tokenId = toUserId(
           decoded.id ??
             decoded.user_id ??
             decoded.usuario_id,
@@ -45,14 +43,14 @@ async function getUsuarioId(body: Record<string, unknown>) {
     }
   }
 
-  return toPositiveInt(
+  return toUserId(
     body.usuario_id ??
       body.usuarioId ??
       body.user_id,
   );
 }
 
-async function loadBeneficios(usuarioId: number) {
+async function loadBeneficios(usuarioId: string) {
   const attempts = [
     {
       sql: `

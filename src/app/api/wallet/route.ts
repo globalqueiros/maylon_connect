@@ -1,3 +1,4 @@
+import { payloadDaSessao } from "../../lib/sessaoServidor";
 import { NextRequest, NextResponse } from "next/server";
 import jwt from "jsonwebtoken";
 import { db } from "../../lib/db";
@@ -41,9 +42,9 @@ function jsonError(
   );
 }
 
-function getUserIdFromToken(
+async function getUserIdFromToken(
   request: NextRequest
-): string {
+): Promise<string> {
   const accessToken =
     request.cookies.get("access_token")?.value;
 
@@ -64,10 +65,7 @@ function getUserIdFromToken(
   }
 
   try {
-    const decoded = jwt.verify(
-      accessToken,
-      secret
-    ) as JwtPayload;
+    const decoded = (await payloadDaSessao(accessToken)) as JwtPayload;
 
     const userId = String(
       decoded?.id || ""
@@ -259,7 +257,7 @@ export async function GET(
 ) {
   try {
     const userId =
-      getUserIdFromToken(request);
+      await getUserIdFromToken(request);
 
     const user = await getUser(userId);
 
@@ -348,7 +346,7 @@ export async function POST(
 ) {
   try {
     const userId =
-      getUserIdFromToken(request);
+      await getUserIdFromToken(request);
 
     const user = await getUser(userId);
 

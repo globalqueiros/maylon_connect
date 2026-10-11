@@ -1,3 +1,4 @@
+import { payloadDaSessao } from "../../../lib/sessaoServidor";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import jwt from "jsonwebtoken";
@@ -45,7 +46,7 @@ export async function POST(request: Request) {
     let decoded: jwt.JwtPayload;
 
     try {
-      const result = jwt.verify(token, secret);
+      const result = (await payloadDaSessao(token));
 
       if (typeof result === "string") {
         return NextResponse.json(

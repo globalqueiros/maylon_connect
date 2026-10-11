@@ -29,6 +29,7 @@ type SessionResponse = Omit<
   "user_id" | "created_at" | "last_activity_at" | "expires_at" | "ended_at"
 > & {
   user_id: string;
+  is_current: boolean;
   created_at: string | null;
   last_activity_at: string | null;
   expires_at: string | null;
@@ -65,7 +66,7 @@ function serializeDate(
 
 export async function GET(request: NextRequest) {
   try {
-    const authenticated = await getAuthenticatedUser();
+    const authenticated = await getAuthenticatedUser(request);
 
     if (!authenticated?.user?.id) {
       return NextResponse.json(
@@ -123,6 +124,7 @@ export async function GET(request: NextRequest) {
       rows as SessionRow[]
     ).map((session) => ({
       ...session,
+      is_current: session.session_uuid === authenticated.sessionUuid,
       user_id: String(session.user_id),
       created_at: serializeDate(session.created_at),
       last_activity_at: serializeDate(session.last_activity_at),

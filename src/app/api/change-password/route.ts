@@ -1,11 +1,30 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import bcrypt from "bcryptjs";
 import { db } from "../../lib/db";
+import { revogarSessoesDoUsuario, sessaoDaRequisicao } from "../../lib/sessaoServidor";
 
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+
+/**
+ * Troca a senha do usuário logado (pela sessão, não por id enviado).
+ * Antes lia um cookie "token" com o id puro, que ninguém recebia no login
+ * (e que qualquer um poderia criar). Depois de trocar, os outros aparelhos
+ * são desconectados; este continua logado.
+ */
 export async function POST(req: Request) {
   try {
-    const { senha } = await req.json();
+    const sessao = await sessaoDaRequisicao(req);
+
+    if (!sessao.ok) {
+      return NextResponse.json(
+        { message: "Não autorizado" },
+        { status: 401 }
+      );
+    }
+
+    const body = await req.json().catch(() => ({}));
+    const senha = typeof body?.senha === "string" ? body.senha : "";
 
     if (!senha || senha.length < 6) {
       return NextResponse.json(
@@ -14,36 +33,22 @@ export async function POST(req: Request) {
       );
     }
 
-    const cookieStore = cookies();
-    const token = (await cookieStore).get("token");
-
-    if (!token) {
-      return NextResponse.json(
-        { message: "Não autorizado" },
-        { status: 401 }
-      );
-    }
-
-    const userId = Number(token.value);
-
-    if (!userId) {
-      return NextResponse.json(
-        { message: "Sessão inválida" },
-        { status: 401 }
-      );
-    }
-
     const hash = await bcrypt.hash(senha, 10);
 
     await db.execute(
       "UPDATE users SET password = ? WHERE id = ?",
-      [hash, userId]
+      [hash, sessao.userId]
+    );
+
+    await revogarSessoesDoUsuario(
+      sessao.userId,
+      "Senha alterada",
+      sessao.sessionUuid
     );
 
     return NextResponse.json({
       message: "Senha atualizada com sucesso",
     });
-
   } catch (error) {
     console.error("Erro API change-password:", error);
 

@@ -1,10 +1,11 @@
-import { jwtVerify } from "jose";
+import { validarSessao } from "./sessaoServidor";
 
 /**
  * Lê o access_token direto, sem chamar o /api/me.
  * Chamar o próprio site de dentro do servidor falha atrás da Cloudflare/AWS
  * (e com NEXT_PUBLIC_APP_URL=localhost) e mandava o usuário de volta pro login.
  * Os tokens do /api/login e do /api/me já trazem o user_type.
+ * Também confere a sessão: sessão revogada ou encerrada não entra.
  */
 
 export type TipoUsuario = "motorista" | "passageiro" | null;
@@ -20,19 +21,13 @@ export function tipoDoUsuario(value: unknown): TipoUsuario {
 
 /** Devolve o tipo do usuário, ou null se o token for inválido/vencido. */
 export async function verificarTokenAcesso(
-  token: string | undefined | null
+  token: string | undefined | null,
+  req?: Request
 ): Promise<{ valido: boolean; tipo: TipoUsuario }> {
-  const secret = process.env.JWT_SECRET?.trim();
-  if (!token || !secret) {
-    if (token && !secret) console.error("JWT_SECRET não configurado");
-    return { valido: false, tipo: null };
-  }
-  try {
-    const { payload } = await jwtVerify(token, new TextEncoder().encode(secret), {
-      algorithms: ["HS256"],
-    });
-    return { valido: true, tipo: tipoDoUsuario(payload.user_type ?? payload.tipo) };
-  } catch {
-    return { valido: false, tipo: null };
-  }
+  const sessao = await validarSessao(token, req);
+  if (!sessao.ok) return { valido: false, tipo: null };
+  return {
+    valido: true,
+    tipo: tipoDoUsuario(sessao.payload.user_type ?? sessao.payload.tipo),
+  };
 }

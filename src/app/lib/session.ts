@@ -1,5 +1,4 @@
-import { cookies } from "next/headers";
-import jwt from "jsonwebtoken";
+import { sessaoDaRequisicao } from "./sessaoServidor";
 
 /** Coerce mysql/jwt/json values into a positive integer id. */
 export function toPositiveInt(value: unknown): number | null {
@@ -36,18 +35,20 @@ export type JwtPayload = {
 };
 
 export type SessionUser = {
-  id: number;
+  /** Sempre texto: os ids de usuário são UUID (antes virava número e "6b04…" virava 6). */
+  id: string;
   user_type?: string;
   email?: string;
 };
 
-function idFromPayload(decoded: JwtPayload): number | null {
-  return (
-    toPositiveInt(decoded.id) ??
-    toPositiveInt(decoded.userId) ??
-    toPositiveInt(decoded.user_id) ??
-    toPositiveInt(decoded.sub)
-  );
+/** Id de usuário vindo de fora (body/query): aceita UUID ou inteiro positivo, como texto. */
+export function toUserId(value: unknown): string | null {
+  if (value === null || value === undefined) return null;
+  const s = String(value).trim();
+  if (!s || s === "null" || s === "undefined") return null;
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s)) return s;
+  if (/^[1-9][0-9]*$/.test(s)) return s;
+  return null;
 }
 
 /** Pull access_token from a raw Cookie header (most reliable in route handlers). */
@@ -70,72 +71,34 @@ export function tokenFromCookieHeader(cookieHeader: string | null): string | nul
   return null;
 }
 
-function userFromToken(token: string): SessionUser | null {
-  const secret = process.env.JWT_SECRET?.trim();
-  if (!secret) {
-    console.error("JWT_SECRET missing/empty while resolving session");
-    return null;
-  }
-  try {
-    const decoded = jwt.verify(token, secret) as JwtPayload;
-    const id = idFromPayload(decoded);
-    if (!id) return null;
-    return {
-      id,
-      user_type: decoded.user_type,
-      email: decoded.email,
-    };
-  } catch (error: any) {
-    console.warn("JWT verify failed:", error?.message || error);
-    return null;
-  }
-}
-
 /**
- * Resolve the logged-in user from:
- * 1) Request Cookie header
- * 2) next/headers cookies()
- * 3) Authorization: Bearer
+ * Usuário logado (cookie access_token, cookies() do Next ou Authorization: Bearer),
+ * validado pelo validador central: sessão revogada/encerrada não passa.
  */
 export async function getSessionUser(
   req?: Request
 ): Promise<SessionUser | null> {
-  const fromHeader = tokenFromCookieHeader(req?.headers.get("cookie") ?? null);
-  if (fromHeader) {
-    const user = userFromToken(fromHeader);
-    if (user) return user;
-  }
-
-  try {
-    const cookieStore = await cookies();
-    const cookieToken = cookieStore.get("access_token")?.value;
-    if (cookieToken) {
-      const user = userFromToken(cookieToken);
-      if (user) return user;
-    }
-  } catch (error) {
-    console.warn("cookies() unavailable in this context:", error);
-  }
-
-  const auth = req?.headers.get("authorization") || "";
-  if (auth.toLowerCase().startsWith("bearer ")) {
-    const bearer = auth.slice(7).trim();
-    if (bearer) {
-      const user = userFromToken(bearer);
-      if (user) return user;
-    }
-  }
-
-  return null;
+  const sessao = await sessaoDaRequisicao(req);
+  if (!sessao.ok) return null;
+  return {
+    id: sessao.userId,
+    user_type: typeof sessao.payload.user_type === "string" ? sessao.payload.user_type : undefined,
+    email: typeof sessao.payload.email === "string" ? sessao.payload.email : undefined,
+  };
 }
 
+/**
+ * Id do usuário logado. Sem sessão, ainda aceita o id enviado no body
+ * (compatibilidade com os apps até termos a lista de rotas que eles usam).
+ * TODO(seguranca): remover o fallback do body depois da lista dos apps.
+ */
 export async function getSessionUserId(
   bodyUserId?: unknown,
   req?: Request
-): Promise<number | null> {
+): Promise<string | null> {
   const session = await getSessionUser(req);
   if (session?.id) return session.id;
-  return toPositiveInt(bodyUserId);
+  return toUserId(bodyUserId);
 }
 
 export function pickBeneficioId(body: Record<string, unknown>) {

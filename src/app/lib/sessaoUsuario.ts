@@ -1,3 +1,4 @@
+import { payloadDaSessao } from "./sessaoServidor";
 import { cookies } from "next/headers";
 import jwt from "jsonwebtoken";
 
@@ -28,7 +29,7 @@ export async function usuarioIdDaSessao(): Promise<string | null> {
   }
 
   try {
-    const resultado = jwt.verify(token, secret);
+    const resultado = (await payloadDaSessao(token));
 
     if (typeof resultado === "string") {
       return null;

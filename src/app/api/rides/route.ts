@@ -1,3 +1,4 @@
+import { payloadDaSessao } from "../../lib/sessaoServidor";
 import { NextResponse } from "next/server";
 import { db } from "../../lib/db";
 import { cookies } from "next/headers";
@@ -12,7 +13,7 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
     }
 
-    const decoded: any = jwt.verify(token, process.env.JWT_SECRET!);
+    const decoded: any = (await payloadDaSessao(token));
 
     const { searchParams } = new URL(req.url);
     const days = searchParams.get("days");
