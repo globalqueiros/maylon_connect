@@ -73,14 +73,14 @@ export async function POST(req: Request) {
       );
     }
 
-    const amount = toAmount(body.valor) ?? toAmount(beneficio.valor);
+    // Valor e título vêm sempre do banco. "valor" e "titulo" enviados pelo
+    // navegador/app são ignorados (antes dava pra autorizar o Pix com qualquer valor).
+    const amount = toAmount(beneficio.valor);
     if (!amount) {
       return NextResponse.json({ error: "Valor inválido" }, { status: 400 });
     }
 
-    const beneficioTitulo = String(
-      body.titulo || beneficio.titulo || "Assinatura Maylon"
-    );
+    const beneficioTitulo = String(beneficio.titulo || "Assinatura Maylon");
 
     const existing = await findActiveOrPending(usuario_id, beneficioId);
     if (existing?.status_assinatura === "aprovado" && existing.ativo === 1) {

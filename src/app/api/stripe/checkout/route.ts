@@ -69,13 +69,15 @@ export async function POST(req: Request) {
       );
     }
 
+    // Preço e título vêm sempre do banco. "valor" e "titulo" enviados pelo
+    // navegador/app são ignorados (antes dava pra assinar pagando qualquer valor).
     const beneficioTitulo = String(
-      body.titulo || beneficio.titulo || "Assinatura Maylon"
+      beneficio.titulo || "Assinatura Maylon"
     ).trim();
 
     const appUrl = getAppUrl();
     const stripe = getStripe();
-    const valorCentavos = toCentavos(body.valor ?? beneficio.valor);
+    const valorCentavos = toCentavos(beneficio.valor);
     const valorNumber = valorCentavos / 100;
 
     if (!valorCentavos || valorCentavos <= 0) {
