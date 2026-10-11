@@ -173,11 +173,7 @@ export default function MaylonServicosPage() {
   const [creatingWallet, setCreatingWallet] = useState(false);
   const [walletNotFound, setWalletNotFound] = useState(false);
   const [error, setError] = useState("");
-<<<<<<< HEAD
   const [alert, setAlert] = useState<AlertData | null>(null);
-=======
-
->>>>>>> 9c9d572 (Fist Commit)
   const [showCreateWalletModal, setShowCreateWalletModal] = useState(false);
 
   const [userData, setUserData] = useState<UserData | null>(null);
@@ -426,12 +422,7 @@ export default function MaylonServicosPage() {
       setWallet(null);
       setTransactions([]);
       setWalletNotFound(false);
-<<<<<<< HEAD
       const message =
-=======
-
-      setError(
->>>>>>> 9c9d572 (Fist Commit)
         err instanceof Error
           ? err.message
           : "Não foi possível carregar sua carteira.";
@@ -772,35 +763,6 @@ export default function MaylonServicosPage() {
     });
   }
 
-  async function encerrarConta() {
-    try {
-      const response = await fetch("/api/encerrar-conta", {
-        method: "POST",
-        credentials: "include",
-        cache: "no-store",
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({}),
-      });
-
-      if (response.ok) {
-        window.location.href = "/";
-        return;
-      }
-
-      const data = await response.json().catch(() => null);
-
-      console.error(
-        "Erro ao encerrar conta:",
-        data?.message || data?.error || `HTTP ${response.status}`
-      );
-    } catch (error) {
-      console.error("Erro ao encerrar conta:", error);
-    }
-  }
-
   const balance = wallet?.balance ?? 0;
   const conta = wallet?.conta ?? "";
 
@@ -831,7 +793,6 @@ export default function MaylonServicosPage() {
     });
   }
 
-<<<<<<< HEAD
   function renderCloseAccountModal() {
     if (!showCloseAccountModal) return null;
 
@@ -899,12 +860,6 @@ export default function MaylonServicosPage() {
 
   function renderCreateWalletModal() {
     if (!showCreateWalletModal) return null;
-=======
-  function CreateWalletModal() {
-    if (!showCreateWalletModal) {
-      return null;
-    }
->>>>>>> 9c9d572 (Fist Commit)
 
     return (
       <div
@@ -1778,20 +1733,12 @@ export default function MaylonServicosPage() {
 
                 <button
                   type="button"
-<<<<<<< HEAD
                   onClick={openCloseAccountModal}
                   disabled={encerrandoConta}
                   className="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/10 px-5 text-xs font-black text-white transition hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   <Trash2 size={16} />
                   {encerrandoConta ? "Encerrando..." : "Encerrar minha conta"}
-=======
-                  onClick={encerrarConta}
-                  className="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/10 px-5 text-xs font-black text-white transition hover:bg-white/20"
-                >
-                  <Trash2 size={16} />
-                  Encerrar minha conta
->>>>>>> 9c9d572 (Fist Commit)
                 </button>
               </div>
             </div>

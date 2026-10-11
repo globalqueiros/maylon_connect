@@ -9,7 +9,6 @@ type AuthPayload = JWTPayload & {
 };
 
 export async function getUsuarioLogado(): Promise<{
-  conta_id: {} | QueryValues;
   id: number;
   usuario_id: number;
 } | null> {

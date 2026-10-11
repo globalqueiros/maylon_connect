@@ -54,13 +54,8 @@ type Trip = {
   payment_status?: string | null;
   payment_method?: string | null;
   created_at: string;
-<<<<<<< HEAD
   passenger?: Person | null;
   driver?: Person | null;
-=======
-  passenger?: Passenger | null;
-  driver?: Driver | null;
->>>>>>> 9c9d572 (Fist Commit)
   vehicle?: Vehicle | null;
   vehicle_category?: string | null;
   vehicle_model?: string | null;
@@ -69,15 +64,12 @@ type Trip = {
   vehicle_model_image?: string | null;
 };
 
-<<<<<<< HEAD
 const NAO_INFORMADO = "Não informado";
 
 /* ------------------------------------------------------------------ */
 /* Google Maps                                                         */
 /* ------------------------------------------------------------------ */
 
-=======
->>>>>>> 9c9d572 (Fist Commit)
 let googleMapsPromise: Promise<void> | null = null;
 
 function carregarGoogleMaps(): Promise<void> {
@@ -104,7 +96,6 @@ function carregarGoogleMaps(): Promise<void> {
   }
 
   googleMapsPromise = new Promise<void>((resolve, reject) => {
-<<<<<<< HEAD
     const falhar = (mensagem: string) => {
       googleMapsPromise = null;
       reject(new Error(mensagem));
@@ -131,31 +122,6 @@ function carregarGoogleMaps(): Promise<void> {
         () => falhar("Erro ao carregar Google Maps."),
         { once: true }
       );
-=======
-    const scriptExistente = document.querySelector(
-      'script[data-google-maps="true"]'
-    ) as HTMLScriptElement | null;
-
-    if (scriptExistente) {
-      if (window.google?.maps) {
-        resolve();
-        return;
-      }
-
-      const verificar = () => {
-        if (window.google?.maps) {
-          resolve();
-        }
-      };
-
-      const tratarErro = () => {
-        googleMapsPromise = null;
-        reject(new Error("Erro ao carregar Google Maps."));
-      };
-
-      scriptExistente.addEventListener("load", verificar, { once: true });
-      scriptExistente.addEventListener("error", tratarErro, { once: true });
->>>>>>> 9c9d572 (Fist Commit)
       return;
     }
 
@@ -165,10 +131,6 @@ function carregarGoogleMaps(): Promise<void> {
       "https://maps.googleapis.com/maps/api/js" +
       `?key=${encodeURIComponent(chave)}` +
       "&v=weekly";
-<<<<<<< HEAD
-=======
-
->>>>>>> 9c9d572 (Fist Commit)
     script.async = true;
     script.defer = true;
     script.dataset.googleMaps = "true";
@@ -177,25 +139,11 @@ function carregarGoogleMaps(): Promise<void> {
       if (window.google?.maps) {
         resolve();
       } else {
-<<<<<<< HEAD
         falhar("Google Maps carregou, mas a API não está disponível.");
       }
     };
 
     script.onerror = () => falhar("Não foi possível carregar o Google Maps.");
-=======
-        googleMapsPromise = null;
-        reject(
-          new Error("Google Maps carregou, mas a API não está disponível.")
-        );
-      }
-    };
-
-    script.onerror = () => {
-      googleMapsPromise = null;
-      reject(new Error("Não foi possível carregar o Google Maps."));
-    };
->>>>>>> 9c9d572 (Fist Commit)
 
     document.head.appendChild(script);
   });
@@ -203,7 +151,6 @@ function carregarGoogleMaps(): Promise<void> {
   return googleMapsPromise;
 }
 
-<<<<<<< HEAD
 /* ------------------------------------------------------------------ */
 /* Helpers                                                             */
 /* ------------------------------------------------------------------ */
@@ -218,8 +165,6 @@ function paraNumero(valor?: number | string | null): number | null {
   return Number.isFinite(numero) ? numero : null;
 }
 
-=======
->>>>>>> 9c9d572 (Fist Commit)
 function montarCoordenada(
   lat?: number | string | null,
   lng?: number | string | null
@@ -227,43 +172,15 @@ function montarCoordenada(
   const latitude = paraNumero(lat);
   const longitude = paraNumero(lng);
 
-<<<<<<< HEAD
   if (latitude === null || longitude === null) return "";
   if (latitude === 0 && longitude === 0) return "";
-=======
-  if (
-    !Number.isFinite(latitude) ||
-    !Number.isFinite(longitude) ||
-    (latitude === 0 && longitude === 0)
-  ) {
-    return "";
-  }
->>>>>>> 9c9d572 (Fist Commit)
 
   return `${latitude},${longitude}`;
 }
 
 function formatarValor(valor?: number | string | null): string {
-<<<<<<< HEAD
   const numero = paraNumero(valor);
   if (numero === null) return NAO_INFORMADO;
-=======
-  if (valor === null || valor === undefined) {
-    return "Não informado";
-  }
-
-  const texto = String(valor).trim();
-
-  if (!texto) {
-    return "Não informado";
-  }
-
-  const numero = Number(texto);
-
-  if (!Number.isFinite(numero)) {
-    return "Não informado";
-  }
->>>>>>> 9c9d572 (Fist Commit)
 
   return numero.toLocaleString("pt-BR", {
     style: "currency",
@@ -274,13 +191,7 @@ function formatarValor(valor?: number | string | null): string {
 }
 
 function formatarData(data?: string | null): string {
-<<<<<<< HEAD
   if (!data) return NAO_INFORMADO;
-=======
-  if (!data) {
-    return "Não informado";
-  }
->>>>>>> 9c9d572 (Fist Commit)
 
   const date = new Date(data);
   if (Number.isNaN(date.getTime())) return NAO_INFORMADO;
@@ -294,56 +205,9 @@ function formatarData(data?: string | null): string {
   });
 }
 
-<<<<<<< HEAD
 function formatarDistancia(distancia?: number | string | null): string {
   const numero = paraNumero(distancia);
   if (numero === null) return NAO_INFORMADO;
-=======
-function formatarTelefone(telefone?: string | null): string {
-  if (!telefone) {
-    return "Não informado";
-  }
-
-  let numero = String(telefone).replace(/\D/g, "");
-
-  if (numero.startsWith("55") && numero.length >= 12) {
-    numero = numero.substring(2);
-  }
-
-  if (numero.length === 11) {
-    return `(${numero.substring(0, 2)}) ${numero.substring(
-      2,
-      7
-    )}-${numero.substring(7)}`;
-  }
-
-  if (numero.length === 10) {
-    return `(${numero.substring(0, 2)}) ${numero.substring(
-      2,
-      6
-    )}-${numero.substring(6)}`;
-  }
-
-  return numero || "Não informado";
-}
-
-function formatarDistancia(distancia?: number | string | null): string {
-  if (distancia === null || distancia === undefined) {
-    return "Não informado";
-  }
-
-  const texto = String(distancia).trim();
-
-  if (!texto) {
-    return "Não informado";
-  }
-
-  const numero = Number(texto);
-
-  if (!Number.isFinite(numero)) {
-    return "Não informado";
-  }
->>>>>>> 9c9d572 (Fist Commit)
 
   return `${numero.toLocaleString("pt-BR", {
     minimumFractionDigits: 1,
@@ -369,7 +233,6 @@ function traduzirMetodoPagamento(metodo?: string | null): string {
   }
 }
 
-<<<<<<< HEAD
 // Formato final: (11) *****-4321
 function mascararTelefone(telefone?: string | null): string {
   if (!telefone) return "Telefone não disponível";
@@ -391,8 +254,6 @@ function mascararTelefone(telefone?: string | null): string {
 /* Página                                                              */
 /* ------------------------------------------------------------------ */
 
-=======
->>>>>>> 9c9d572 (Fist Commit)
 export default function DetalhesCorrida({
   params,
 }: {
@@ -404,11 +265,8 @@ export default function DetalhesCorrida({
   const mapaRef = useRef<HTMLDivElement | null>(null);
   const directionsRendererRef =
     useRef<google.maps.DirectionsRenderer | null>(null);
-<<<<<<< HEAD
 
   /* ---------------------------- Carregar corrida ---------------------------- */
-=======
->>>>>>> 9c9d572 (Fist Commit)
 
   useEffect(() => {
     let ativo = true;
@@ -435,14 +293,7 @@ export default function DetalhesCorrida({
         setTrip(data?.trip ?? null);
       } catch (error) {
         console.error("Erro ao carregar corrida:", error);
-<<<<<<< HEAD
         if (ativo) setTrip(null);
-=======
-
-        if (ativo) {
-          setTrip(null);
-        }
->>>>>>> 9c9d572 (Fist Commit)
       } finally {
         if (ativo) setLoading(false);
       }
@@ -455,11 +306,8 @@ export default function DetalhesCorrida({
     };
   }, [id]);
 
-<<<<<<< HEAD
   /* --------------------------------- Status --------------------------------- */
 
-=======
->>>>>>> 9c9d572 (Fist Commit)
   const statusNormalizado = String(trip?.current_status || "")
     .trim()
     .toLowerCase()
@@ -470,29 +318,10 @@ export default function DetalhesCorrida({
     statusNormalizado === "cancelled_by_driver" ||
     statusNormalizado === "canceled_by_driver" ||
     statusNormalizado === "cancelado_pelo_motorista" ||
-<<<<<<< HEAD
     statusNormalizado === "cancelada_pelo_motorista";
 
   const isTripCanceled =
     isDriverCanceled || statusNormalizado.includes("cancel");
-=======
-    statusNormalizado === "cancelada_pelo_motorista" ||
-    statusNormalizado.includes("driver_cancel");
-
-  const isTripCanceled =
-    isDriverCanceled ||
-    statusNormalizado === "cancelled" ||
-    statusNormalizado === "canceled" ||
-    statusNormalizado === "cancelado" ||
-    statusNormalizado === "cancelada" ||
-    statusNormalizado === "cancelled_by_passenger" ||
-    statusNormalizado === "canceled_by_passenger" ||
-    statusNormalizado === "cancelled_by_user" ||
-    statusNormalizado === "canceled_by_user" ||
-    statusNormalizado === "cancelled_by_system" ||
-    statusNormalizado === "canceled_by_system" ||
-    statusNormalizado.includes("cancel");
->>>>>>> 9c9d572 (Fist Commit)
 
   const isCompleted = [
     "completed",
@@ -522,21 +351,11 @@ export default function DetalhesCorrida({
             ? "Aceita"
             : "Pendente";
 
-<<<<<<< HEAD
   /* ------------------------------ Dados derivados ------------------------------ */
 
   const origem =
     trip?.pickup_address?.trim() || trip?.entrance?.trim() || "";
   const destino = trip?.destination_address?.trim() || "";
-=======
-  const origem = useMemo(() => {
-    return trip?.pickup_address?.trim() || trip?.entrance?.trim() || "";
-  }, [trip]);
-
-  const destino = useMemo(() => {
-    return trip?.destination_address?.trim() || "";
-  }, [trip]);
->>>>>>> 9c9d572 (Fist Commit)
 
   const coordenadaOrigem = useMemo(
     () => montarCoordenada(trip?.pickup_lat, trip?.pickup_lng),
@@ -552,20 +371,10 @@ export default function DetalhesCorrida({
   const pontoDestino = coordenadaDestino || destino;
   const possuiPontosMapa = Boolean(pontoOrigem || pontoDestino);
 
-<<<<<<< HEAD
   const nomeVeiculo =
     trip?.vehicle?.model?.name?.trim() ||
     trip?.vehicle_model?.trim() ||
     NAO_INFORMADO;
-=======
-  const nomeVeiculo = useMemo(() => {
-    return (
-      trip?.vehicle?.model?.name?.trim() ||
-      trip?.vehicle_model?.trim() ||
-      "Não informado"
-    );
-  }, [trip?.vehicle?.model?.name, trip?.vehicle_model]);
->>>>>>> 9c9d572 (Fist Commit)
 
   const placaVeiculo =
     trip?.vehicle?.licence_plate_number?.trim() ||
@@ -575,7 +384,6 @@ export default function DetalhesCorrida({
   const imagemVeiculo =
     trip?.vehicle?.model?.image || trip?.vehicle_model_image || null;
 
-<<<<<<< HEAD
   const categoria =
     trip?.vehicle?.category?.name?.trim() ||
     trip?.vehicle_category?.trim() ||
@@ -583,27 +391,12 @@ export default function DetalhesCorrida({
 
   const nomeMotorista =
     trip?.driver?.full_name?.trim() || "Motorista não informado";
-=======
-  const categoria = useMemo(() => {
-    return (
-      trip?.vehicle?.category?.name?.trim() ||
-      trip?.vehicle_category?.trim() ||
-      "Não informado"
-    );
-  }, [trip?.vehicle?.category?.name, trip?.vehicle_category]);
-
-  const nomeMotorista =
-    trip?.driver?.full_name?.trim() || "Motorista não informado";
-
-  const telefoneMotorista = formatarTelefone(trip?.driver?.phone);
->>>>>>> 9c9d572 (Fist Commit)
 
   const possuiMotorista =
     Boolean(trip?.driver?.id) ||
     Boolean(trip?.driver?.full_name) ||
     Boolean(trip?.driver?.phone);
 
-<<<<<<< HEAD
   // Usa o valor pago quando houver (> 0); senão, o estimado.
   // Assim o topo da página e o card "Valor da corrida" mostram o mesmo valor.
   const valorPago = paraNumero(trip?.paid_fare);
@@ -618,17 +411,6 @@ export default function DetalhesCorrida({
 
   useEffect(() => {
     if (!trip || !mapaRef.current || !possuiPontosMapa) return;
-=======
-  const valorCorrida = trip?.estimated_fare;
-
-  const distanciaBanco =
-    trip?.actual_distance ?? trip?.estimated_distance ?? null;
-
-  useEffect(() => {
-    if (!trip || !mapaRef.current || !possuiPontosMapa) {
-      return;
-    }
->>>>>>> 9c9d572 (Fist Commit)
 
     let cancelado = false;
 
@@ -656,7 +438,6 @@ export default function DetalhesCorrida({
           lng: -46.3336,
         };
 
-<<<<<<< HEAD
         const mapa = new window.google.maps.Map(mapaRef.current, {
           center: centroInicial,
           zoom: 14,
@@ -666,15 +447,10 @@ export default function DetalhesCorrida({
           zoomControl: true,
           clickableIcons: true,
         });
-=======
-        if (coordenadaOrigem) {
-          const partes = coordenadaOrigem.split(",").map(Number);
->>>>>>> 9c9d572 (Fist Commit)
 
         if (pontoOrigem && pontoDestino) {
           const directionsService = new window.google.maps.DirectionsService();
 
-<<<<<<< HEAD
           const directionsRenderer = new window.google.maps.DirectionsRenderer({
             map: mapa,
             suppressMarkers: false,
@@ -685,33 +461,6 @@ export default function DetalhesCorrida({
             },
           });
 
-=======
-        const mapa = new window.google.maps.Map(mapaRef.current, {
-          center: centroInicial,
-          zoom: 14,
-          streetViewControl: false,
-          mapTypeControl: false,
-          fullscreenControl: true,
-          zoomControl: true,
-          clickableIcons: true,
-        });
-
-        if (pontoOrigem && pontoDestino) {
-          const directionsService =
-            new window.google.maps.DirectionsService();
-
-          const directionsRenderer =
-            new window.google.maps.DirectionsRenderer({
-              map: mapa,
-              suppressMarkers: false,
-              polylineOptions: {
-                strokeColor: isTripCanceled ? "#dc2626" : "#155EEF",
-                strokeOpacity: 0.95,
-                strokeWeight: 6,
-              },
-            });
-
->>>>>>> 9c9d572 (Fist Commit)
           directionsRendererRef.current = directionsRenderer;
 
           directionsService.route(
@@ -721,13 +470,7 @@ export default function DetalhesCorrida({
               travelMode: window.google.maps.TravelMode.DRIVING,
             },
             (resultado, status) => {
-<<<<<<< HEAD
               if (cancelado) return;
-=======
-              if (cancelado) {
-                return;
-              }
->>>>>>> 9c9d572 (Fist Commit)
 
               if (
                 status === window.google.maps.DirectionsStatus.OK &&
@@ -735,14 +478,8 @@ export default function DetalhesCorrida({
               ) {
                 directionsRenderer.setDirections(resultado);
 
-<<<<<<< HEAD
                 const bounds = resultado.routes[0]?.bounds;
                 if (bounds) mapa.fitBounds(bounds, 50);
-=======
-                if (resultado.routes[0]?.bounds) {
-                  mapa.fitBounds(resultado.routes[0].bounds, 50);
-                }
->>>>>>> 9c9d572 (Fist Commit)
               } else {
                 console.error("Erro ao carregar rota:", status);
               }
@@ -753,32 +490,10 @@ export default function DetalhesCorrida({
         }
 
         const coordenada = coordenadaOrigem || coordenadaDestino;
-<<<<<<< HEAD
         if (!coordenada) return;
 
         const position = paraLatLng(coordenada);
         if (!position) return;
-=======
-
-        if (!coordenada) {
-          return;
-        }
-
-        const partes = coordenada.split(",").map(Number);
-
-        if (
-          partes.length !== 2 ||
-          !Number.isFinite(partes[0]) ||
-          !Number.isFinite(partes[1])
-        ) {
-          return;
-        }
-
-        const position = {
-          lat: partes[0],
-          lng: partes[1],
-        };
->>>>>>> 9c9d572 (Fist Commit)
 
         mapa.setCenter(position);
         mapa.setZoom(15);
@@ -829,21 +544,13 @@ export default function DetalhesCorrida({
       );
     }
 
-<<<<<<< HEAD
-=======
-    const ponto = pontoOrigem || pontoDestino || "";
-
->>>>>>> 9c9d572 (Fist Commit)
     return (
       "https://www.google.com/maps/search/?api=1" +
       `&query=${encodeURIComponent(pontoOrigem || pontoDestino)}`
     );
   }, [pontoOrigem, pontoDestino]);
-<<<<<<< HEAD
 
   /* ------------------------------ Estados de tela ------------------------------ */
-=======
->>>>>>> 9c9d572 (Fist Commit)
 
   if (loading) {
     return (
@@ -888,18 +595,12 @@ export default function DetalhesCorrida({
     );
   }
 
-<<<<<<< HEAD
   /* --------------------------------- Render --------------------------------- */
 
   return (
     <main className="mb-3 min-h-screen overflow-x-hidden text-sm text-[#073b70]">
       <div className="max-w-8xl mx-auto flex flex-col gap-5 sm:gap-6 lg:gap-7 2xl:gap-8">
         {/* Cabeçalho */}
-=======
-  return (
-    <main className="mb-3 min-h-screen overflow-x-hidden text-sm text-[#073b70]">
-      <div className="mx-auto flex max-w-8xl flex-col gap-5 sm:gap-6 lg:gap-7 2xl:gap-8">
->>>>>>> 9c9d572 (Fist Commit)
         <div
           className={`relative overflow-hidden rounded-[22px] border p-5 text-white shadow-sm sm:rounded-[26px] sm:p-7 md:p-8 lg:rounded-[30px] lg:p-9 2xl:rounded-[34px] 2xl:p-10 ${
             isTripCanceled
@@ -937,11 +638,7 @@ export default function DetalhesCorrida({
                   Valor da corrida
                 </p>
                 <h2 className="mt-1 truncate text-lg font-bold sm:text-xl md:text-2xl">
-<<<<<<< HEAD
                   {formatarValor(valorCorrida)}
-=======
-                  {formatarValor(trip.paid_fare)}
->>>>>>> 9c9d572 (Fist Commit)
                 </h2>
               </div>
               <div className="min-w-0 rounded-2xl border border-white/15 bg-white/10 p-3 backdrop-blur-sm sm:min-w-[170px] sm:p-4">
@@ -957,13 +654,9 @@ export default function DetalhesCorrida({
         </div>
 
         <div className="grid grid-cols-1 gap-5 md:gap-6 lg:gap-7 xl:grid-cols-3 2xl:gap-8">
-<<<<<<< HEAD
           {/* Coluna principal */}
           <div className="flex min-w-0 flex-col gap-5 md:gap-6 lg:gap-7 xl:col-span-2">
             {/* Status */}
-=======
-          <div className="flex min-w-0 flex-col gap-5 md:gap-6 lg:gap-7 xl:col-span-2">
->>>>>>> 9c9d572 (Fist Commit)
             <section className="min-w-0 rounded-[22px] border border-slate-200 bg-white p-5 shadow-sm sm:rounded-[26px] sm:p-6 md:p-7 lg:rounded-[30px] lg:p-8">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div className="min-w-0">
@@ -1051,10 +744,7 @@ export default function DetalhesCorrida({
               </div>
             </section>
 
-<<<<<<< HEAD
             {/* Trajeto */}
-=======
->>>>>>> 9c9d572 (Fist Commit)
             <section className="min-w-0 overflow-hidden rounded-[22px] border border-slate-200 bg-white shadow-sm sm:rounded-[26px] lg:rounded-[30px]">
               <div className="p-5 sm:p-6 md:p-7 lg:p-8">
                 <div className="mb-5 flex items-center gap-3 sm:mb-6">
@@ -1083,11 +773,7 @@ export default function DetalhesCorrida({
                           Origem
                         </p>
                         <h3 className="mt-2 break-words text-sm font-bold leading-6 text-[#073b70] sm:text-base">
-<<<<<<< HEAD
                           {origem || NAO_INFORMADO}
-=======
-                          {origem || "Não informado"}
->>>>>>> 9c9d572 (Fist Commit)
                         </h3>
                         <p className="mt-1 text-xs text-slate-400">
                           Local de embarque
@@ -1104,11 +790,7 @@ export default function DetalhesCorrida({
                           Destino
                         </p>
                         <h3 className="mt-2 break-words text-sm font-bold leading-6 text-[#073b70] sm:text-base">
-<<<<<<< HEAD
                           {destino || NAO_INFORMADO}
-=======
-                          {destino || "Não informado"}
->>>>>>> 9c9d572 (Fist Commit)
                         </h3>
                         <p className="mt-1 text-xs text-slate-400">
                           Destino final
@@ -1132,16 +814,8 @@ export default function DetalhesCorrida({
                           Mapa indisponível
                         </h3>
                         <p className="mt-2 max-w-md text-sm leading-6 text-slate-500">
-<<<<<<< HEAD
                           A origem e o destino desta viagem não foram
                           informados.
-=======
-                          {!origem && !destino
-                            ? "A origem e o destino desta viagem não foram informados."
-                            : !origem
-                              ? "A origem desta viagem não foi informada."
-                              : "O destino desta viagem não foi informado."}
->>>>>>> 9c9d572 (Fist Commit)
                         </p>
                       </div>
                     )}
@@ -1170,10 +844,7 @@ export default function DetalhesCorrida({
             </section>
           </div>
 
-<<<<<<< HEAD
           {/* Coluna lateral */}
-=======
->>>>>>> 9c9d572 (Fist Commit)
           <div className="flex min-w-0 flex-col gap-5 md:gap-6 lg:gap-7">
             {isTripCanceled && (
               <section className="rounded-[22px] border border-red-100 bg-white p-5 shadow-sm sm:rounded-[26px] sm:p-6 md:p-7 lg:rounded-[30px]">
@@ -1198,10 +869,7 @@ export default function DetalhesCorrida({
               </section>
             )}
 
-<<<<<<< HEAD
             {/* Motorista */}
-=======
->>>>>>> 9c9d572 (Fist Commit)
             <section className="rounded-[22px] border border-slate-200 bg-white p-5 shadow-sm sm:rounded-[26px] sm:p-6 md:p-7 lg:rounded-[30px]">
               <div className="mb-5 flex items-center gap-3 sm:mb-6">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#eef3f7] text-[#073b70] sm:h-11 sm:w-11">
@@ -1311,10 +979,7 @@ export default function DetalhesCorrida({
               )}
             </section>
 
-<<<<<<< HEAD
             {/* Veículo */}
-=======
->>>>>>> 9c9d572 (Fist Commit)
             <section className="rounded-[22px] border border-slate-200 bg-white p-5 shadow-sm sm:rounded-[26px] sm:p-6 md:p-7 lg:rounded-[30px]">
               <div className="mb-5 flex items-center gap-3 sm:mb-6">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#e8f7f3] text-[#149c8b] sm:h-11 sm:w-11">
@@ -1335,19 +1000,13 @@ export default function DetalhesCorrida({
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={`https://auth.maylon.com.br/storage/app/public/vehicle/model/${imagemVeiculo}`}
-<<<<<<< HEAD
                     alt={nomeVeiculo}
                     className="h-40 w-full object-contain p-0"
-=======
-                    alt={nomeVeiculo || "Veículo"}
-                    className="h-40 w-full object-contain p-0 sm:h-40"
->>>>>>> 9c9d572 (Fist Commit)
                   />
                 </div>
               )}
 
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-<<<<<<< HEAD
                 {[
                   { rotulo: "Modelo", valor: nomeVeiculo },
                   { rotulo: "Placa", valor: placaVeiculo || NAO_INFORMADO },
@@ -1365,34 +1024,6 @@ export default function DetalhesCorrida({
                     </p>
                   </div>
                 ))}
-=======
-                <div className="rounded-2xl bg-[#f8fafb] p-4">
-                  <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">
-                    Modelo
-                  </p>
-                  <p className="mt-2 break-words text-xs font-bold text-[#073b70]">
-                    {nomeVeiculo}
-                  </p>
-                </div>
-
-                <div className="rounded-2xl bg-[#f8fafb] p-4">
-                  <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">
-                    Placa
-                  </p>
-                  <p className="mt-2 break-words text-xs font-bold text-[#073b70]">
-                    {placaVeiculo || "Não informado"}
-                  </p>
-                </div>
-
-                <div className="rounded-2xl bg-[#f8fafb] p-4">
-                  <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">
-                    Categoria
-                  </p>
-                  <p className="mt-2 break-words text-xs font-bold text-[#073b70]">
-                    {categoria}
-                  </p>
-                </div>
->>>>>>> 9c9d572 (Fist Commit)
               </div>
             </section>
 
