@@ -22,7 +22,22 @@ type FormState = {
   renavam: string;
 };
 
-const WHATSAPP_NUMERO = "5511990064082"; // (11) 99006-4082
+type Usuario = {
+  id?: string | number;
+  full_name?: string;
+  fullName?: string;
+  name?: string;
+  email?: string;
+  phone?: string;
+  telefone?: string;
+};
+
+type ApiError = {
+  error?: string;
+  message?: string;
+};
+
+const WHATSAPP_NUMERO = "5511990064082";
 
 const CAMPOS_INICIAIS: FormState = {
   nome: "",
@@ -33,7 +48,13 @@ const CAMPOS_INICIAIS: FormState = {
 };
 
 function formatarTelefone(valor: string): string {
-  const digitos = valor.replace(/\D/g, "").slice(0, 11);
+  let digitos = valor.replace(/\D/g, "");
+
+  if (digitos.startsWith("55") && digitos.length > 11) {
+    digitos = digitos.slice(2);
+  }
+
+  digitos = digitos.slice(0, 11);
 
   if (digitos.length <= 2) {
     return digitos;
@@ -58,15 +79,18 @@ function montarMensagem(dados: FormState): string {
   return [
     "Olá! Gostaria de ativar o benefício Loma.",
     "",
-    `Nome: ${dados.nome}`,
-    `Email: ${dados.email}`,
-    `Telefone: ${dados.telefone}`,
+    "📋 *Dados do cliente*",
+    `👤 Nome: ${dados.nome}`,
+    `📧 Email: ${dados.email}`,
+    `📱 Telefone: ${dados.telefone}`,
+    "",
+    "🚗 *Dados do veículo*",
     `Placa do carro: ${dados.placa.toUpperCase()}`,
     `Renavam: ${dados.renavam}`,
   ].join("\n");
 }
 
-async function lerResposta(res: Response) {
+async function lerResposta(res: Response): Promise<Usuario & ApiError> {
   const texto = await res.text();
 
   if (!texto) {
@@ -84,8 +108,12 @@ async function lerResposta(res: Response) {
   }
 }
 
-export default function LomaModal({ beneficioId, onClose }: LomaModalProps) {
+export default function LomaModal({
+  beneficioId,
+  onClose,
+}: LomaModalProps) {
   const [dados, setDados] = useState<FormState>(CAMPOS_INICIAIS);
+  const [usuarioId, setUsuarioId] = useState<string | number | null>(null);
   const [carregandoUsuario, setCarregandoUsuario] = useState(true);
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
@@ -96,71 +124,51 @@ export default function LomaModal({ beneficioId, onClose }: LomaModalProps) {
 
     async function carregarUsuario() {
       try {
-        const res = await fetch("/api/me", {
+        setCarregandoUsuario(true);
+
+        const resposta = await fetch("/api/me", {
           method: "GET",
           credentials: "include",
           cache: "no-store",
         });
 
-        const data = await lerResposta(res);
+        const data = await lerResposta(resposta);
 
-        if (!res.ok) {
+        if (!resposta.ok) {
           throw new Error(
             data?.error ||
-            data?.message ||
-            "Não foi possível carregar seus dados."
+              data?.message ||
+              "Não foi possível carregar seus dados."
           );
         }
 
-        const usuarioApi =
-          data?.motorista ??
-          data?.usuario ??
-          data?.user ??
-          data?.data?.motorista ??
-          data?.data?.usuario ??
-          data?.data?.user ??
-          data?.data ??
-          data;
-
-        const nome = String(
-          usuarioApi?.full_name ??
-          usuarioApi?.fullName ??
-          usuarioApi?.name ??
-          ""
-        ).trim();
-
-        const email = String(usuarioApi?.email ?? "").trim();
-
-        const telefoneBruto = String(
-          usuarioApi?.telefone ??
-          usuarioApi?.phone ??
-          usuarioApi?.celular ??
-          usuarioApi?.whatsapp ??
-          ""
-        );
-
         if (!ativo) {
           return;
         }
+
+        setUsuarioId(data.id ?? null);
 
         setDados((anterior) => ({
           ...anterior,
-          nome: nome || anterior.nome,
-          email: email || anterior.email,
-          telefone: telefoneBruto
-            ? formatarTelefone(telefoneBruto)
-            : anterior.telefone,
+          nome:
+            data.full_name ||
+            data.fullName ||
+            data.name ||
+            anterior.nome,
+          email: data.email || anterior.email,
+          telefone:
+            data.phone || data.telefone
+              ? formatarTelefone(data.phone || data.telefone || "")
+              : anterior.telefone,
         }));
       } catch (error) {
-        if (!ativo) {
-          return;
+        if (ativo) {
+          setErro(
+            error instanceof Error
+              ? error.message
+              : "Não foi possível carregar seus dados."
+          );
         }
-
-        setErro(
-          error instanceof Error
-            ? error.message
-            : "Não foi possível carregar seus dados."
-        );
       } finally {
         if (ativo) {
           setCarregandoUsuario(false);
@@ -175,14 +183,24 @@ export default function LomaModal({ beneficioId, onClose }: LomaModalProps) {
     };
   }, []);
 
-  const atualizarCampo = (campo: keyof FormState, valor: string) => {
+  const atualizarCampo = (
+    campo: keyof FormState,
+    valor: string
+  ) => {
     setDados((anterior) => ({
       ...anterior,
-      [campo]: campo === "telefone" ? formatarTelefone(valor) : valor,
+      [campo]:
+        campo === "telefone"
+          ? formatarTelefone(valor)
+          : valor,
     }));
   };
 
   const validar = (): string | null => {
+    if (!usuarioId) {
+      return "Não foi possível identificar seu usuário.";
+    }
+
     if (!dados.nome.trim()) {
       return "Informe o nome completo.";
     }
@@ -219,6 +237,7 @@ export default function LomaModal({ beneficioId, onClose }: LomaModalProps) {
 
     try {
       const mensagem = encodeURIComponent(montarMensagem(dados));
+
       const url = `https://wa.me/${WHATSAPP_NUMERO}?text=${mensagem}`;
 
       window.open(url, "_blank", "noopener,noreferrer");
@@ -233,7 +252,10 @@ export default function LomaModal({ beneficioId, onClose }: LomaModalProps) {
     <div
       className="fixed inset-0 z-[10001] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
       onClick={(event) => {
-        if (event.target === event.currentTarget && !enviando) {
+        if (
+          event.target === event.currentTarget &&
+          !enviando
+        ) {
           onClose();
         }
       }}
@@ -265,7 +287,10 @@ export default function LomaModal({ beneficioId, onClose }: LomaModalProps) {
             </button>
           </div>
 
-          <h3 id="loma-modal-title" className="mt-4 text-xl font-bold">
+          <h3
+            id="loma-modal-title"
+            className="mt-4 text-xl font-bold"
+          >
             Loma
           </h3>
 
@@ -277,18 +302,32 @@ export default function LomaModal({ beneficioId, onClose }: LomaModalProps) {
         <div className="space-y-4 px-6 py-5">
           {carregandoUsuario ? (
             <div className="flex min-h-[160px] items-center justify-center">
-              <Loader2 size={26} className="animate-spin text-teal-600" />
+              <div className="flex flex-col items-center gap-3">
+                <Loader2
+                  size={26}
+                  className="animate-spin text-teal-600"
+                />
+                <p className="text-xs font-medium text-gray-500">
+                  Carregando seus dados...
+                </p>
+              </div>
             </div>
           ) : enviado ? (
             <div className="flex items-center gap-3 rounded-2xl border border-teal-200 bg-teal-50 px-4 py-3">
-              <CheckCircle2 size={20} className="shrink-0 text-teal-600" />
+              <CheckCircle2
+                size={20}
+                className="shrink-0 text-teal-600"
+              />
+
               <div>
                 <p className="text-sm font-semibold text-teal-700">
                   Dados enviados para o WhatsApp!
                 </p>
+
                 <p className="mt-0.5 text-xs text-teal-600">
-                  Assim que seu benefício for ativado, os links para baixar o
-                  app aparecerão na tela de benefícios ativos.
+                  Assim que seu benefício for ativado, os links
+                  para baixar o app aparecerão na tela de
+                  benefícios ativos.
                 </p>
               </div>
             </div>
@@ -298,12 +337,10 @@ export default function LomaModal({ beneficioId, onClose }: LomaModalProps) {
                 <label className="text-[10px] font-bold uppercase tracking-wide text-gray-400">
                   Nome completo
                 </label>
+
                 <input
                   type="text"
                   value={dados.nome}
-                  onChange={(event) =>
-                    atualizarCampo("nome", event.target.value)
-                  }
                   readOnly
                   placeholder="Seu nome completo"
                   className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm text-gray-900 outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-100"
@@ -314,12 +351,10 @@ export default function LomaModal({ beneficioId, onClose }: LomaModalProps) {
                 <label className="text-[10px] font-bold uppercase tracking-wide text-gray-400">
                   Email
                 </label>
+
                 <input
                   type="email"
                   value={dados.email}
-                  onChange={(event) =>
-                    atualizarCampo("email", event.target.value)
-                  }
                   readOnly
                   placeholder="seuemail@exemplo.com"
                   className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm text-gray-900 outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-100"
@@ -330,12 +365,10 @@ export default function LomaModal({ beneficioId, onClose }: LomaModalProps) {
                 <label className="text-[10px] font-bold uppercase tracking-wide text-gray-400">
                   Telefone
                 </label>
+
                 <input
                   type="tel"
                   value={dados.telefone}
-                  onChange={(event) =>
-                    atualizarCampo("telefone", event.target.value)
-                  }
                   readOnly
                   placeholder="(11) 99999-9999"
                   className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm text-gray-900 outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-100"
@@ -347,11 +380,15 @@ export default function LomaModal({ beneficioId, onClose }: LomaModalProps) {
                   <label className="text-[10px] font-bold uppercase tracking-wide text-gray-400">
                     Placa do carro
                   </label>
+
                   <input
                     type="text"
                     value={dados.placa}
                     onChange={(event) =>
-                      atualizarCampo("placa", event.target.value.toUpperCase())
+                      atualizarCampo(
+                        "placa",
+                        event.target.value.toUpperCase()
+                      )
                     }
                     placeholder="ABC1D23"
                     maxLength={8}
@@ -363,6 +400,7 @@ export default function LomaModal({ beneficioId, onClose }: LomaModalProps) {
                   <label className="text-[10px] font-bold uppercase tracking-wide text-gray-400">
                     Renavam
                   </label>
+
                   <input
                     type="text"
                     value={dados.renavam}
@@ -381,8 +419,14 @@ export default function LomaModal({ beneficioId, onClose }: LomaModalProps) {
 
               {erro && (
                 <div className="flex items-center gap-3 rounded-2xl border border-red-100 bg-red-50 px-4 py-3">
-                  <AlertTriangle size={18} className="shrink-0 text-red-500" />
-                  <p className="text-xs font-medium text-red-700">{erro}</p>
+                  <AlertTriangle
+                    size={18}
+                    className="shrink-0 text-red-500"
+                  />
+
+                  <p className="text-xs font-medium text-red-700">
+                    {erro}
+                  </p>
                 </div>
               )}
             </>
@@ -410,13 +454,20 @@ export default function LomaModal({ beneficioId, onClose }: LomaModalProps) {
 
                 <button
                   type="button"
-                  disabled={enviando || carregandoUsuario}
+                  disabled={
+                    enviando ||
+                    carregandoUsuario ||
+                    !usuarioId
+                  }
                   onClick={enviarWhatsapp}
                   className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-teal-600 px-4 py-2.5 text-xs font-semibold text-white transition hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {enviando ? (
                     <>
-                      <Loader2 size={15} className="animate-spin" />
+                      <Loader2
+                        size={15}
+                        className="animate-spin"
+                      />
                       Enviando...
                     </>
                   ) : (

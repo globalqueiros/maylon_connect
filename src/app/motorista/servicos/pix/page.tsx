@@ -46,11 +46,11 @@ export default function PixPage() {
 
   return (
     <main className="min-h-screen pb-12">
-      <div className="mx-auto w-full max-w-5xl px-4 sm:px-6 lg:px-8">
+      <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
         <header className="flex items-center justify-between pt-6 sm:pt-8">
           <div className="flex items-center gap-3">
             <Link
-              href="/passageiro/servicos"
+              href="/motorista/servicos"
               className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/10 text-white transition hover:bg-white/15"
             >
               <ArrowLeft size={18} />
@@ -63,7 +63,7 @@ export default function PixPage() {
           </div>
 
           <Link
-            href="/passageiro/servicos/extrato"
+            href="/motorista/servicos/extrato"
             className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/10 text-white transition hover:bg-white/15"
           >
             <History size={18} />
@@ -108,7 +108,7 @@ export default function PixPage() {
 
           <div className="grid grid-cols-2 gap-3">
             <Link
-              href="/passageiro/servicos/pix/enviar"
+              href="/motorista/servicos/pix/enviar"
               className="group rounded-[24px] border border-white/10 bg-white p-5 transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_18px_40px_rgba(0,0,0,0.12)]"
             >
               <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#e7f8f4] text-[#08a89d]">
@@ -130,7 +130,7 @@ export default function PixPage() {
             </Link>
 
             <Link
-              href="/passageiro/servicos/pix/receber"
+              href="/motorista/servicos/pix/receber"
               className="group rounded-[24px] border border-white/10 bg-white p-5 transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_18px_40px_rgba(0,0,0,0.12)]"
             >
               <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#eaf4fb] text-[#1676b7]">
@@ -160,7 +160,7 @@ export default function PixPage() {
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <Link
-              href="/passageiro/servicos/pix/qr-code"
+              href="/motorista/servicos/pix/qr-code"
               className="flex items-center gap-3 rounded-[20px] border border-white/10 bg-white p-4 transition hover:-translate-y-0.5"
             >
               <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#f1ebff] text-[#8b5cf6]">
@@ -177,7 +177,7 @@ export default function PixPage() {
             </Link>
 
             <Link
-              href="/passageiro/servicos/pix/chave"
+              href="/motorista/servicos/pix/chave"
               className="flex items-center gap-3 rounded-[20px] border border-white/10 bg-white p-4 transition hover:-translate-y-0.5"
             >
               <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#e7f8f4] text-[#08a89d]">
@@ -194,7 +194,7 @@ export default function PixPage() {
             </Link>
 
             <Link
-              href="/passageiro/servicos/pix/copia-e-cola"
+              href="/motorista/servicos/pix/copia-e-cola"
               className="flex items-center gap-3 rounded-[20px] border border-white/10 bg-white p-4 transition hover:-translate-y-0.5"
             >
               <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#fff3e7] text-[#f08a24]">
@@ -275,7 +275,7 @@ export default function PixPage() {
               </div>
 
               <Link
-                href="/passageiro/servicos/pix/receber"
+                href="/motorista/servicos/pix/receber"
                 className="flex h-10 items-center gap-2 rounded-xl bg-white px-4 text-[11px] font-black text-[#08a89d] transition hover:bg-white/90"
               >
                 Gerar
@@ -295,7 +295,7 @@ export default function PixPage() {
             </div>
 
             <Link
-              href="/passageiro/servicos/extrato"
+              href="/motorista/servicos/extrato"
               className="text-xs font-bold text-[#08a89d]"
             >
               Ver todos

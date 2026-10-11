@@ -463,7 +463,7 @@ export default function CarCard() {
   if (loading) {
     return (
       <section className="min-h-[400px]">
-        <div className="mx-auto max-w-7xl">
+        <div className="mx-auto max-w-8xl">
           <div className="mb-4">
             <div className="h-6 w-48 animate-pulse rounded bg-white/20" />
             <div className="mt-2 h-3 w-64 animate-pulse rounded bg-white/10" />

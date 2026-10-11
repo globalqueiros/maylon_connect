@@ -1,8 +1,9 @@
+
 "use client";
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   ArrowLeft,
   CheckCircle2,
@@ -11,7 +12,6 @@ import {
   Loader2,
   MessageCircle,
   Send,
-  Sparkles,
 } from "lucide-react";
 
 type Protocolo = {
@@ -20,9 +20,11 @@ type Protocolo = {
   email?: string;
   assunto?: string;
   mensagem?: string;
-  categoria?: string;
+  categoria?: string | null;
+  categoria_nome?: string | null;
+  category?: string | null;
   status?: string;
-  resposta?: string;
+  resposta?: string | null;
   criado_em?: string;
   atualizado_em?: string;
 };
@@ -41,21 +43,40 @@ function formatarData(data?: string) {
 }
 
 function normalizarCodigo(codigo: string) {
-  return decodeURIComponent(codigo)
-    .replace(/\s+/g, " ")
+  try {
+    return decodeURIComponent(codigo)
+      .replace(/\s+/g, " ")
+      .trim()
+      .toLowerCase();
+  } catch {
+    return codigo.trim().toLowerCase();
+  }
+}
+
+function obterCategoria(protocolo: Protocolo) {
+  const categoria = [
+    protocolo.categoria,
+    protocolo.categoria_nome,
+    protocolo.category,
+  ].find(
+    (valor) =>
+      typeof valor === "string" && valor.trim().length > 0
+  );
+
+  if (!categoria) return "Categoria não informada";
+
+  return categoria
     .trim()
-    .toLowerCase();
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .replace(/\b\w/g, (letra) => letra.toLocaleUpperCase("pt-BR"));
 }
 
 function statusConfig(status?: string) {
-  const value = String(status || "")
-    .toLowerCase()
-    .trim();
+  const value = String(status || "").toLowerCase().trim();
 
   if (
-    value === "finalizado" ||
-    value === "resolvido" ||
-    value === "fechado"
+    ["finalizado", "resolvido", "fechado"].includes(value)
   ) {
     return {
       label: status || "Finalizado",
@@ -64,9 +85,7 @@ function statusConfig(status?: string) {
   }
 
   if (
-    value === "em andamento" ||
-    value === "andamento" ||
-    value === "em análise"
+    ["em andamento", "andamento", "em análise"].includes(value)
   ) {
     return {
       label: status || "Em andamento",
@@ -80,128 +99,135 @@ function statusConfig(status?: string) {
   };
 }
 
-export default function ProtocoloPage() {
-  const params = useParams<{ codigo: string }>();
+function extrairLista(data: unknown): Protocolo[] {
+  if (Array.isArray(data)) {
+    return data as Protocolo[];
+  }
 
-  const [protocolo, setProtocolo] =
-    useState<Protocolo | null>(null);
+  if (data && typeof data === "object") {
+    const objeto = data as {
+      protocolos?: unknown;
+      data?: unknown;
+      protocolo?: unknown;
+    };
 
-  const [loading, setLoading] = useState(true);
-  const [erro, setErro] = useState("");
-  const [respostaUsuario, setRespostaUsuario] =
-    useState("");
-
-  const [enviandoResposta, setEnviandoResposta] =
-    useState(false);
-
-  const [respostaEnviada, setRespostaEnviada] =
-    useState(false);
-
-  const [erroResposta, setErroResposta] =
-    useState("");
-
-  const codigo = Array.isArray(params?.codigo)
-    ? params.codigo[0]
-    : params?.codigo || "";
-
-  useEffect(() => {
-    if (!codigo) return;
-
-    let ativo = true;
-
-    async function carregarProtocolo() {
-      try {
-        setLoading(true);
-        setErro("");
-
-        const response = await fetch(
-          "/api/protocolo",
-          {
-            method: "GET",
-            credentials: "include",
-            cache: "no-store",
-          }
-        );
-
-        const data = await response
-          .json()
-          .catch(() => null);
-
-        if (!response.ok) {
-          throw new Error(
-            data?.error ||
-            data?.message ||
-            "Não foi possível carregar os protocolos."
-          );
-        }
-
-        const lista: Protocolo[] =
-          Array.isArray(data)
-            ? data
-            : Array.isArray(data?.protocolos)
-              ? data.protocolos
-              : Array.isArray(data?.data)
-                ? data.data
-                : [];
-
-        const codigoNormalizado =
-          normalizarCodigo(codigo);
-
-        const encontrado = lista.find(
-          (item) =>
-            normalizarCodigo(
-              String(item.codigo || "")
-            ) === codigoNormalizado
-        );
-
-        if (!ativo) return;
-
-        if (!encontrado) {
-          setErro("Protocolo não encontrado.");
-          setProtocolo(null);
-          return;
-        }
-
-        setProtocolo(encontrado);
-      } catch (error) {
-        if (!ativo) return;
-
-        setErro(
-          error instanceof Error
-            ? error.message
-            : "Não foi possível carregar o protocolo."
-        );
-
-        setProtocolo(null);
-      } finally {
-        if (ativo) {
-          setLoading(false);
-        }
-      }
+    if (Array.isArray(objeto.protocolos)) {
+      return objeto.protocolos as Protocolo[];
     }
 
-    carregarProtocolo();
+    if (Array.isArray(objeto.data)) {
+      return objeto.data as Protocolo[];
+    }
 
-    return () => {
-      ativo = false;
-    };
+    if (
+      objeto.protocolo &&
+      typeof objeto.protocolo === "object"
+    ) {
+      return [objeto.protocolo as Protocolo];
+    }
+
+    if ("codigo" in data) {
+      return [data as Protocolo];
+    }
+  }
+
+  return [];
+}
+
+export default function ProtocoloPage() {
+  const params = useParams<{ codigo: string | string[] }>();
+
+  const codigoParam = Array.isArray(params?.codigo)
+    ? params.codigo[0]
+    : params?.codigo;
+
+  const codigo = String(codigoParam || "");
+
+  const [protocolo, setProtocolo] = useState<Protocolo | null>(
+    null
+  );
+  const [loading, setLoading] = useState(true);
+  const [erro, setErro] = useState("");
+  const [respostaUsuario, setRespostaUsuario] = useState("");
+  const [enviandoResposta, setEnviandoResposta] = useState(false);
+  const [respostaEnviada, setRespostaEnviada] = useState(false);
+  const [erroResposta, setErroResposta] = useState("");
+
+  const carregarProtocolo = useCallback(async () => {
+    if (!codigo) {
+      setErro("Código do protocolo não informado.");
+      setProtocolo(null);
+      setLoading(false);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setErro("");
+
+      const response = await fetch("/api/protocolo", {
+        method: "GET",
+        credentials: "include",
+        cache: "no-store",
+      });
+
+      const data: unknown = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        const erroApi = data as {
+          error?: string;
+          message?: string;
+        } | null;
+
+        throw new Error(
+          erroApi?.error ||
+            erroApi?.message ||
+            "Não foi possível carregar os protocolos."
+        );
+      }
+
+      const lista = extrairLista(data);
+      const codigoNormalizado = normalizarCodigo(codigo);
+
+      const encontrado = lista.find(
+        (item) =>
+          normalizarCodigo(String(item.codigo || "")) ===
+          codigoNormalizado
+      );
+
+      if (!encontrado) {
+        setProtocolo(null);
+        setErro("Protocolo não encontrado.");
+        return;
+      }
+
+      setProtocolo(encontrado);
+    } catch (error) {
+      setProtocolo(null);
+      setErro(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível carregar o protocolo."
+      );
+    } finally {
+      setLoading(false);
+    }
   }, [codigo]);
 
+  useEffect(() => {
+    void carregarProtocolo();
+  }, [carregarProtocolo]);
+
   async function enviarResposta() {
-    const mensagem =
-      respostaUsuario.trim();
+    const mensagem = respostaUsuario.trim();
 
     if (!mensagem) {
-      setErroResposta(
-        "Digite uma resposta antes de enviar."
-      );
+      setErroResposta("Digite uma resposta antes de enviar.");
       return;
     }
 
     if (!protocolo?.codigo) {
-      setErroResposta(
-        "Protocolo inválido."
-      );
+      setErroResposta("Protocolo inválido.");
       return;
     }
 
@@ -210,31 +236,25 @@ export default function ProtocoloPage() {
       setErroResposta("");
       setRespostaEnviada(false);
 
-      const response = await fetch(
-        "/api/protocolo/resposta",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
-          credentials: "include",
-          body: JSON.stringify({
-            codigo: protocolo.codigo,
-            resposta: mensagem,
-          }),
-        }
-      );
+      const response = await fetch("/api/protocolo/resposta", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          codigo: protocolo.codigo,
+          resposta: mensagem,
+        }),
+      });
 
-      const data = await response
-        .json()
-        .catch(() => null);
+      const data = await response.json().catch(() => null);
 
       if (!response.ok) {
         throw new Error(
           data?.error ||
-          data?.message ||
-          "Não foi possível enviar a resposta."
+            data?.message ||
+            "Não foi possível enviar a mensagem."
         );
       }
 
@@ -242,13 +262,18 @@ export default function ProtocoloPage() {
       setRespostaEnviada(true);
 
       if (data?.protocolo) {
-        setProtocolo(data.protocolo);
+        setProtocolo((anterior) => ({
+          ...anterior,
+          ...data.protocolo,
+        }));
+      } else {
+        await carregarProtocolo();
       }
     } catch (error) {
       setErroResposta(
         error instanceof Error
           ? error.message
-          : "Não foi possível enviar a resposta."
+          : "Não foi possível enviar a mensagem."
       );
     } finally {
       setEnviandoResposta(false);
@@ -257,23 +282,17 @@ export default function ProtocoloPage() {
 
   if (loading) {
     return (
-      <main className="min-h-screen px-4 sm:px-0">
+      <main className="min-h-screen px-4">
         <div className="mx-auto flex min-h-[75vh] max-w-5xl items-center justify-center">
-          <div className="w-full max-w-md rounded-[22px] border border-teal-100 bg-white p-7 text-center shadow-[0_25px_80px_rgba(13,148,136,0.10)] sm:max-w-lg sm:rounded-[28px] sm:p-10 2xl:max-w-xl">
-            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-teal-50 text-teal-600 sm:h-16 sm:w-16">
-              <Loader2
-                size={30}
-                className="animate-spin"
-              />
+          <div className="w-full max-w-lg rounded-[28px] border border-teal-100 bg-white p-8 text-center shadow-xl sm:p-10">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-teal-50 text-teal-600">
+              <Loader2 size={30} className="animate-spin" />
             </div>
-
-            <h1 className="mt-5 text-xl font-bold tracking-tight text-slate-900 sm:mt-6 sm:text-2xl 2xl:text-3xl">
+            <h1 className="mt-6 text-2xl font-bold text-slate-900">
               Carregando atendimento
             </h1>
-
-            <p className="mt-2 text-sm leading-6 text-slate-500 2xl:text-base">
-              Estamos buscando as informações
-              do seu protocolo.
+            <p className="mt-2 text-sm leading-6 text-slate-500">
+              Estamos buscando as informações do seu protocolo.
             </p>
           </div>
         </div>
@@ -283,28 +302,24 @@ export default function ProtocoloPage() {
 
   if (erro || !protocolo) {
     return (
-      <main className="min-h-screen px-4 sm:px-0">
+      <main className="min-h-screen px-4">
         <div className="mx-auto flex min-h-[75vh] max-w-5xl items-center justify-center">
-          <div className="w-full max-w-md rounded-[22px] border border-teal-100 bg-white p-7 text-center shadow-[0_25px_80px_rgba(13,148,136,0.10)] sm:max-w-lg sm:rounded-[28px] sm:p-10 2xl:max-w-xl">
-            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-teal-50 text-teal-600 sm:h-16 sm:w-16">
+          <div className="w-full max-w-lg rounded-[28px] border border-teal-100 bg-white p-8 text-center shadow-xl sm:p-10">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-teal-50 text-teal-600">
               <FileText size={30} />
             </div>
 
-            <h1 className="mt-5 text-xl font-bold tracking-tight text-slate-900 sm:mt-6 sm:text-2xl 2xl:text-3xl">
+            <h1 className="mt-6 text-2xl font-bold text-slate-900">
               Protocolo não encontrado
             </h1>
 
-            <p className="mt-3 break-words text-sm leading-6 text-slate-500 2xl:text-base">
-              O protocolo{" "}
-              <strong className="text-slate-800">
-                {decodeURIComponent(codigo)}
-              </strong>{" "}
-              não foi localizado na sua conta.
+            <p className="mt-3 break-words text-sm leading-6 text-slate-500">
+              {erro || "Não foi possível localizar este protocolo."}
             </p>
 
             <Link
-              href="/protocolo"
-              className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-teal-600 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-teal-600/20 transition hover:bg-teal-700 sm:mt-7 sm:w-auto"
+              href="/passageiro/central_ajuda"
+              className="mt-7 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-teal-600 px-6 py-3 text-sm font-bold text-white transition hover:bg-teal-700 sm:w-auto"
             >
               <ArrowLeft size={17} />
               Voltar para protocolos
@@ -315,153 +330,125 @@ export default function ProtocoloPage() {
     );
   }
 
-  const status = statusConfig(
-    protocolo.status
-  );
-
+  const status = statusConfig(protocolo.status);
   const StatusIcon = status.icon;
 
-  const possuiResposta =
-    Boolean(
-      protocolo.resposta?.trim()
-    );
+  const categoria = obterCategoria(protocolo);
+  const possuiResposta = Boolean(protocolo.resposta?.trim());
 
-  const statusValue = String(
-    protocolo.status || ""
-  )
+  const statusValue = String(protocolo.status || "")
     .toLowerCase()
     .trim();
 
-  const finalizado =
-    statusValue === "finalizado" ||
-    statusValue === "resolvido" ||
-    statusValue === "fechado";
+  const finalizado = [
+    "finalizado",
+    "resolvido",
+    "fechado",
+  ].includes(statusValue);
 
-  const andamento =
-    statusValue === "em andamento" ||
-    statusValue === "andamento" ||
-    statusValue === "em análise";
+  const andamento = [
+    "em andamento",
+    "andamento",
+    "em análise",
+  ].includes(statusValue);
 
   return (
-    <main className="min-h-screen">
-      <div className="mx-auto w-full max-w-full 2xl:max-w-[1600px]">
-
-        {/* TOPO */}
-        <div className="mb-5 flex flex-col gap-3 sm:mb-6 sm:flex-row sm:items-center sm:justify-between sm:gap-4 lg:mb-7">
+    <main className="min-h-screen mb-3">
+      <div className="mx-auto w-full max-w-[1600px]">
+        <div className="mb-5 flex flex-col gap-3 sm:mb-6 sm:flex-row sm:items-center sm:justify-between">
           <Link
             href="/protocolo"
-            className="group inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition-all duration-200 hover:border-teal-200 hover:bg-teal-50 hover:text-teal-700 hover:shadow-md sm:w-fit sm:justify-start 2xl:text-base"
+            className="group inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-teal-200 hover:bg-teal-50 hover:text-teal-700 sm:w-fit"
           >
             <ArrowLeft
               size={17}
-              className="transition-transform duration-200 group-hover:-translate-x-0.5"
+              className="transition-transform group-hover:-translate-x-0.5"
             />
             Voltar para protocolos
           </Link>
 
-          <div className="inline-flex w-full items-center justify-center gap-2.5 rounded-full border border-teal-100 bg-teal-50 px-4 py-2 text-[11px] font-semibold text-teal-700 sm:w-fit sm:text-xs 2xl:text-sm">
+          <div className="inline-flex items-center justify-center gap-2 rounded-full border border-teal-100 bg-teal-50 px-4 py-2 text-xs font-semibold text-teal-700">
             <span className="relative flex h-2.5 w-2.5">
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-teal-400 opacity-60" />
               <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-teal-500" />
             </span>
-
             Central de Atendimento Maylon
           </div>
         </div>
 
         <section className="overflow-hidden rounded-[22px] border border-teal-100 bg-white shadow-[0_25px_90px_rgba(13,148,136,0.09)] sm:rounded-[26px] lg:rounded-[30px]">
-
-          {/* HERO */}
           <div className="relative overflow-hidden bg-gradient-to-br from-teal-800 via-teal-700 to-teal-500 px-5 py-7 sm:px-8 sm:py-8 lg:px-10 lg:py-10 2xl:px-14 2xl:py-12">
-            <div className="absolute -right-24 -top-24 h-56 w-56 rounded-full bg-white/10 blur-3xl sm:h-72 sm:w-72" />
+            <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-white/10 blur-3xl" />
+            <div className="absolute -bottom-32 left-1/3 h-80 w-80 rounded-full bg-teal-300/20 blur-3xl" />
 
-            <div className="absolute -bottom-32 left-1/3 h-64 w-64 rounded-full bg-teal-300/20 blur-3xl sm:h-80 sm:w-80" />
+            <div className="relative flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+              <div>
+                <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl lg:text-4xl 2xl:text-4xl">
+                  Acompanhamento
+                  <br className="sm:hidden" /> do protocolo
+                </h1>
+                <p className="mt-0 max-w-xl text-sm leading-6 text-white/75 2xl:text-sm">
+                  Consulte sua solicitação, acompanhe o atendimento e
+                  mantenha contato com nossa equipe.
+                </p>
+              </div>
 
-            <div className="relative">
-              <div className="flex flex-col gap-6 sm:gap-7 lg:flex-row lg:items-end lg:justify-between">
-
-                <div>
-                  <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl lg:text-4xl 2xl:text-5xl">
-                    Acompanhamento
-                    <br className="sm:hidden" />{" "}
-                    do protocolo
-                  </h1>
-
-                  <p className="mt-1 max-w-xl text-xs leading-5 text-white/75 sm:text-sm sm:leading-6 2xl:max-w-2xl 2xl:text-base 2xl:leading-7">
-                    Consulte sua solicitação,
-                    acompanhe o atendimento e
-                    mantenha contato com nossa
-                    equipe.
-                  </p>
+              <div className="w-full rounded-2xl border border-white/20 bg-white/10 p-4 backdrop-blur-xl sm:max-w-sm 2xl:max-w-md 2xl:p-5">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-white/60">
+                    Protocolo
+                  </span>
+                  <span className="max-w-[60%] truncate rounded-full bg-white/10 px-2.5 py-1 text-[10px] font-semibold text-white/80">
+                    {protocolo.codigo}
+                  </span>
                 </div>
 
-                <div className="w-full rounded-2xl border border-white/20 bg-white/10 p-4 backdrop-blur-xl sm:max-w-sm 2xl:max-w-md 2xl:p-5">
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-white/60">
-                      Protocolo
-                    </span>
-
-                    <span className="max-w-[60%] truncate rounded-full bg-white/10 px-2.5 py-1 text-[10px] font-semibold text-white/80">
-                      {protocolo.codigo}
-                    </span>
+                <div className="mt-4 flex items-center gap-3">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/15 text-white">
+                    <FileText size={20} />
                   </div>
-
-                  <div className="mt-4 flex items-center gap-3">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/15 text-white sm:h-11 sm:w-11">
-                      <FileText size={20} />
-                    </div>
-
-                    <div className="min-w-0">
-                      <p className="truncate text-base font-bold text-white sm:text-lg 2xl:text-xl">
-                        {protocolo.codigo}
-                      </p>
-
-                      <p className="text-xs text-white/60">
-                        Aberto em{" "}
-                        {formatarData(
-                          protocolo.criado_em
-                        )}
-                      </p>
-                    </div>
+                  <div className="min-w-0">
+                    <p className="truncate text-base font-bold text-white sm:text-lg">
+                      {protocolo.codigo}
+                    </p>
+                    <p className="text-xs text-white/70">
+                      Aberto em {formatarData(protocolo.criado_em)}
+                    </p>
                   </div>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* STATUS */}
-          <div className="border-b border-slate-100 bg-white px-5 py-4 sm:px-8 sm:py-5 lg:px-10 2xl:px-14">
-            <div className="flex flex-col gap-4 sm:gap-5 lg:flex-row lg:items-center lg:justify-between">
-
+          <div className="border-b border-slate-100 px-5 py-5 sm:px-8 lg:px-10 2xl:px-14">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-teal-50 text-teal-600 sm:h-11 sm:w-11">
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-teal-50 text-teal-600">
                   <StatusIcon size={20} />
                 </div>
-
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">
                     Status atual
                   </p>
-
-                  <p className="mt-1 text-sm font-bold text-slate-900 2xl:text-base">
+                  <p className="mt-1 text-sm font-bold text-slate-900">
                     {status.label}
                   </p>
                 </div>
               </div>
 
-              <div className="flex flex-1 items-center lg:max-w-xl 2xl:max-w-2xl">
+              <div className="flex flex-1 items-center lg:max-w-xl">
                 <div className="h-1.5 flex-1 rounded-full bg-slate-100">
                   <div
-                    className={`h-1.5 rounded-full transition-all ${finalizado
+                    className={`h-1.5 rounded-full transition-all ${
+                      finalizado
                         ? "w-full bg-teal-500"
                         : andamento
                           ? "w-2/3 bg-teal-500"
                           : "w-1/3 bg-teal-500"
-                      }`}
+                    }`}
                   />
                 </div>
-
-                <span className="ml-3 whitespace-nowrap text-[10px] font-bold uppercase tracking-wider text-teal-600 2xl:text-xs">
+                <span className="ml-3 whitespace-nowrap text-[10px] font-bold uppercase tracking-wider text-teal-600">
                   {finalizado
                     ? "Concluído"
                     : andamento
@@ -472,49 +459,38 @@ export default function ProtocoloPage() {
             </div>
           </div>
 
-          {/* CONTEÚDO */}
-          <div className="grid gap-5 p-4 sm:gap-6 sm:p-6 lg:grid-cols-[260px_1fr] lg:gap-8 lg:p-8 xl:grid-cols-[280px_1fr] xl:p-10 2xl:grid-cols-[340px_1fr] 2xl:gap-10 2xl:p-12">
-
-            <aside className="grid gap-4 md:grid-cols-2 lg:grid-cols-1 lg:content-start">
-
+          <div className="grid gap-5 p-4 sm:gap-6 sm:p-6 lg:grid-cols-[280px_1fr] lg:gap-8 lg:p-8 xl:p-10 2xl:grid-cols-[340px_1fr] 2xl:gap-10 2xl:p-12">
+            <aside className="grid content-start gap-4 md:grid-cols-2 lg:grid-cols-1">
               <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 sm:p-5">
                 <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">
                   Informações
                 </p>
 
-                <div className="mt-4 space-y-4 sm:mt-5 sm:space-y-5">
-
+                <div className="mt-5 space-y-5">
                   <div>
-                    <p className="text-xs text-slate-400 2xl:text-sm">
+                    <p className="text-xs text-slate-400">
                       Categoria
                     </p>
-
-                    <p className="mt-1 text-sm font-bold text-slate-900 2xl:text-base">
-                      {protocolo.categoria || "—"}
+                    <p className="mt-1 break-words text-sm font-bold text-slate-900 2xl:text-base">
+                      {categoria}
                     </p>
                   </div>
 
                   <div>
-                    <p className="text-xs text-slate-400 2xl:text-sm">
+                    <p className="text-xs text-slate-400">
                       Data de abertura
                     </p>
-
                     <p className="mt-1 text-sm font-bold text-slate-900 2xl:text-base">
-                      {formatarData(
-                        protocolo.criado_em
-                      )}
+                      {formatarData(protocolo.criado_em)}
                     </p>
                   </div>
 
                   <div>
-                    <p className="text-xs text-slate-400 2xl:text-sm">
+                    <p className="text-xs text-slate-400">
                       Última atualização
                     </p>
-
                     <p className="mt-1 text-sm font-bold text-slate-900 2xl:text-base">
-                      {formatarData(
-                        protocolo.atualizado_em
-                      )}
+                      {formatarData(protocolo.atualizado_em)}
                     </p>
                   </div>
                 </div>
@@ -524,64 +500,49 @@ export default function ProtocoloPage() {
                 <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-600 text-white shadow-lg shadow-teal-600/20">
                   <MessageCircle size={18} />
                 </div>
-
-                <h3 className="mt-4 text-sm font-bold text-teal-900 2xl:text-base">
+                <h3 className="mt-4 text-sm font-bold text-teal-900">
                   Atendimento online
                 </h3>
-
-                <p className="mt-1 text-xs leading-5 text-teal-700 sm:text-justify 2xl:text-sm 2xl:leading-6">
-                  Todas as mensagens relacionadas
-                  ao seu protocolo ficam registradas
-                  neste atendimento.
+                <p className="mt-1 text-xs leading-5 text-teal-700">
+                  Todas as mensagens relacionadas ao seu protocolo
+                  ficam registradas neste atendimento.
                 </p>
               </div>
-
             </aside>
 
             <div className="min-w-0">
-
               <div className="mb-5 sm:mb-6">
                 <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-teal-600">
                   Solicitação
                 </p>
-
                 <h2 className="mt-1 break-words text-lg font-bold tracking-tight text-slate-900 sm:text-xl lg:text-2xl 2xl:text-3xl">
                   {protocolo.assunto || "Sem assunto"}
                 </h2>
               </div>
 
-              <div className="space-y-4 sm:space-y-5">
-
-                {/* SOLICITAÇÃO DO CLIENTE */}
-                <div className="relative rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5 2xl:p-6">
-                  <div className="absolute -left-1 top-7 hidden h-8 w-1 rounded-r-full bg-slate-300 sm:block" />
-
+              <div className="space-y-5">
+                <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5 2xl:p-6">
                   <div className="mb-4 flex items-center justify-between gap-3">
                     <div className="flex min-w-0 items-center gap-3">
                       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
                         <FileText size={18} />
                       </div>
-
-                      <div className="min-w-0">
-                        <p className="text-sm font-bold text-slate-900 2xl:text-base">
+                      <div>
+                        <p className="text-sm font-bold text-slate-900">
                           Sua solicitação
                         </p>
-
-                        <p className="text-[11px] text-slate-400 2xl:text-xs">
-                          {formatarData(
-                            protocolo.criado_em
-                          )}
+                        <p className="text-[11px] text-slate-400">
+                          {formatarData(protocolo.criado_em)}
                         </p>
                       </div>
                     </div>
-
-                    <span className="shrink-0 rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-500 sm:px-3">
+                    <span className="shrink-0 rounded-full bg-slate-100 px-3 py-1 text-[10px] font-bold uppercase text-slate-500">
                       Cliente
                     </span>
                   </div>
 
-                  <div className="rounded-xl bg-slate-50 p-3 sm:p-4">
-                    <p className="whitespace-pre-wrap break-words text-sm leading-6 text-slate-600 sm:leading-7 2xl:text-base 2xl:leading-8">
+                  <div className="rounded-xl bg-slate-50 p-4">
+                    <p className="whitespace-pre-wrap break-words text-sm leading-7 text-slate-600">
                       {protocolo.mensagem ||
                         "Nenhuma mensagem registrada."}
                     </p>
@@ -590,111 +551,83 @@ export default function ProtocoloPage() {
 
                 <div className="flex items-center gap-3 py-1">
                   <div className="h-px flex-1 bg-slate-100" />
-
                   <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-300">
                     Atendimento
                   </span>
-
                   <div className="h-px flex-1 bg-slate-100" />
                 </div>
 
-                {/* RESPOSTA DA EQUIPE */}
                 <div className="relative overflow-hidden rounded-2xl border border-teal-100 bg-gradient-to-br from-teal-50/80 to-white p-4 shadow-sm sm:p-5 2xl:p-6">
-
-                  <div className="absolute -right-16 -top-16 h-40 w-40 rounded-full bg-teal-200/30 blur-3xl" />
-
-                  <div className="relative">
-
-                    <div className="mb-4 flex items-center justify-between gap-3">
-                      <div className="flex min-w-0 items-center gap-3">
-                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-teal-600 text-white shadow-lg shadow-teal-600/20">
-                          <MessageCircle size={18} />
-                        </div>
-
-                        <div className="min-w-0">
-                          <p className="text-sm font-bold text-slate-900 2xl:text-base">
-                            Resposta da equipe
-                          </p>
-
-                          <p className="text-[11px] text-teal-600 2xl:text-xs">
-                            Central de Atendimento
-                          </p>
-                        </div>
+                  <div className="mb-4 flex items-center justify-between gap-3">
+                    <div className="flex min-w-0 items-center gap-3">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-teal-600 text-white">
+                        <MessageCircle size={18} />
                       </div>
-
-                      <span className="shrink-0 rounded-full border border-teal-100 bg-white px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-teal-600 sm:px-3">
-                        Maylon
-                      </span>
+                      <div>
+                        <p className="text-sm font-bold text-slate-900">
+                          Resposta da equipe
+                        </p>
+                        <p className="text-[11px] text-teal-600">
+                          Central de Atendimento
+                        </p>
+                      </div>
                     </div>
+                    <span className="shrink-0 rounded-full border border-teal-100 bg-white px-3 py-1 text-[10px] font-bold uppercase text-teal-600">
+                      Maylon
+                    </span>
+                  </div>
 
-                    <div className="rounded-xl border border-teal-100 bg-white p-4 sm:p-5">
-                      <p className="whitespace-pre-wrap break-words text-sm leading-6 text-slate-700 sm:leading-7 2xl:text-base 2xl:leading-8">
-                        {possuiResposta
-                          ? protocolo.resposta
-                          : "Sua solicitação foi recebida e está aguardando uma resposta da equipe de atendimento."}
-                      </p>
-                    </div>
-
+                  <div className="rounded-xl border border-teal-100 bg-white p-4 sm:p-5">
+                    <p className="whitespace-pre-wrap break-words text-sm leading-7 text-slate-700">
+                      {possuiResposta
+                        ? protocolo.resposta
+                        : "Sua solicitação foi recebida e está aguardando uma resposta da equipe de atendimento."}
+                    </p>
                   </div>
                 </div>
 
-                {/* CONTINUAR ATENDIMENTO */}
-                {possuiResposta && (
-                  <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5 lg:p-6 2xl:p-7">
-
-                    <div className="mb-4 flex items-start gap-3 sm:mb-5">
+                {possuiResposta && !finalizado && (
+                  <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5 lg:p-6">
+                    <div className="mb-5 flex items-start gap-3">
                       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-teal-50 text-teal-600">
                         <Send size={18} />
                       </div>
-
                       <div>
-                        <h3 className="text-sm font-bold text-slate-900 2xl:text-base">
+                        <h3 className="text-sm font-bold text-slate-900">
                           Continuar atendimento
                         </h3>
-
-                        <p className="mt-1 text-xs leading-5 text-slate-500 2xl:text-sm">
-                          Envie uma nova mensagem para
-                          nossa equipe.
+                        <p className="mt-1 text-xs leading-5 text-slate-500">
+                          Envie uma nova mensagem para nossa equipe.
                         </p>
                       </div>
                     </div>
 
-                    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 transition focus-within:border-teal-400 focus-within:bg-white focus-within:ring-4 focus-within:ring-teal-500/10">
+                    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 focus-within:border-teal-400 focus-within:ring-4 focus-within:ring-teal-500/10">
                       <textarea
-                        value={
-                          respostaUsuario
-                        }
-                        onChange={(e) => {
-                          setRespostaUsuario(
-                            e.target.value
-                          );
+                        value={respostaUsuario}
+                        onChange={(event) => {
+                          setRespostaUsuario(event.target.value);
                           setErroResposta("");
-                          setRespostaEnviada(
-                            false
-                          );
+                          setRespostaEnviada(false);
                         }}
                         placeholder="Escreva sua mensagem..."
                         rows={5}
-                        disabled={
-                          enviandoResposta
-                        }
-                        className="w-full resize-none border-0 bg-transparent px-4 py-3 text-sm leading-6 text-slate-800 outline-none placeholder:text-slate-400 disabled:cursor-not-allowed disabled:opacity-60 sm:px-5 sm:py-4 2xl:min-h-[180px] 2xl:text-base"
+                        maxLength={5000}
+                        disabled={enviandoResposta}
+                        className="w-full resize-none border-0 bg-transparent px-4 py-3 text-sm leading-6 text-slate-800 outline-none placeholder:text-slate-400 disabled:opacity-60 sm:px-5 sm:py-4"
                       />
 
                       <div className="flex flex-col gap-3 border-t border-slate-200 bg-white p-3 sm:flex-row sm:items-center sm:justify-between">
-
                         <div className="px-2">
                           {erroResposta && (
-                            <p className="text-xs font-semibold text-red-600">
+                            <p role="alert" className="text-xs font-semibold text-red-600">
                               {erroResposta}
                             </p>
                           )}
 
                           {respostaEnviada && (
-                            <p className="flex items-center gap-2 text-xs font-semibold text-teal-600">
-                              <CheckCircle2
-                                size={15}
-                              />
+                            <p role="status" className="flex items-center gap-2 text-xs font-semibold text-teal-600">
+                              <CheckCircle2 size={15} />
                               Mensagem enviada com sucesso.
                             </p>
                           )}
@@ -702,62 +635,66 @@ export default function ProtocoloPage() {
 
                         <button
                           type="button"
-                          onClick={
-                            enviarResposta
-                          }
+                          onClick={enviarResposta}
                           disabled={
                             enviandoResposta ||
                             !respostaUsuario.trim()
                           }
-                          className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-teal-600 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-teal-600/20 transition hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto 2xl:px-6 2xl:text-base"
+                          className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-teal-600 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-teal-600/20 transition hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
                         >
                           {enviandoResposta ? (
                             <>
-                              <Loader2
-                                size={17}
-                                className="animate-spin"
-                              />
+                              <Loader2 size={17} className="animate-spin" />
                               Enviando
                             </>
                           ) : (
                             <>
-                              <Send
-                                size={17}
-                              />
+                              <Send size={17} />
                               Enviar mensagem
                             </>
                           )}
                         </button>
-
                       </div>
                     </div>
                   </div>
                 )}
 
-                {/* AGUARDANDO */}
                 {!possuiResposta && (
                   <div className="rounded-2xl border border-teal-100 bg-teal-50/50 p-4 sm:p-5">
                     <div className="flex items-start gap-3">
                       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-teal-100 text-teal-600">
                         <Clock3 size={18} />
                       </div>
-
                       <div>
-                        <h3 className="text-sm font-bold text-teal-900 2xl:text-base">
+                        <h3 className="text-sm font-bold text-teal-900">
                           Aguardando resposta
                         </h3>
-
-                        <p className="mt-1 text-xs leading-5 text-teal-700 2xl:text-sm 2xl:leading-6">
-                          Nossa equipe está analisando
-                          sua solicitação. Assim que houver
-                          uma resposta, ela aparecerá
-                          automaticamente nesta página.
+                        <p className="mt-1 text-xs leading-5 text-teal-700">
+                          Nossa equipe está analisando sua solicitação.
+                          Assim que houver uma resposta, ela aparecerá
+                          nesta página.
                         </p>
                       </div>
                     </div>
                   </div>
                 )}
 
+                {finalizado && (
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:p-5">
+                    <div className="flex items-start gap-3">
+                      <CheckCircle2 size={20} className="shrink-0 text-teal-600" />
+                      <div>
+                        <h3 className="text-sm font-bold text-slate-900">
+                          Atendimento finalizado
+                        </h3>
+                        <p className="mt-1 text-xs leading-5 text-slate-600">
+                          Este protocolo foi finalizado. Caso precise de
+                          ajuda novamente, abra uma nova solicitação.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>

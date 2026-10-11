@@ -18,8 +18,6 @@ export default function DepositoPage() {
   const [copied, setCopied] = useState(false);
   const [selectedValue, setSelectedValue] = useState(100);
 
-  const balance = 1248.75;
-
   const values = [20, 50, 100, 200, 500];
 
   const pixCode =
@@ -33,11 +31,11 @@ export default function DepositoPage() {
 
   return (
     <main className="min-h-screen pb-12">
-      <div className="mx-auto w-full max-w-5xl px-4 sm:px-6 lg:px-8">
+      <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
         <header className="flex items-center justify-between pt-6 sm:pt-8">
           <div className="flex items-center gap-3">
             <Link
-              href="/passageiro/pay"
+              href="/motorista/servicos"
               className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/10 text-white transition hover:bg-white/15"
             >
               <ArrowLeft size={18} />
@@ -68,10 +66,7 @@ export default function DepositoPage() {
               </div>
 
               <p className="mt-2 text-3xl font-black text-white sm:text-4xl">
-                {balance.toLocaleString("pt-BR", {
-                  style: "currency",
-                  currency: "BRL",
-                })}
+                R$ 0,00
               </p>
 
               <p className="mt-2 text-xs text-white/50">
@@ -267,7 +262,7 @@ export default function DepositoPage() {
 
         <section className="mt-5">
           <Link
-            href="/passageiro/servicos/extrato"
+            href="/motorista/servicos/extrato"
             className="flex w-full items-center justify-center gap-2 rounded-[22px] border border-white/10 bg-white/5 p-4 text-xs font-bold text-white/60 transition hover:bg-white/10 hover:text-white"
           >
             Ver histórico de depósitos

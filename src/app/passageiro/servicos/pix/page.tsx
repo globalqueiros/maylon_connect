@@ -46,7 +46,7 @@ export default function PixPage() {
 
   return (
     <main className="min-h-screen pb-12">
-      <div className="mx-auto w-full max-w-5xl px-4 sm:px-6 lg:px-8">
+      <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
         <header className="flex items-center justify-between pt-6 sm:pt-8">
           <div className="flex items-center gap-3">
             <Link

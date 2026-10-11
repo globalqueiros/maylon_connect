@@ -14,40 +14,10 @@ import {
   CircleDollarSign,
   AlertTriangle,
 } from "lucide-react";
-
-type Operadora = {
-  id: string;
-  nome: string;
-  cor: string;
-  logo: string;
-};
-
-const OPERADORAS: Operadora[] = [
-  {
-    id: "claro",
-    nome: "Claro",
-    cor: "#E30613",
-    logo: "CLARO",
-  },
-  {
-    id: "tim",
-    nome: "TIM",
-    cor: "#003B7A",
-    logo: "TIM",
-  },
-  {
-    id: "vivo",
-    nome: "Vivo",
-    cor: "#660099",
-    logo: "VIVO",
-  },
-  {
-    id: "oi",
-    nome: "Oi",
-    cor: "#FFCC00",
-    logo: "Oi",
-  },
-];
+import {
+  OPERADORAS_CELULAR,
+  type Operadora,
+} from "../../../lib/operadoras";
 
 const VALORES = [10, 15, 20, 25, 30, 40, 50, 100];
 
@@ -75,6 +45,7 @@ function somenteNumeros(value: string) {
 export default function RecargaCelularPage() {
   const [telefone, setTelefone] = useState("");
   const [operadora, setOperadora] = useState("");
+  const operadoras: Operadora[] = OPERADORAS_CELULAR;
   const [valor, setValor] = useState<number | null>(null);
   const [valorCustomizado, setValorCustomizado] = useState("");
   const [loading, setLoading] = useState(false);
@@ -143,7 +114,8 @@ export default function RecargaCelularPage() {
         body: JSON.stringify({
           telefone: somenteNumeros(telefone),
           valor: valorFinal,
-          operadora,
+          // Nome exato da operadora, como a RVHub retorna no portfólio.
+          provider: operadora,
         }),
       });
 
@@ -364,16 +336,15 @@ export default function RecargaCelularPage() {
               </label>
 
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                {OPERADORAS.map((item) => {
-                  const selecionada =
-                    operadora === item.id;
+                {operadoras.map((item) => {
+                  const selecionada = operadora === item.nome;
 
                   return (
                     <button
                       key={item.id}
                       type="button"
                       onClick={() => {
-                        setOperadora(item.id);
+                        setOperadora(item.nome);
                         setErro(null);
                       }}
                       className={`relative cursor-pointer flex h-20 flex-col items-center justify-center rounded-2xl border-2 transition ${
@@ -520,11 +491,7 @@ export default function RecargaCelularPage() {
 
                 <ResumoItem
                   label="Operadora"
-                  value={
-                    operadora
-                      ? operadora.toUpperCase()
-                      : "Não selecionada"
-                  }
+                  value={operadora || "Não selecionada"}
                 />
 
                 <ResumoItem

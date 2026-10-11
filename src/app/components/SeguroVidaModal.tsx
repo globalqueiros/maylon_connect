@@ -25,6 +25,45 @@ type Beneficiario = {
   percentual: string;
 };
 
+function formatarCPF(valor: string): string {
+  return valor
+    .replace(/\D/g, "")
+    .slice(0, 11)
+    .replace(/(\d{3})(\d)/, "$1.$2")
+    .replace(/(\d{3})(\d)/, "$1.$2")
+    .replace(/(\d{3})(\d{1,2})$/, "$1-$2");
+}
+
+function formatarTelefone(valor: string): string {
+  let numeros = valor.replace(/\D/g, "");
+
+  if (numeros.startsWith("55") && numeros.length > 11) {
+    numeros = numeros.slice(2);
+  }
+
+  numeros = numeros.slice(0, 11);
+
+  if (numeros.length <= 2) {
+    return numeros;
+  }
+
+  if (numeros.length <= 6) {
+    return `(${numeros.slice(0, 2)}) ${numeros.slice(2)}`;
+  }
+
+  if (numeros.length <= 10) {
+    return `(${numeros.slice(0, 2)}) ${numeros.slice(
+      2,
+      6
+    )}-${numeros.slice(6)}`;
+  }
+
+  return `(${numeros.slice(0, 2)}) ${numeros.slice(
+    2,
+    7
+  )}-${numeros.slice(7)}`;
+}
+
 export default function SeguroVidaModal({
   onClose,
   beneficioId,
@@ -34,7 +73,10 @@ export default function SeguroVidaModal({
   const [telefone, setTelefone] = useState("");
   const [dataNascimento, setDataNascimento] = useState("");
   const [observacoes, setObservacoes] = useState("");
-  const [beneficiarios, setBeneficiarios] = useState<Beneficiario[]>([
+
+  const [beneficiarios, setBeneficiarios] = useState<
+    Beneficiario[]
+  >([
     {
       nome: "",
       parentesco: "",
@@ -43,7 +85,8 @@ export default function SeguroVidaModal({
   ]);
 
   const [aceitouTermos, setAceitouTermos] = useState(false);
-  const [carregandoUsuario, setCarregandoUsuario] = useState(true);
+  const [carregandoUsuario, setCarregandoUsuario] =
+    useState(true);
   const [enviando, setEnviando] = useState(false);
   const [sucesso, setSucesso] = useState(false);
   const [erro, setErro] = useState("");
@@ -62,48 +105,39 @@ export default function SeguroVidaModal({
           cache: "no-store",
         });
 
-        const data = await resposta.json();
-
         if (!resposta.ok) {
-          throw new Error(
-            data?.error || "Não foi possível carregar seus dados."
-          );
+          let mensagem =
+            "Não foi possível carregar seus dados.";
+
+          try {
+            const data = await resposta.json();
+
+            mensagem =
+              data?.error ||
+              data?.message ||
+              mensagem;
+          } catch {}
+
+          throw new Error(mensagem);
         }
 
-        const usuarioApi =
-          data?.motorista ??
-          data?.usuario ??
-          data?.user ??
-          data?.data?.motorista ??
-          data?.data?.usuario ??
-          data?.data?.user ??
-          data?.data ??
-          data;
+        const data: Usuario = await resposta.json();
 
-        if (!ativo) return;
+        if (!ativo) {
+          return;
+        }
 
-        const nome =
-          usuarioApi?.full_name ??
-          usuarioApi?.fullName ??
-          usuarioApi?.name ??
-          "";
+        setUsuario(data);
 
-        const email = usuarioApi?.email ?? "";
-        const cpfUsuario =
-          usuarioApi?.cpf ?? usuarioApi?.documento ?? "";
-        const telefoneUsuario =
-          usuarioApi?.phone ?? usuarioApi?.telefone ?? "";
+        setCpf(data.cpf ? formatarCPF(data.cpf) : "");
 
-        setUsuario({
-          id: usuarioApi?.id,
-          full_name: nome,
-          email,
-          cpf: cpfUsuario,
-          phone: telefoneUsuario,
-        });
-
-        setCpf(formatarCPF(cpfUsuario));
-        setTelefone(formatarTelefone(telefoneUsuario));
+        setTelefone(
+          data.phone || data.telefone
+            ? formatarTelefone(
+                data.phone || data.telefone || ""
+              )
+            : ""
+        );
       } catch (error) {
         if (ativo) {
           setErro(
@@ -136,42 +170,12 @@ export default function SeguroVidaModal({
     document.addEventListener("keydown", handleEscape);
 
     return () => {
-      document.removeEventListener("keydown", handleEscape);
+      document.removeEventListener(
+        "keydown",
+        handleEscape
+      );
     };
   }, [enviando, onClose]);
-
-  function formatarCPF(valor: string) {
-    return valor
-      .replace(/\D/g, "")
-      .slice(0, 11)
-      .replace(/(\d{3})(\d)/, "$1.$2")
-      .replace(/(\d{3})(\d)/, "$1.$2")
-      .replace(/(\d{3})(\d{1,2})$/, "$1-$2");
-  }
-
-  function formatarTelefone(valor: string) {
-    let numeros = valor.replace(/\D/g, "");
-
-    if (numeros.startsWith("55") && numeros.length > 11) {
-      numeros = numeros.slice(2);
-    }
-
-    numeros = numeros.slice(0, 11);
-
-    if (!numeros) return "";
-
-    if (numeros.length <= 2) {
-      return `(${numeros}`;
-    }
-
-    if (numeros.length <= 7) {
-      return `(${numeros.slice(0, 2)}) ${numeros.slice(2)}`;
-    }
-
-    return `(${numeros.slice(0, 2)}) ${numeros.slice(2, 7)}-${numeros.slice(
-      7
-    )}`;
-  }
 
   function atualizarBeneficiario(
     index: number,
@@ -193,7 +197,9 @@ export default function SeguroVidaModal({
   }
 
   function adicionarBeneficiario() {
-    if (beneficiarios.length >= 3) return;
+    if (beneficiarios.length >= 3) {
+      return;
+    }
 
     setBeneficiarios((anterior) => [
       ...anterior,
@@ -206,7 +212,9 @@ export default function SeguroVidaModal({
   }
 
   function removerBeneficiario(index: number) {
-    if (beneficiarios.length === 1) return;
+    if (beneficiarios.length === 1) {
+      return;
+    }
 
     setBeneficiarios((anterior) =>
       anterior.filter((_, i) => i !== index)
@@ -214,7 +222,9 @@ export default function SeguroVidaModal({
   }
 
   async function enviarSolicitacao() {
-    if (enviando) return;
+    if (enviando) {
+      return;
+    }
 
     setErro("");
 
@@ -256,15 +266,18 @@ export default function SeguroVidaModal({
       0
     );
 
-    const beneficiariosInvalidos = beneficiarios.some(
-      (beneficiario) =>
-        !beneficiario.nome.trim() ||
-        !beneficiario.parentesco.trim() ||
-        Number(beneficiario.percentual) <= 0
-    );
+    const beneficiariosInvalidos =
+      beneficiarios.some(
+        (beneficiario) =>
+          !beneficiario.nome.trim() ||
+          !beneficiario.parentesco.trim() ||
+          Number(beneficiario.percentual) <= 0
+      );
 
     if (beneficiariosInvalidos) {
-      setErro("Preencha corretamente os dados dos beneficiários.");
+      setErro(
+        "Preencha corretamente os dados dos beneficiários."
+      );
       return;
     }
 
@@ -283,28 +296,40 @@ export default function SeguroVidaModal({
     setEnviando(true);
 
     try {
-      const resposta = await fetch("/api/beneficios/seguro-vida", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-        body: JSON.stringify({
-          usuario_id: usuario.id,
-          beneficio_id: Number(beneficioId),
-          nome: usuario.full_name || "",
-          email: usuario.email || "",
-          cpf: cpfNumeros,
-          telefone: telefoneNumeros,
-          data_nascimento: dataNascimento,
-          observacoes: observacoes.trim(),
-          beneficiarios: beneficiarios.map((beneficiario) => ({
-            nome: beneficiario.nome.trim(),
-            parentesco: beneficiario.parentesco.trim(),
-            percentual: Number(beneficiario.percentual),
-          })),
-        }),
-      });
+      const resposta = await fetch(
+        "/api/beneficios/seguro-vida",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+          body: JSON.stringify({
+            usuario_id: usuario.id,
+            beneficio_id: Number(beneficioId),
+            nome:
+              usuario.full_name ||
+              usuario.fullName ||
+              usuario.name ||
+              "",
+            email: usuario.email || "",
+            cpf: cpfNumeros,
+            telefone: telefoneNumeros,
+            data_nascimento: dataNascimento,
+            observacoes: observacoes.trim(),
+            beneficiarios: beneficiarios.map(
+              (beneficiario) => ({
+                nome: beneficiario.nome.trim(),
+                parentesco:
+                  beneficiario.parentesco.trim(),
+                percentual: Number(
+                  beneficiario.percentual
+                ),
+              })
+            ),
+          }),
+        }
+      );
 
       const texto = await resposta.text();
 
@@ -323,15 +348,15 @@ export default function SeguroVidaModal({
 
       if (!resposta.ok) {
         throw new Error(
-          data?.error ||
-            data?.mensagem ||
+          data.error ||
+            data.mensagem ||
             "Não foi possível enviar sua solicitação."
         );
       }
 
       setProtocolo(
-        data?.codigo ||
-          data?.protocolo ||
+        data.codigo ||
+          data.protocolo ||
           ""
       );
 
@@ -364,7 +389,9 @@ export default function SeguroVidaModal({
     >
       <div
         className="flex max-h-[94vh] w-full max-w-2xl flex-col overflow-hidden rounded-[30px] bg-white shadow-2xl"
-        onMouseDown={(event) => event.stopPropagation()}
+        onMouseDown={(event) =>
+          event.stopPropagation()
+        }
       >
         <div className="flex items-center justify-between bg-[#0b6e4f] px-6 py-5 text-white">
           <div>
@@ -406,9 +433,10 @@ export default function SeguroVidaModal({
               </h3>
 
               <p className="mt-3 max-w-md text-sm leading-6 text-slate-500">
-                Sua solicitação de Seguro de Vida foi registrada
-                com sucesso. Nossa equipe poderá entrar em contato
-                para dar continuidade ao processo.
+                Sua solicitação de Seguro de Vida foi
+                registrada com sucesso. Nossa equipe poderá
+                entrar em contato para dar continuidade ao
+                processo.
               </p>
 
               {protocolo && (
@@ -449,9 +477,9 @@ export default function SeguroVidaModal({
                 </h3>
 
                 <p className="mt-2 text-sm leading-6 text-emerald-800/80">
-                  Preencha seus dados para solicitar o Seguro de
-                  Vida. A contratação e as condições estão sujeitas
-                  à análise e às regras do produto.
+                  Preencha seus dados para solicitar o Seguro
+                  de Vida. A contratação e as condições estão
+                  sujeitas à análise e às regras do produto.
                 </p>
               </div>
 
@@ -466,7 +494,12 @@ export default function SeguroVidaModal({
                 <input
                   id="seguro-nome"
                   type="text"
-                  value={usuario?.full_name || ""}
+                  value={
+                    usuario?.full_name ||
+                    usuario?.fullName ||
+                    usuario?.name ||
+                    ""
+                  }
                   readOnly
                   className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 outline-none"
                 />
@@ -486,7 +519,11 @@ export default function SeguroVidaModal({
                     type="text"
                     value={cpf}
                     onChange={(event) =>
-                      setCpf(formatarCPF(event.target.value))
+                      setCpf(
+                        formatarCPF(
+                          event.target.value
+                        )
+                      )
                     }
                     maxLength={14}
                     inputMode="numeric"
@@ -508,7 +545,9 @@ export default function SeguroVidaModal({
                     type="date"
                     value={dataNascimento}
                     onChange={(event) =>
-                      setDataNascimento(event.target.value)
+                      setDataNascimento(
+                        event.target.value
+                      )
                     }
                     className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-[#0b6e4f] focus:ring-4 focus:ring-[#0b6e4f]/10"
                   />
@@ -547,7 +586,9 @@ export default function SeguroVidaModal({
                     value={telefone}
                     onChange={(event) =>
                       setTelefone(
-                        formatarTelefone(event.target.value)
+                        formatarTelefone(
+                          event.target.value
+                        )
                       )
                     }
                     maxLength={15}
@@ -566,8 +607,8 @@ export default function SeguroVidaModal({
                     </h3>
 
                     <p className="mt-1 text-xs text-slate-500">
-                      Informe quem deverá receber a indenização,
-                      conforme as regras do seguro.
+                      Informe quem deverá receber a
+                      indenização, conforme as regras do seguro.
                     </p>
                   </div>
 
@@ -598,7 +639,9 @@ export default function SeguroVidaModal({
                             <button
                               type="button"
                               onClick={() =>
-                                removerBeneficiario(index)
+                                removerBeneficiario(
+                                  index
+                                )
                               }
                               className="cursor-pointer text-xs font-bold text-red-500 hover:text-red-700"
                             >
@@ -615,7 +658,9 @@ export default function SeguroVidaModal({
 
                             <input
                               type="text"
-                              value={beneficiario.nome}
+                              value={
+                                beneficiario.nome
+                              }
                               onChange={(event) =>
                                 atualizarBeneficiario(
                                   index,
@@ -635,7 +680,9 @@ export default function SeguroVidaModal({
 
                             <input
                               type="text"
-                              value={beneficiario.parentesco}
+                              value={
+                                beneficiario.parentesco
+                              }
                               onChange={(event) =>
                                 atualizarBeneficiario(
                                   index,
@@ -658,7 +705,9 @@ export default function SeguroVidaModal({
                                 type="number"
                                 min="1"
                                 max="100"
-                                value={beneficiario.percentual}
+                                value={
+                                  beneficiario.percentual
+                                }
                                 onChange={(event) =>
                                   atualizarBeneficiario(
                                     index,
@@ -706,7 +755,9 @@ export default function SeguroVidaModal({
                   type="checkbox"
                   checked={aceitouTermos}
                   onChange={(event) => {
-                    setAceitouTermos(event.target.checked);
+                    setAceitouTermos(
+                      event.target.checked
+                    );
                     setErro("");
                   }}
                   className="mt-1 h-4 w-4 cursor-pointer accent-[#0b6e4f]"
@@ -714,8 +765,8 @@ export default function SeguroVidaModal({
 
                 <span className="text-xs leading-5 text-slate-600">
                   Declaro que li e concordo com os termos da
-                  solicitação e autorizo o tratamento dos meus dados
-                  para análise do benefício.
+                  solicitação e autorizo o tratamento dos meus
+                  dados para análise do benefício.
                 </span>
               </label>
 
@@ -740,7 +791,9 @@ export default function SeguroVidaModal({
 
                 <button
                   type="button"
-                  onClick={() => void enviarSolicitacao()}
+                  onClick={() =>
+                    void enviarSolicitacao()
+                  }
                   disabled={
                     enviando ||
                     carregandoUsuario ||

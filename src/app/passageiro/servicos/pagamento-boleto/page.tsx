@@ -133,7 +133,7 @@ export default function DepositoBoletoPage() {
 
   return (
     <main className="min-h-screen pb-10">
-      <div className="mx-auto w-full max-w-5xl px-4 sm:px-6 lg:px-8">
+      <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
 
         {/* HEADER */}
         <header className="pt-6 sm:pt-8">

@@ -13,7 +13,7 @@ export { usuarioLogadoId } from "../asaas/transacoes";
  * captured, approved, denied, refunded...), atualizado pela consulta/webhook.
  */
 
-export type TipoTransacao = "recarga" | "conta";
+export type TipoTransacao = "recarga" | "conta" | "giftcard";
 
 export type Transacao = {
   id: number;
@@ -33,6 +33,7 @@ export type Transacao = {
   payer_document: string | null;
   authorization_code: string | null;
   nsu: string | null;
+  pin: string | null;
   erro: string | null;
   criado_em: string;
   atualizado_em: string;
@@ -76,6 +77,7 @@ export async function marcarEnviada(
     statusReason?: string | null;
     authorizationCode?: string | null;
     nsu?: string | null;
+    pin?: string | null;
     payerName?: string | null;
     payerDocument?: string | null;
   }
@@ -86,6 +88,7 @@ export async function marcarEnviada(
             status_reason = COALESCE(?, status_reason),
             authorization_code = COALESCE(?, authorization_code),
             nsu = COALESCE(?, nsu),
+            pin = COALESCE(?, pin),
             payer_name = COALESCE(?, payer_name),
             payer_document = COALESCE(?, payer_document)
       WHERE id = ?`,
@@ -95,6 +98,7 @@ export async function marcarEnviada(
       extras?.statusReason ?? null,
       extras?.authorizationCode ?? null,
       extras?.nsu ?? null,
+      extras?.pin ?? null,
       extras?.payerName ?? null,
       extras?.payerDocument ?? null,
       id,
@@ -195,20 +199,36 @@ export async function existeDuplicada(params: {
   tipo: TipoTransacao;
   valor?: number;
   telefone?: string;
+  operadora?: string;
   linhaDigitavel?: string;
 }): Promise<boolean> {
-  const [rows]: any = await db.query(
-    params.tipo === "recarga"
-      ? `SELECT id FROM rvhub_transacoes
+  if (params.tipo === "recarga") {
+    const [rows]: any = await db.query(
+      `SELECT id FROM rvhub_transacoes
          WHERE usuario_id = ? AND tipo = 'recarga' AND telefone = ? AND valor = ?
            AND status NOT IN ('ERRO', 'denied', 'refunded')
-           AND criado_em > NOW() - INTERVAL 2 MINUTE LIMIT 1`
-      : `SELECT id FROM rvhub_transacoes
-         WHERE usuario_id = ? AND tipo = 'conta' AND linha_digitavel = ?
-           AND status NOT IN ('ERRO', 'denied', 'refunded') LIMIT 1`,
-    params.tipo === "recarga"
-      ? [params.usuarioId, params.telefone, params.valor]
-      : [params.usuarioId, params.linhaDigitavel]
+           AND criado_em > NOW() - INTERVAL 2 MINUTE LIMIT 1`,
+      [params.usuarioId, params.telefone, params.valor]
+    );
+    return Boolean(rows?.length);
+  }
+
+  if (params.tipo === "giftcard") {
+    const [rows]: any = await db.query(
+      `SELECT id FROM rvhub_transacoes
+         WHERE usuario_id = ? AND tipo = 'giftcard' AND operadora = ? AND valor = ?
+           AND status NOT IN ('ERRO', 'denied', 'refunded')
+           AND criado_em > NOW() - INTERVAL 2 MINUTE LIMIT 1`,
+      [params.usuarioId, params.operadora, params.valor]
+    );
+    return Boolean(rows?.length);
+  }
+
+  const [rows]: any = await db.query(
+    `SELECT id FROM rvhub_transacoes
+       WHERE usuario_id = ? AND tipo = 'conta' AND linha_digitavel = ?
+         AND status NOT IN ('ERRO', 'denied', 'refunded') LIMIT 1`,
+    [params.usuarioId, params.linhaDigitavel]
   );
   return Boolean(rows?.length);
 }

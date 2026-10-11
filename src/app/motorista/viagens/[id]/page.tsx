@@ -1,452 +1,1946 @@
 "use client";
 
-import { ArrowLeft, MapPin } from "lucide-react";
+import {
+  ArrowLeft,
+  CalendarDays,
+  CarFront,
+  CheckCircle2,
+  Clock3,
+  ExternalLink,
+  MapPin,
+  Navigation,
+  Phone,
+  Wallet,
+  XCircle,
+} from "lucide-react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { use, useEffect, useMemo, useRef, useState } from "react";
 
-type TripDetails = {
-    trip_request_id: string;
-    pickup_address: string;
-    destination_address: string;
-    valor: number;
-    current_status: string;
+<<<<<<< HEAD
+type Person = {
+=======
+type Passenger = {
+>>>>>>> 9c9d572 (Fist Commit)
+  id?: string | null;
+  full_name?: string | null;
+  phone?: string | null;
 };
 
-type ApiTrip = {
+<<<<<<< HEAD
+type Vehicle = {
+  id?: string | number | null;
+  licence_plate_number?: string | null;
+  category_id?: string | number | null;
+  category?: { id?: string | number | null; name?: string | null } | null;
+  model?: {
     id?: string | number | null;
-    trip_request_id?: string | number | null;
-    request_id?: string | number | null;
-
-    origin?: string | null;
-    destination?: string | null;
-
-    pickup_address?: string | null;
-    destination_address?: string | null;
-
-    pickup_location?: string | null;
-    dropoff_address?: string | null;
-    dropoff_location?: string | null;
-
-    fare?: string | number | null;
-    amount?: string | number | null;
-    valor?: string | number | null;
-    price?: string | number | null;
-
-    status?: string | null;
-    current_status?: string | null;
-    trip_status?: string | null;
+    name?: string | null;
+    image?: string | null;
+  } | null;
 };
 
-type ApiResponse = {
-    success?: boolean;
-    trip?: ApiTrip | null;
-    message?: string;
-    error?: string;
+type Trip = {
+  id: string | number;
+  ref_id: string;
+  entrance?: string | null;
+  note?: string | null;
+  pickup_address?: string | null;
+  destination_address?: string | null;
+  pickup_lat?: number | string | null;
+  pickup_lng?: number | string | null;
+  destination_lat?: number | string | null;
+  destination_lng?: number | string | null;
+  encoded_polyline?: string | null;
+  estimated_fare?: number | string | null;
+  paid_fare?: number | string | null;
+  actual_distance?: number | string | null;
+  estimated_distance?: number | string | null;
+  current_status?: string | null;
+  payment_status?: string | null;
+  payment_method?: string | null;
+  created_at: string;
+  passenger?: Person | null;
+  driver?: Person | null;
+  vehicle?: Vehicle | null;
+  vehicle_category?: string | null;
+  vehicle_model?: string | null;
+  vehicle_color?: string | null;
+  vehicle_plate?: string | null;
+  vehicle_model_image?: string | null;
 };
 
-export default function DetalheViagem() {
-    const params = useParams();
+const NAO_INFORMADO = "Não informado";
 
-    const id = String(params?.id ?? "").trim();
+/* ------------------------------------------------------------------ */
+/* Google Maps                                                         */
+/* ------------------------------------------------------------------ */
 
-    const [trip, setTrip] = useState<TripDetails | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [erro, setErro] = useState<string | null>(null);
+let googleMapsPromise: Promise<void> | null = null;
 
-    useEffect(() => {
-        let mounted = true;
+function carregarGoogleMaps(): Promise<void> {
+  if (typeof window === "undefined") {
+    return Promise.reject(
+      new Error("Google Maps só pode ser carregado no navegador.")
+    );
+  }
 
-        async function buscarViagem() {
-            if (!id) {
-                if (mounted) {
-                    setErro("ID da viagem não informado.");
-                    setLoading(false);
-                }
+  if (window.google?.maps) {
+    return Promise.resolve();
+  }
 
-                return;
-            }
+  if (googleMapsPromise) {
+    return googleMapsPromise;
+  }
 
-            try {
-                if (mounted) {
-                    setLoading(true);
-                    setErro(null);
-                    setTrip(null);
-                }
+  const chave = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 
-                const url = `/api/trips/drives/${encodeURIComponent(id)}`;
+  if (!chave) {
+    return Promise.reject(
+      new Error("NEXT_PUBLIC_GOOGLE_MAPS_API_KEY não está configurada.")
+    );
+  }
 
-                console.log("=================================");
-                console.log("BUSCANDO VIAGEM");
-                console.log("ID:", id);
-                console.log("URL:", url);
-                console.log("=================================");
+  googleMapsPromise = new Promise<void>((resolve, reject) => {
+    const falhar = (mensagem: string) => {
+      googleMapsPromise = null;
+      reject(new Error(mensagem));
+    };
 
-                const response = await fetch(url, {
-                    method: "GET",
-                    credentials: "include",
-                    cache: "no-store",
-                    headers: {
-                        Accept: "application/json",
-                    },
-                });
+    const scriptExistente = document.querySelector<HTMLScriptElement>(
+      'script[data-google-maps="true"]'
+    );
 
-                const contentType =
-                    response.headers.get("content-type") || "";
+    if (scriptExistente) {
+      scriptExistente.addEventListener(
+        "load",
+        () => {
+          if (window.google?.maps) {
+            resolve();
+          } else {
+            falhar("Google Maps carregou, mas a API não está disponível.");
+          }
+        },
+        { once: true }
+      );
 
-                const text = await response.text();
+      scriptExistente.addEventListener(
+        "error",
+        () => falhar("Erro ao carregar Google Maps."),
+        { once: true }
+      );
 
-                console.log("RESPOSTA API:", {
-                    status: response.status,
-                    contentType,
-                    body: text.substring(0, 1000),
-                });
+      return;
+    }
 
-                let data: ApiResponse = {};
+    const script = document.createElement("script");
 
-                if (text) {
-                    try {
-                        data = JSON.parse(text);
-                    } catch {
-                        console.error(
-                            "Resposta não é JSON:",
-                            text
-                        );
+    script.src =
+      "https://maps.googleapis.com/maps/api/js" +
+      `?key=${encodeURIComponent(chave)}` +
+      "&v=weekly";
 
-                        throw new Error(
-                            `A API retornou uma resposta inválida (${response.status}).`
-                        );
-                    }
-                }
+    script.async = true;
+    script.defer = true;
+    script.dataset.googleMaps = "true";
 
-                if (!response.ok) {
-                    throw new Error(
-                        data.message ||
-                            data.error ||
-                            `Erro ao buscar a viagem (${response.status}).`
-                    );
-                }
+    script.onload = () => {
+      if (window.google?.maps) {
+        resolve();
+      } else {
+        falhar("Google Maps carregou, mas a API não está disponível.");
+      }
+    };
 
-                if (data.success === false) {
-                    throw new Error(
-                        data.message ||
-                            data.error ||
-                            "Não foi possível encontrar a viagem."
-                    );
-                }
+    script.onerror = () => falhar("Não foi possível carregar o Google Maps.");
 
-                if (!data.trip) {
-                    throw new Error(
-                        "Viagem não encontrada."
-                    );
-                }
+    document.head.appendChild(script);
+  });
 
-                const item = data.trip;
+  return googleMapsPromise;
+}
 
-                const tripId = String(
-                    item.trip_request_id ??
-                        item.request_id ??
-                        item.id ??
-                        id
-                ).trim();
+/* ------------------------------------------------------------------ */
+/* Helpers                                                             */
+/* ------------------------------------------------------------------ */
 
-                const pickup = String(
-                    item.pickup_address ??
-                        item.origin ??
-                        item.pickup_location ??
-                        ""
-                ).trim();
+function paraNumero(valor?: number | string | null): number | null {
+  if (valor === null || valor === undefined) return null;
 
-                const destination = String(
-                    item.destination_address ??
-                        item.destination ??
-                        item.dropoff_address ??
-                        item.dropoff_location ??
-                        ""
-                ).trim();
+  const texto = String(valor).trim();
 
-                const valorBruto =
-                    item.valor ??
-                    item.fare ??
-                    item.amount ??
-                    item.price ??
-                    0;
+  if (!texto) return null;
 
-                const valor = Number(
-                    String(valorBruto)
-                        .replace(",", ".")
-                        .replace(/[^\d.-]/g, "")
-                );
+  const numero = Number(texto);
 
-                const status = String(
-                    item.current_status ??
-                        item.status ??
-                        item.trip_status ??
-                        "pending"
-                ).trim();
+  return Number.isFinite(numero) ? numero : null;
+}
 
-                if (!mounted) return;
+function montarCoordenada(
+  lat?: number | string | null,
+  lng?: number | string | null
+): string {
+  const latitude = paraNumero(lat);
+  const longitude = paraNumero(lng);
 
-                setTrip({
-                    trip_request_id: tripId || id,
-                    pickup_address:
-                        pickup || "Origem não informada",
-                    destination_address:
-                        destination ||
-                        "Destino não informado",
-                    valor: Number.isFinite(valor)
-                        ? valor
-                        : 0,
-                    current_status:
-                        status || "pending",
-                });
-            } catch (error) {
-                console.error(
-                    "================================="
-                );
+  if (latitude === null || longitude === null) return "";
+  if (latitude === 0 && longitude === 0) return "";
 
-                console.error(
-                    "ERRO AO BUSCAR VIAGEM"
-                );
+  return `${latitude},${longitude}`;
+}
 
-                console.error(error);
+function formatarValor(valor?: number | string | null): string {
+  const numero = paraNumero(valor);
 
-                console.error(
-                    "================================="
-                );
+  if (numero === null) return NAO_INFORMADO;
+=======
+type Driver = {
+  id?: string | null;
+  full_name?: string | null;
+  phone?: string | null;
+};
 
-                if (!mounted) return;
+type VehicleModel = {
+  id?: string | number | null;
+  name?: string | null;
+  image?: string | null;
+};
 
-                setTrip(null);
+type VehicleCategory = {
+  id?: string | number | null;
+  name?: string | null;
+};
 
-                setErro(
-                    error instanceof Error
-                        ? error.message
-                        : "Erro ao buscar a viagem."
-                );
-            } finally {
-                if (mounted) {
-                    setLoading(false);
-                }
-            }
+type Vehicle = {
+  id?: string | number | null;
+  licence_plate_number?: string | null;
+  category_id?: string | number | null;
+  category?: VehicleCategory | null;
+  model?: VehicleModel | null;
+};
+
+type Trip = {
+  id: string | number;
+  ref_id: string;
+  entrance?: string | null;
+  note?: string | null;
+  pickup_address?: string | null;
+  destination_address?: string | null;
+  pickup_lat?: number | string | null;
+  pickup_lng?: number | string | null;
+  destination_lat?: number | string | null;
+  destination_lng?: number | string | null;
+  encoded_polyline?: string | null;
+  estimated_fare?: number | string | null;
+  paid_fare?: number | string | null;
+  actual_distance?: number | string | null;
+  estimated_distance?: number | string | null;
+  current_status?: string | null;
+  payment_status?: string | null;
+  payment_method?: string | null;
+  created_at: string;
+  passenger?: Passenger | null;
+  driver?: Driver | null;
+  vehicle?: Vehicle | null;
+  vehicle_category?: string | null;
+  vehicle_model?: string | null;
+  vehicle_color?: string | null;
+  vehicle_plate?: string | null;
+  vehicle_model_image?: string | null;
+};
+
+let googleMapsPromise: Promise<void> | null = null;
+
+function carregarGoogleMaps(): Promise<void> {
+  if (typeof window === "undefined") {
+    return Promise.reject(
+      new Error("Google Maps só pode ser carregado no navegador.")
+    );
+  }
+
+  if (window.google?.maps) {
+    return Promise.resolve();
+  }
+
+  if (googleMapsPromise) {
+    return googleMapsPromise;
+  }
+
+  const chave = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+
+  if (!chave) {
+    return Promise.reject(
+      new Error("NEXT_PUBLIC_GOOGLE_MAPS_API_KEY não está configurada.")
+    );
+  }
+
+  googleMapsPromise = new Promise<void>((resolve, reject) => {
+    const scriptExistente = document.querySelector(
+      'script[data-google-maps="true"]'
+    ) as HTMLScriptElement | null;
+
+    if (scriptExistente) {
+      if (window.google?.maps) {
+        resolve();
+        return;
+      }
+
+      const verificar = () => {
+        if (window.google?.maps) {
+          resolve();
+        }
+      };
+
+      const tratarErro = () => {
+        googleMapsPromise = null;
+        reject(new Error("Erro ao carregar Google Maps."));
+      };
+
+      scriptExistente.addEventListener("load", verificar, { once: true });
+      scriptExistente.addEventListener("error", tratarErro, { once: true });
+
+      return;
+    }
+
+    const script = document.createElement("script");
+
+    script.src =
+      "https://maps.googleapis.com/maps/api/js" +
+      `?key=${encodeURIComponent(chave)}` +
+      "&v=weekly";
+
+    script.async = true;
+    script.defer = true;
+    script.dataset.googleMaps = "true";
+
+    script.onload = () => {
+      if (window.google?.maps) {
+        resolve();
+      } else {
+        googleMapsPromise = null;
+        reject(
+          new Error(
+            "Google Maps carregou, mas a API não está disponível."
+          )
+        );
+      }
+    };
+
+    script.onerror = () => {
+      googleMapsPromise = null;
+      reject(new Error("Não foi possível carregar o Google Maps."));
+    };
+
+    document.head.appendChild(script);
+  });
+
+  return googleMapsPromise;
+}
+
+function montarCoordenada(
+  lat?: number | string | null,
+  lng?: number | string | null
+): string {
+  const latitude = Number(lat);
+  const longitude = Number(lng);
+
+  if (
+    !Number.isFinite(latitude) ||
+    !Number.isFinite(longitude)
+  ) {
+    return "";
+  }
+
+  if (latitude === 0 && longitude === 0) {
+    return "";
+  }
+
+  return `${latitude},${longitude}`;
+}
+
+function formatarValor(
+  valor?: number | string | null
+): string {
+  if (valor === null || valor === undefined) {
+    return "Não informado";
+  }
+
+  const texto = String(valor).trim();
+
+  if (!texto) {
+    return "Não informado";
+  }
+
+  const numero = Number(texto);
+
+  if (!Number.isFinite(numero)) {
+    return "Não informado";
+  }
+>>>>>>> 9c9d572 (Fist Commit)
+
+  return numero.toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
+function formatarData(data?: string | null): string {
+<<<<<<< HEAD
+  if (!data) return NAO_INFORMADO;
+
+  const date = new Date(data);
+
+  if (Number.isNaN(date.getTime())) return NAO_INFORMADO;
+=======
+  if (!data) {
+    return "Não informado";
+  }
+
+  const date = new Date(data);
+
+  if (Number.isNaN(date.getTime())) {
+    return "Não informado";
+  }
+>>>>>>> 9c9d572 (Fist Commit)
+
+  return date.toLocaleString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+<<<<<<< HEAD
+function formatarDistancia(distancia?: number | string | null): string {
+  const numero = paraNumero(distancia);
+
+  if (numero === null) return NAO_INFORMADO;
+=======
+function formatarTelefone(telefone?: string | null): string {
+  if (!telefone) {
+    return "Não informado";
+  }
+
+  let numero = String(telefone).replace(/\D/g, "");
+
+  if (numero.startsWith("55") && numero.length >= 12) {
+    numero = numero.substring(2);
+  }
+
+  if (numero.length === 11) {
+    return `(${numero.substring(0, 2)}) ${numero.substring(
+      2,
+      7
+    )}-${numero.substring(7)}`;
+  }
+
+  if (numero.length === 10) {
+    return `(${numero.substring(0, 2)}) ${numero.substring(
+      2,
+      6
+    )}-${numero.substring(6)}`;
+  }
+
+  return numero || "Não informado";
+}
+
+function formatarDistancia(
+  distancia?: number | string | null
+): string {
+  if (distancia === null || distancia === undefined) {
+    return "Não informado";
+  }
+
+  const texto = String(distancia).trim();
+
+  if (!texto) {
+    return "Não informado";
+  }
+
+  const numero = Number(texto);
+
+  if (!Number.isFinite(numero)) {
+    return "Não informado";
+  }
+>>>>>>> 9c9d572 (Fist Commit)
+
+  return `${numero.toLocaleString("pt-BR", {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+  })} km`;
+}
+
+<<<<<<< HEAD
+function traduzirMetodoPagamento(metodo?: string | null): string {
+  switch (String(metodo || "").trim().toLowerCase()) {
+    case "cash":
+    case "dinheiro":
+      return "Dinheiro";
+
+=======
+function traduzirMetodoPagamento(
+  metodo?: string | null
+): string {
+  switch (
+    String(metodo || "")
+      .trim()
+      .toLowerCase()
+  ) {
+    case "cash":
+    case "dinheiro":
+      return "Dinheiro";
+>>>>>>> 9c9d572 (Fist Commit)
+    case "card":
+    case "credit_card":
+    case "debit_card":
+    case "cartao":
+    case "cartão":
+      return "Cartão";
+<<<<<<< HEAD
+
+    case "pix":
+      return "PIX";
+
+    default:
+      return metodo || NAO_INFORMADO;
+  }
+}
+
+// Formato final: (11) *****-4321
+function mascararTelefone(telefone?: string | null): string {
+  if (!telefone) return "Telefone não disponível";
+
+  let digitos = telefone.replace(/\D/g, "");
+
+  // Remove o código do Brasil quando vier com +55
+  if (digitos.startsWith("55") && digitos.length > 11) {
+    digitos = digitos.slice(2);
+  }
+
+  // Precisa ter DDD + pelo menos os 4 últimos dígitos
+  if (digitos.length < 6) return "Telefone inválido";
+
+  return `(${digitos.slice(0, 2)}) *****-${digitos.slice(-4)}`;
+}
+
+/* ------------------------------------------------------------------ */
+/* Página                                                              */
+/* ------------------------------------------------------------------ */
+
+=======
+    case "pix":
+      return "PIX";
+    default:
+      return metodo || "Não informado";
+  }
+}
+
+>>>>>>> 9c9d572 (Fist Commit)
+export default function DetalhesCorrida({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = use(params);
+<<<<<<< HEAD
+
+  const [trip, setTrip] = useState<Trip | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const mapaRef = useRef<HTMLDivElement | null>(null);
+
+  const directionsRendererRef =
+    useRef<google.maps.DirectionsRenderer | null>(null);
+
+  /* ---------------------------- Carregar corrida ---------------------------- */
+
+=======
+  const [trip, setTrip] = useState<Trip | null>(null);
+  const [loading, setLoading] = useState(true);
+  const mapaRef = useRef<HTMLDivElement | null>(null);
+  const directionsRendererRef =
+    useRef<google.maps.DirectionsRenderer | null>(null);
+
+>>>>>>> 9c9d572 (Fist Commit)
+  useEffect(() => {
+    let ativo = true;
+
+    async function carregarCorrida() {
+      try {
+        setLoading(true);
+
+<<<<<<< HEAD
+        const res = await fetch(`/api/trips/${encodeURIComponent(id)}`, {
+          method: "GET",
+          cache: "no-store",
+        });
+=======
+        const res = await fetch(
+          `/api/trips/${encodeURIComponent(id)}`,
+          {
+            method: "GET",
+            cache: "no-store",
+          }
+        );
+>>>>>>> 9c9d572 (Fist Commit)
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          throw new Error(
+<<<<<<< HEAD
+            data?.error || `Erro ao carregar corrida: ${res.status}`
+          );
         }
 
-        buscarViagem();
+        if (!ativo) return;
+=======
+            data?.error ||
+              `Erro ao carregar corrida: ${res.status}`
+          );
+        }
 
-        return () => {
-            mounted = false;
+        if (!ativo) {
+          return;
+        }
+>>>>>>> 9c9d572 (Fist Commit)
+
+        setTrip(data?.trip ?? null);
+      } catch (error) {
+        console.error("Erro ao carregar corrida:", error);
+
+<<<<<<< HEAD
+        if (ativo) setTrip(null);
+      } finally {
+        if (ativo) setLoading(false);
+=======
+        if (ativo) {
+          setTrip(null);
+        }
+      } finally {
+        if (ativo) {
+          setLoading(false);
+        }
+>>>>>>> 9c9d572 (Fist Commit)
+      }
+    }
+
+    carregarCorrida();
+
+    return () => {
+      ativo = false;
+    };
+  }, [id]);
+
+<<<<<<< HEAD
+  /* --------------------------------- Status --------------------------------- */
+
+  const statusNormalizado = String(trip?.current_status || "")
+=======
+  const statusNormalizado = String(
+    trip?.current_status || ""
+  )
+>>>>>>> 9c9d572 (Fist Commit)
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "_");
+
+  const isDriverCanceled =
+<<<<<<< HEAD
+    statusNormalizado.includes("driver_cancel") ||
+    statusNormalizado === "cancelled_by_driver" ||
+    statusNormalizado === "canceled_by_driver" ||
+    statusNormalizado === "cancelado_pelo_motorista" ||
+    statusNormalizado === "cancelada_pelo_motorista";
+
+  const isTripCanceled =
+    isDriverCanceled || statusNormalizado.includes("cancel");
+
+  const isCompleted = [
+    "completed",
+    "complete",
+    "concluida",
+    "concluída",
+    "success",
+    "successful",
+    "sucesso",
+  ].includes(statusNormalizado);
+=======
+    statusNormalizado === "driver_cancelled" ||
+    statusNormalizado === "driver_canceled" ||
+    statusNormalizado === "cancelled_by_driver" ||
+    statusNormalizado === "canceled_by_driver" ||
+    statusNormalizado === "cancelado_pelo_motorista" ||
+    statusNormalizado === "cancelada_pelo_motorista" ||
+    statusNormalizado.includes("driver_cancel");
+
+  const isTripCanceled =
+    isDriverCanceled ||
+    statusNormalizado === "cancelled" ||
+    statusNormalizado === "canceled" ||
+    statusNormalizado === "cancelado" ||
+    statusNormalizado === "cancelada" ||
+    statusNormalizado === "cancelled_by_passenger" ||
+    statusNormalizado === "canceled_by_passenger" ||
+    statusNormalizado === "cancelled_by_user" ||
+    statusNormalizado === "canceled_by_user" ||
+    statusNormalizado === "cancelled_by_system" ||
+    statusNormalizado === "canceled_by_system" ||
+    statusNormalizado.includes("cancel");
+
+  const isCompleted =
+    statusNormalizado === "completed" ||
+    statusNormalizado === "complete" ||
+    statusNormalizado === "concluida" ||
+    statusNormalizado === "concluída" ||
+    statusNormalizado === "success" ||
+    statusNormalizado === "successful" ||
+    statusNormalizado === "sucesso";
+>>>>>>> 9c9d572 (Fist Commit)
+
+  const statusColor = isTripCanceled
+    ? "border-red-100 bg-red-50 text-red-700"
+    : isCompleted
+      ? "border-emerald-100 bg-emerald-50 text-emerald-700"
+      : "border-amber-100 bg-amber-50 text-amber-700";
+
+  const statusLabel = isDriverCanceled
+    ? "Cancelada pelo motorista"
+    : isTripCanceled
+      ? "Cancelada"
+      : isCompleted
+        ? "Concluída"
+        : statusNormalizado === "in_progress"
+          ? "Em andamento"
+          : statusNormalizado === "accepted"
+            ? "Aceita"
+            : "Pendente";
+
+<<<<<<< HEAD
+  /* ------------------------------ Dados derivados ------------------------------ */
+
+  const origem =
+    trip?.pickup_address?.trim() || trip?.entrance?.trim() || "";
+
+  const destino = trip?.destination_address?.trim() || "";
+
+  const coordenadaOrigem = useMemo(
+    () => montarCoordenada(trip?.pickup_lat, trip?.pickup_lng),
+=======
+  const origem = useMemo(() => {
+    return (
+      trip?.pickup_address?.trim() ||
+      trip?.entrance?.trim() ||
+      ""
+    );
+  }, [trip]);
+
+  const destino = useMemo(() => {
+    return trip?.destination_address?.trim() || "";
+  }, [trip]);
+
+  const coordenadaOrigem = useMemo(
+    () =>
+      montarCoordenada(
+        trip?.pickup_lat,
+        trip?.pickup_lng
+      ),
+>>>>>>> 9c9d572 (Fist Commit)
+    [trip?.pickup_lat, trip?.pickup_lng]
+  );
+
+  const coordenadaDestino = useMemo(
+<<<<<<< HEAD
+    () => montarCoordenada(trip?.destination_lat, trip?.destination_lng),
+=======
+    () =>
+      montarCoordenada(
+        trip?.destination_lat,
+        trip?.destination_lng
+      ),
+>>>>>>> 9c9d572 (Fist Commit)
+    [trip?.destination_lat, trip?.destination_lng]
+  );
+
+  const pontoOrigem = coordenadaOrigem || origem;
+  const pontoDestino = coordenadaDestino || destino;
+<<<<<<< HEAD
+
+  const possuiPontosMapa = Boolean(pontoOrigem || pontoDestino);
+
+  const nomeVeiculo =
+    trip?.vehicle?.model?.name?.trim() ||
+    trip?.vehicle_model?.trim() ||
+    NAO_INFORMADO;
+=======
+  const possuiPontosMapa = Boolean(
+    pontoOrigem || pontoDestino
+  );
+
+  const nomeVeiculo = useMemo(() => {
+    return (
+      trip?.vehicle?.model?.name?.trim() ||
+      trip?.vehicle_model?.trim() ||
+      "Não informado"
+    );
+  }, [
+    trip?.vehicle?.model?.name,
+    trip?.vehicle_model,
+  ]);
+>>>>>>> 9c9d572 (Fist Commit)
+
+  const placaVeiculo =
+    trip?.vehicle?.licence_plate_number?.trim() ||
+    trip?.vehicle_plate?.trim() ||
+    "";
+
+  const imagemVeiculo =
+<<<<<<< HEAD
+    trip?.vehicle?.model?.image || trip?.vehicle_model_image || null;
+
+  const categoria =
+    trip?.vehicle?.category?.name?.trim() ||
+    trip?.vehicle_category?.trim() ||
+    NAO_INFORMADO;
+
+  const nomeMotorista =
+    trip?.driver?.full_name?.trim() || "Motorista não informado";
+=======
+    trip?.vehicle?.model?.image ||
+    trip?.vehicle_model_image ||
+    null;
+
+  const categoria = useMemo(() => {
+    return (
+      trip?.vehicle?.category?.name?.trim() ||
+      trip?.vehicle_category?.trim() ||
+      "Não informado"
+    );
+  }, [
+    trip?.vehicle?.category?.name,
+    trip?.vehicle_category,
+  ]);
+
+  const nomeMotorista =
+    trip?.driver?.full_name?.trim() ||
+    "Motorista não informado";
+
+  const telefoneMotorista = formatarTelefone(
+    trip?.driver?.phone
+  );
+>>>>>>> 9c9d572 (Fist Commit)
+
+  const possuiMotorista =
+    Boolean(trip?.driver?.id) ||
+    Boolean(trip?.driver?.full_name) ||
+    Boolean(trip?.driver?.phone);
+
+<<<<<<< HEAD
+  // Usa o valor pago quando houver (> 0); senão, o estimado.
+  // Assim o topo da página e o card "Valor da corrida" mostram o mesmo valor.
+  const valorPago = paraNumero(trip?.paid_fare);
+
+  const valorCorrida =
+    valorPago !== null && valorPago > 0 ? valorPago : trip?.estimated_fare;
+
+  const distanciaBanco =
+    trip?.actual_distance ?? trip?.estimated_distance ?? null;
+
+  /* ---------------------------------- Mapa ---------------------------------- */
+
+  useEffect(() => {
+    if (!trip || !mapaRef.current || !possuiPontosMapa) return;
+=======
+  const valorCorrida = trip?.estimated_fare;
+
+  const distanciaBanco =
+    trip?.actual_distance ??
+    trip?.estimated_distance ??
+    null;
+
+  useEffect(() => {
+    if (!trip || !mapaRef.current) {
+      return;
+    }
+
+    if (!possuiPontosMapa) {
+      return;
+    }
+>>>>>>> 9c9d572 (Fist Commit)
+
+    let cancelado = false;
+
+    async function iniciarMapa() {
+      try {
+        await carregarGoogleMaps();
+
+<<<<<<< HEAD
+        if (cancelado || !mapaRef.current || !window.google?.maps) return;
+=======
+        if (
+          cancelado ||
+          !mapaRef.current ||
+          !window.google?.maps
+        ) {
+          return;
+        }
+>>>>>>> 9c9d572 (Fist Commit)
+
+        if (directionsRendererRef.current) {
+          directionsRendererRef.current.setMap(null);
+          directionsRendererRef.current = null;
+        }
+
+<<<<<<< HEAD
+        const paraLatLng = (coordenada: string) => {
+          const [lat, lng] = coordenada.split(",").map(Number);
+
+          return Number.isFinite(lat) && Number.isFinite(lng)
+            ? { lat, lng }
+            : null;
         };
-    }, [id]);
 
-    const formatCurrency = (value: number) => {
-        return new Intl.NumberFormat("pt-BR", {
-            style: "currency",
-            currency: "BRL",
-        }).format(value);
-    };
+        const centroInicial = (coordenadaOrigem &&
+          paraLatLng(coordenadaOrigem)) || {
+          lat: -23.9608,
+          lng: -46.3336,
+        };
 
-    const normalizarStatus = (status: string) => {
-        return String(status || "")
-            .trim()
-            .toLowerCase()
-            .replace(/[\s-]+/g, "_");
-    };
+        const mapa = new window.google.maps.Map(mapaRef.current, {
+          center: centroInicial,
+          zoom: 14,
+          streetViewControl: false,
+          mapTypeControl: false,
+          fullscreenControl: true,
+          zoomControl: true,
+          clickableIcons: true,
+        });
 
-    const traduzirStatus = (status: string) => {
-        switch (normalizarStatus(status)) {
-            case "completed":
-            case "complete":
-            case "finished":
-                return "Finalizada";
+        if (pontoOrigem && pontoDestino) {
+          const directionsService = new window.google.maps.DirectionsService();
 
-            case "cancelled":
-            case "canceled":
-                return "Cancelada";
+          const directionsRenderer = new window.google.maps.DirectionsRenderer({
+            map: mapa,
+            suppressMarkers: false,
+            polylineOptions: {
+              strokeColor: isTripCanceled ? "#dc2626" : "#155EEF",
+              strokeOpacity: 0.95,
+              strokeWeight: 6,
+            },
+          });
 
-            case "in_progress":
-            case "ongoing":
-                return "Em andamento";
+          directionsRendererRef.current = directionsRenderer;
 
-            case "accepted":
-                return "Aceita";
+          directionsService.route(
+            {
+              origin: pontoOrigem,
+              destination: pontoDestino,
+              travelMode: window.google.maps.TravelMode.DRIVING,
+            },
+            (resultado, status) => {
+              if (cancelado) return;
 
-            case "picked_up":
-                return "Passageiro embarcou";
+              if (
+                status === window.google.maps.DirectionsStatus.OK &&
+                resultado
+              ) {
+                directionsRenderer.setDirections(resultado);
 
-            case "out_for_pickup":
-                return "A caminho";
+                const bounds = resultado.routes[0]?.bounds;
 
-            case "pending":
-                return "Pendente";
+                if (bounds) mapa.fitBounds(bounds, 50);
+              } else {
+                console.error("Erro ao carregar rota:", status);
+              }
+            }
+          );
 
-            case "returned":
-                return "Retornada";
-
-            case "returning":
-                return "Retornando";
-
-            case "failed":
-                return "Falhou";
-
-            default:
-                return status || "Desconhecido";
+          return;
         }
-    };
 
-    const statusClass = (status: string) => {
-        switch (normalizarStatus(status)) {
-            case "completed":
-            case "complete":
-            case "finished":
-                return "bg-green-100 text-green-700";
+        const coordenada = coordenadaOrigem || coordenadaDestino;
 
-            case "cancelled":
-            case "canceled":
-            case "failed":
-                return "bg-red-100 text-red-700";
+        if (!coordenada) return;
 
-            case "in_progress":
-            case "ongoing":
-            case "accepted":
-            case "picked_up":
-            case "out_for_pickup":
-                return "bg-yellow-100 text-yellow-700";
+        const position = paraLatLng(coordenada);
 
-            case "returned":
-            case "returning":
-                return "bg-blue-100 text-blue-700";
+        if (!position) return;
 
-            case "pending":
-            default:
-                return "bg-gray-100 text-gray-700";
+        mapa.setCenter(position);
+        mapa.setZoom(15);
+
+        new window.google.maps.Marker({
+          position,
+          map: mapa,
+          title: coordenadaOrigem ? "Origem da viagem" : "Destino da viagem",
+        });
+      } catch (error) {
+        if (!cancelado) {
+          console.error("Erro ao inicializar Google Maps:", error);
         }
+=======
+        let centroInicial = {
+          lat: -23.9608,
+          lng: -46.3336,
+        };
+
+        if (coordenadaOrigem) {
+          const partes = coordenadaOrigem
+            .split(",")
+            .map(Number);
+
+          if (
+            partes.length === 2 &&
+            Number.isFinite(partes[0]) &&
+            Number.isFinite(partes[1])
+          ) {
+            centroInicial = {
+              lat: partes[0],
+              lng: partes[1],
+            };
+          }
+        }
+
+        const mapa = new window.google.maps.Map(
+          mapaRef.current,
+          {
+            center: centroInicial,
+            zoom: 14,
+            streetViewControl: false,
+            mapTypeControl: false,
+            fullscreenControl: true,
+            zoomControl: true,
+            clickableIcons: true,
+          }
+        );
+
+        if (pontoOrigem && pontoDestino) {
+          const directionsService =
+            new window.google.maps.DirectionsService();
+
+          const directionsRenderer =
+            new window.google.maps.DirectionsRenderer({
+              map: mapa,
+              suppressMarkers: false,
+              polylineOptions: {
+                strokeColor: isTripCanceled
+                  ? "#dc2626"
+                  : "#155EEF",
+                strokeOpacity: 0.95,
+                strokeWeight: 6,
+              },
+            });
+
+          directionsRendererRef.current =
+            directionsRenderer;
+
+          directionsService.route(
+            {
+              origin: pontoOrigem,
+              destination: pontoDestino,
+              travelMode:
+                window.google.maps.TravelMode.DRIVING,
+            },
+            (resultado, status) => {
+              if (cancelado) {
+                return;
+              }
+
+              if (
+                status ===
+                  window.google.maps.DirectionsStatus.OK &&
+                resultado
+              ) {
+                directionsRenderer.setDirections(
+                  resultado
+                );
+
+                if (resultado.routes[0]?.bounds) {
+                  mapa.fitBounds(
+                    resultado.routes[0].bounds,
+                    50
+                  );
+                }
+              } else {
+                console.error(
+                  "Erro ao carregar rota:",
+                  status
+                );
+              }
+            }
+          );
+
+          return;
+        }
+
+        const coordenada =
+          coordenadaOrigem ||
+          coordenadaDestino;
+
+        if (!coordenada) {
+          return;
+        }
+
+        const partes = coordenada
+          .split(",")
+          .map(Number);
+
+        if (
+          partes.length !== 2 ||
+          !Number.isFinite(partes[0]) ||
+          !Number.isFinite(partes[1])
+        ) {
+          return;
+        }
+
+        const position = {
+          lat: partes[0],
+          lng: partes[1],
+        };
+
+        mapa.setCenter(position);
+        mapa.setZoom(15);
+
+        new window.google.maps.Marker({
+          position,
+          map: mapa,
+          title: coordenadaOrigem
+            ? "Origem da viagem"
+            : "Destino da viagem",
+        });
+      } catch (error) {
+        if (!cancelado) {
+          console.error(
+            "Erro ao inicializar Google Maps:",
+            error
+          );
+        }
+>>>>>>> 9c9d572 (Fist Commit)
+      }
+    }
+
+    iniciarMapa();
+
+    return () => {
+      cancelado = true;
+
+      if (directionsRendererRef.current) {
+        directionsRendererRef.current.setMap(null);
+        directionsRendererRef.current = null;
+      }
     };
+  }, [
+    trip,
+    possuiPontosMapa,
+    pontoOrigem,
+    pontoDestino,
+    coordenadaOrigem,
+    coordenadaDestino,
+    isTripCanceled,
+  ]);
+
+  const googleMapsRouteUrl = useMemo(() => {
+    if (!pontoOrigem && !pontoDestino) {
+      return "https://www.google.com/maps";
+    }
+
+    if (pontoOrigem && pontoDestino) {
+      return (
+        "https://www.google.com/maps/dir/?api=1" +
+        `&origin=${encodeURIComponent(pontoOrigem)}` +
+        `&destination=${encodeURIComponent(pontoDestino)}` +
+        "&travelmode=driving"
+      );
+    }
+<<<<<<< HEAD
 
     return (
-        <main className="mx-auto w-full max-w-3xl px-3 py-4 sm:px-4 sm:py-6 md:px-6">
-            <Link
-                href="/motorista/viagens"
-                className="mb-5 inline-flex items-center gap-2 text-sm font-medium text-gray-500 transition hover:text-gray-800"
-            >
-                <ArrowLeft size={17} />
-                Voltar para o relatório
-            </Link>
-
-            <section className="overflow-hidden rounded-2xl bg-white shadow-sm sm:rounded-3xl">
-                {loading ? (
-                    <div className="flex min-h-[300px] items-center justify-center">
-                        <div className="flex items-center gap-3 text-sm text-gray-500">
-                            <div className="h-5 w-5 animate-spin rounded-full border-2 border-gray-200 border-t-teal-500" />
-                            Carregando viagem...
-                        </div>
-                    </div>
-                ) : erro || !trip ? (
-                    <div className="flex min-h-[300px] flex-col items-center justify-center px-5 py-12 text-center">
-                        <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-gray-100">
-                            <MapPin
-                                size={22}
-                                className="text-gray-400"
-                            />
-                        </div>
-
-                        <h2 className="text-base font-semibold text-gray-800 sm:text-lg">
-                            Não foi possível carregar a viagem
-                        </h2>
-
-                        <p className="mt-2 max-w-md text-sm text-gray-500">
-                            {erro ||
-                                "Viagem não encontrada."}
-                        </p>
-
-                        {id && (
-                            <p className="mt-3 max-w-full break-all text-xs text-gray-400">
-                                ID: {id}
-                            </p>
-                        )}
-
-                        <Link
-                            href="/motorista/viagens"
-                            className="mt-6 inline-flex rounded-full bg-gray-900 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-gray-800"
-                        >
-                            Voltar para viagens
-                        </Link>
-                    </div>
-                ) : (
-                    <div className="p-5 sm:p-7 md:p-8">
-                        <div className="mb-8 text-center">
-                            <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-gray-400">
-                                ID da viagem
-                            </p>
-
-                            <h1 className="mt-1 break-all text-lg font-bold text-gray-800 sm:text-xl">
-                                #{trip.trip_request_id}
-                            </h1>
-
-                            <span
-                                className={`mt-3 inline-flex rounded-full px-3.5 py-1.5 text-xs font-semibold ${statusClass(
-                                    trip.current_status
-                                )}`}
-                            >
-                                {traduzirStatus(
-                                    trip.current_status
-                                )}
-                            </span>
-                        </div>
-
-                        <div className="space-y-1">
-                            <div className="flex flex-col items-center text-center">
-                                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-50">
-                                    <MapPin
-                                        size={17}
-                                        className="text-green-500"
-                                    />
-                                </div>
-
-                                <p className="mt-2 text-[11px] font-bold uppercase tracking-[0.14em] text-gray-400">
-                                    Origem
-                                </p>
-
-                                <p className="mt-1 max-w-xl break-words text-sm leading-6 text-gray-700 sm:text-base">
-                                    {trip.pickup_address}
-                                </p>
-                            </div>
-
-                            <div className="mx-auto h-8 w-px border-l border-dashed border-gray-300" />
-
-                            <div className="flex flex-col items-center text-center">
-                                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-50">
-                                    <MapPin
-                                        size={17}
-                                        className="text-red-500"
-                                    />
-                                </div>
-
-                                <p className="mt-2 text-[11px] font-bold uppercase tracking-[0.14em] text-gray-400">
-                                    Destino
-                                </p>
-
-                                <p className="mt-1 max-w-xl break-words text-sm leading-6 text-gray-700 sm:text-base">
-                                    {trip.destination_address}
-                                </p>
-                            </div>
-                        </div>
-
-                        <div className="mx-auto mt-8 max-w-sm rounded-2xl border border-teal-100 bg-teal-50 px-5 py-4 text-center">
-                            <p className="text-xs font-medium text-teal-600">
-                                Valor da corrida
-                            </p>
-
-                            <p className="mt-1 text-xl font-bold text-teal-700 sm:text-2xl">
-                                {trip.valor > 0
-                                    ? formatCurrency(
-                                          trip.valor
-                                      )
-                                    : "Aguardando"}
-                            </p>
-                        </div>
-                    </div>
-                )}
-            </section>
-        </main>
+      "https://www.google.com/maps/search/?api=1" +
+      `&query=${encodeURIComponent(pontoOrigem || pontoDestino)}`
     );
+  }, [pontoOrigem, pontoDestino]);
+
+  /* ------------------------------ Estados de tela ------------------------------ */
+
+=======
+
+    const ponto = pontoOrigem || pontoDestino || "";
+
+    return (
+      "https://www.google.com/maps/search/?api=1" +
+      `&query=${encodeURIComponent(ponto)}`
+    );
+  }, [pontoOrigem, pontoDestino]);
+
+>>>>>>> 9c9d572 (Fist Commit)
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center px-4">
+        <div className="flex w-full max-w-[280px] flex-col items-center rounded-[24px] bg-white p-7 shadow-xl ring-1 ring-black/5 sm:max-w-[320px] sm:rounded-[28px] sm:p-8 md:p-10">
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#e8f7f4] sm:h-16 sm:w-16">
+            <div className="h-7 w-7 animate-spin rounded-full border-[3px] border-[#149C8B] border-t-transparent sm:h-8 sm:w-8" />
+          </div>
+<<<<<<< HEAD
+
+          <p className="mt-5 text-center text-sm font-semibold text-gray-700">
+            Carregando sua viagem
+          </p>
+
+=======
+          <p className="mt-5 text-center text-sm font-semibold text-gray-700">
+            Carregando sua viagem
+          </p>
+>>>>>>> 9c9d572 (Fist Commit)
+          <p className="mt-1 text-center text-xs text-gray-400">
+            Aguarde um momento...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!trip) {
+    return (
+      <div className="flex min-h-screen items-center justify-center px-4">
+        <div className="w-full max-w-sm rounded-[24px] border border-slate-200 bg-white p-6 text-center shadow-sm sm:max-w-md sm:p-8">
+          <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-red-50">
+            <XCircle className="h-7 w-7 text-red-500" />
+          </div>
+<<<<<<< HEAD
+
+          <h2 className="text-lg font-bold text-[#073b70] sm:text-xl">
+            Viagem não encontrada
+          </h2>
+
+          <p className="mt-3 text-sm leading-6 text-slate-500">
+            Não foi possível localizar esta viagem.
+          </p>
+
+=======
+          <h2 className="text-lg font-bold text-[#073b70] sm:text-xl">
+            Viagem não encontrada
+          </h2>
+          <p className="mt-3 text-sm leading-6 text-slate-500">
+            Não foi possível localizar esta viagem.
+          </p>
+>>>>>>> 9c9d572 (Fist Commit)
+          <Link
+            href="/passageiro/viagens"
+            className="mt-6 inline-flex w-full items-center justify-center rounded-xl bg-[#073b70] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#0a4d8f] sm:w-auto"
+          >
+            <ArrowLeft size={17} className="mr-2" />
+            Voltar para viagens
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+<<<<<<< HEAD
+  /* --------------------------------- Render --------------------------------- */
+
+  return (
+    <main className="mb-3 min-h-screen overflow-x-hidden text-sm text-[#073b70]">
+      <div className="max-w-8xl mx-auto flex flex-col gap-5 sm:gap-6 lg:gap-7 2xl:gap-8">
+        {/* Cabeçalho */}
+=======
+  return (
+    <main className="min-h-screen mb-3 overflow-x-hidden text-sm text-[#073b70]">
+      <div className="mx-auto flex max-w-8xl flex-col gap-5 sm:gap-6 lg:gap-7 2xl:gap-8">
+>>>>>>> 9c9d572 (Fist Commit)
+        <div
+          className={`relative overflow-hidden rounded-[22px] border p-5 text-white shadow-sm sm:rounded-[26px] sm:p-7 md:p-8 lg:rounded-[30px] lg:p-9 2xl:rounded-[34px] 2xl:p-10 ${
+            isTripCanceled
+              ? "border-red-700 bg-gradient-to-br from-red-700 to-red-900"
+              : isCompleted
+                ? "border-[#0f8f7d] bg-gradient-to-br from-[#073b70] via-[#075b70] to-[#149c8b]"
+                : "border-amber-600 bg-gradient-to-br from-amber-500 to-amber-700"
+          }`}
+        >
+          <div className="absolute -right-20 -top-20 h-48 w-48 rounded-full bg-white/10 blur-3xl sm:h-64 sm:w-64" />
+<<<<<<< HEAD
+
+=======
+>>>>>>> 9c9d572 (Fist Commit)
+          <div className="relative z-10 flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex min-w-0 items-center gap-3 sm:gap-4">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-white/20 bg-white/10 sm:h-14 sm:w-14 2xl:h-16 2xl:w-16">
+                {isTripCanceled ? (
+                  <XCircle className="h-6 w-6 sm:h-7 sm:w-7" />
+                ) : (
+                  <CarFront className="h-6 w-6 sm:h-7 sm:w-7" />
+                )}
+              </div>
+<<<<<<< HEAD
+
+=======
+>>>>>>> 9c9d572 (Fist Commit)
+              <div className="min-w-0">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-white/70">
+                  Viagem
+                </p>
+<<<<<<< HEAD
+
+                <h1 className="mt-1 truncate text-xl font-bold tracking-tight sm:text-2xl md:text-3xl">
+                  #{trip.ref_id}
+                </h1>
+
+=======
+                <h1 className="mt-1 truncate text-xl font-bold tracking-tight sm:text-2xl md:text-3xl">
+                  #{trip.ref_id}
+                </h1>
+>>>>>>> 9c9d572 (Fist Commit)
+                <p className="mt-1 text-xs text-white/75 sm:text-sm">
+                  Visualize informações completas da viagem.
+                </p>
+              </div>
+            </div>
+<<<<<<< HEAD
+
+=======
+>>>>>>> 9c9d572 (Fist Commit)
+            <div className="grid w-full grid-cols-2 gap-3 sm:gap-4 lg:w-auto">
+              <div className="min-w-0 rounded-2xl border border-white/15 bg-white/10 p-3 backdrop-blur-sm sm:min-w-[170px] sm:p-4">
+                <p className="text-[11px] font-medium text-white/70 sm:text-xs">
+                  Valor da corrida
+                </p>
+<<<<<<< HEAD
+
+                <h2 className="mt-1 truncate text-lg font-bold sm:text-xl md:text-2xl">
+                  {formatarValor(valorCorrida)}
+                </h2>
+              </div>
+
+=======
+                <h2 className="mt-1 truncate text-lg font-bold sm:text-xl md:text-2xl">
+                  {formatarValor(trip.paid_fare)}
+                </h2>
+              </div>
+>>>>>>> 9c9d572 (Fist Commit)
+              <div className="min-w-0 rounded-2xl border border-white/15 bg-white/10 p-3 backdrop-blur-sm sm:min-w-[170px] sm:p-4">
+                <p className="text-[11px] font-medium text-white/70 sm:text-xs">
+                  Distância
+                </p>
+<<<<<<< HEAD
+
+=======
+>>>>>>> 9c9d572 (Fist Commit)
+                <h2 className="mt-1 truncate text-lg font-bold sm:text-xl md:text-2xl">
+                  {formatarDistancia(distanciaBanco)}
+                </h2>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 gap-5 md:gap-6 lg:gap-7 xl:grid-cols-3 2xl:gap-8">
+<<<<<<< HEAD
+          {/* Coluna principal */}
+          <div className="flex min-w-0 flex-col gap-5 md:gap-6 lg:gap-7 xl:col-span-2">
+            {/* Status */}
+=======
+          <div className="flex min-w-0 flex-col gap-5 md:gap-6 lg:gap-7 xl:col-span-2">
+>>>>>>> 9c9d572 (Fist Commit)
+            <section className="min-w-0 rounded-[22px] border border-slate-200 bg-white p-5 shadow-sm sm:rounded-[26px] sm:p-6 md:p-7 lg:rounded-[30px] lg:p-8">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
+                  <h2 className="text-lg font-bold tracking-tight text-[#073b70] sm:text-xl lg:text-2xl">
+                    Status da Corrida
+                  </h2>
+<<<<<<< HEAD
+
+=======
+>>>>>>> 9c9d572 (Fist Commit)
+                  <p className="mt-1 text-xs text-slate-500 sm:text-sm">
+                    Informações atualizadas da viagem
+                  </p>
+                </div>
+<<<<<<< HEAD
+
+=======
+>>>>>>> 9c9d572 (Fist Commit)
+                <div
+                  className={`inline-flex w-fit shrink-0 items-center gap-2 rounded-xl border px-3 py-2 text-xs font-bold sm:px-4 sm:text-sm ${statusColor}`}
+                >
+                  {isTripCanceled ? (
+                    <XCircle size={16} />
+                  ) : isCompleted ? (
+                    <CheckCircle2 size={16} />
+                  ) : (
+                    <Clock3 size={16} />
+                  )}
+<<<<<<< HEAD
+
+=======
+>>>>>>> 9c9d572 (Fist Commit)
+                  {statusLabel}
+                </div>
+              </div>
+
+              {isTripCanceled && (
+                <div className="mt-6 rounded-2xl border border-red-100 bg-red-50 p-4 sm:p-5">
+                  <div className="flex gap-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-red-100 text-red-600">
+                      <XCircle size={20} />
+                    </div>
+<<<<<<< HEAD
+
+=======
+>>>>>>> 9c9d572 (Fist Commit)
+                    <div className="min-w-0">
+                      <h3 className="text-sm font-bold text-red-700 sm:text-base">
+                        {isDriverCanceled
+                          ? "Viagem cancelada pelo motorista"
+                          : "Viagem cancelada"}
+                      </h3>
+<<<<<<< HEAD
+
+=======
+>>>>>>> 9c9d572 (Fist Commit)
+                      <p className="mt-1 text-xs leading-5 text-red-600 sm:text-sm">
+                        {isDriverCanceled
+                          ? "O motorista cancelou esta viagem. A viagem permanece disponível para consulta."
+                          : "Esta viagem foi cancelada, mas os dados registrados permanecem disponíveis para consulta."}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                <div className="min-w-0 rounded-2xl border border-slate-100 bg-[#f8fafb] p-4 sm:p-5">
+                  <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-[#e8f7f3] text-[#149c8b]">
+                    <CalendarDays size={20} />
+                  </div>
+<<<<<<< HEAD
+
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400 sm:text-xs">
+                    Data da corrida
+                  </p>
+
+=======
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400 sm:text-xs">
+                    Data da corrida
+                  </p>
+>>>>>>> 9c9d572 (Fist Commit)
+                  <h3 className="mt-2 break-words text-sm font-bold leading-5 text-[#073b70]">
+                    {formatarData(trip.created_at)}
+                  </h3>
+                </div>
+
+                <div className="min-w-0 rounded-2xl border border-slate-100 bg-[#f8fafb] p-4 sm:p-5">
+                  <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+                    <Wallet size={20} />
+                  </div>
+<<<<<<< HEAD
+
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400 sm:text-xs">
+                    Meio de pagamento
+                  </p>
+
+=======
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400 sm:text-xs">
+                    Meio de pagamento
+                  </p>
+>>>>>>> 9c9d572 (Fist Commit)
+                  <div className="mt-2">
+                    <span className="inline-flex max-w-full rounded-lg bg-blue-50 px-3 py-1.5 text-xs font-bold text-blue-700 sm:text-sm">
+                      {traduzirMetodoPagamento(trip.payment_method)}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="min-w-0 rounded-2xl border border-slate-100 bg-[#f8fafb] p-4 sm:p-5">
+                  <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50 text-orange-600">
+                    <Wallet size={20} />
+                  </div>
+<<<<<<< HEAD
+
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400 sm:text-xs">
+                    Valor da corrida
+                  </p>
+
+=======
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400 sm:text-xs">
+                    Valor da corrida
+                  </p>
+>>>>>>> 9c9d572 (Fist Commit)
+                  <h3 className="mt-2 truncate text-lg font-bold text-[#073b70] sm:text-xl">
+                    {formatarValor(valorCorrida)}
+                  </h3>
+                </div>
+              </div>
+            </section>
+
+<<<<<<< HEAD
+            {/* Trajeto */}
+=======
+>>>>>>> 9c9d572 (Fist Commit)
+            <section className="min-w-0 overflow-hidden rounded-[22px] border border-slate-200 bg-white shadow-sm sm:rounded-[26px] lg:rounded-[30px]">
+              <div className="p-5 sm:p-6 md:p-7 lg:p-8">
+                <div className="mb-5 flex items-center gap-3 sm:mb-6">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#e8f7f3] text-[#149c8b] sm:h-11 sm:w-11">
+                    <Navigation size={21} />
+                  </div>
+<<<<<<< HEAD
+
+=======
+>>>>>>> 9c9d572 (Fist Commit)
+                  <div className="min-w-0">
+                    <h2 className="text-lg font-bold tracking-tight text-[#073b70] sm:text-xl lg:text-2xl">
+                      Trajeto da Corrida
+                    </h2>
+<<<<<<< HEAD
+
+=======
+>>>>>>> 9c9d572 (Fist Commit)
+                    <p className="mt-1 text-xs text-slate-500 sm:text-sm">
+                      Origem e destino da viagem
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-5 sm:gap-6">
+                  <div className="relative">
+                    <div className="absolute left-5 top-5 h-[calc(100%-40px)] w-px bg-slate-200" />
+<<<<<<< HEAD
+
+=======
+>>>>>>> 9c9d572 (Fist Commit)
+                    <div className="relative flex min-w-0 gap-3 sm:gap-4">
+                      <div className="z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-4 border-white bg-[#149c8b] shadow-sm">
+                        <MapPin size={16} className="text-white" />
+                      </div>
+<<<<<<< HEAD
+
+=======
+>>>>>>> 9c9d572 (Fist Commit)
+                      <div className="min-w-0 flex-1 rounded-2xl border border-slate-100 bg-[#f8fafb] p-4 sm:p-5">
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-[#149c8b] sm:text-xs">
+                          Origem
+                        </p>
+<<<<<<< HEAD
+
+                        <h3 className="mt-2 break-words text-sm font-bold leading-6 text-[#073b70] sm:text-base">
+                          {origem || NAO_INFORMADO}
+                        </h3>
+
+=======
+                        <h3 className="mt-2 break-words text-sm font-bold leading-6 text-[#073b70] sm:text-base">
+                          {origem || "Não informado"}
+                        </h3>
+>>>>>>> 9c9d572 (Fist Commit)
+                        <p className="mt-1 text-xs text-slate-400">
+                          Local de embarque
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="relative mt-4 flex min-w-0 gap-3 sm:gap-4">
+                      <div className="z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-4 border-white bg-[#073b70] shadow-sm">
+                        <Navigation size={16} className="text-white" />
+                      </div>
+<<<<<<< HEAD
+
+=======
+>>>>>>> 9c9d572 (Fist Commit)
+                      <div className="min-w-0 flex-1 rounded-2xl border border-slate-100 bg-[#f8fafb] p-4 sm:p-5">
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-[#073b70] sm:text-xs">
+                          Destino
+                        </p>
+<<<<<<< HEAD
+
+                        <h3 className="mt-2 break-words text-sm font-bold leading-6 text-[#073b70] sm:text-base">
+                          {destino || NAO_INFORMADO}
+                        </h3>
+
+=======
+                        <h3 className="mt-2 break-words text-sm font-bold leading-6 text-[#073b70] sm:text-base">
+                          {destino || "Não informado"}
+                        </h3>
+>>>>>>> 9c9d572 (Fist Commit)
+                        <p className="mt-1 text-xs text-slate-400">
+                          Destino final
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 shadow-sm">
+                    {possuiPontosMapa ? (
+                      <div
+                        ref={mapaRef}
+                        className="block h-[280px] w-full sm:h-[360px] md:h-[420px] lg:h-[460px] xl:h-[500px]"
+                      />
+                    ) : (
+                      <div className="flex min-h-[280px] flex-col items-center justify-center px-6 text-center sm:min-h-[360px]">
+                        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white text-[#149c8b] shadow-sm">
+                          <MapPin size={25} />
+                        </div>
+<<<<<<< HEAD
+
+                        <h3 className="mt-4 text-base font-bold text-[#073b70]">
+                          Mapa indisponível
+                        </h3>
+
+                        <p className="mt-2 max-w-md text-sm leading-6 text-slate-500">
+                          A origem e o destino desta viagem não foram
+                          informados.
+=======
+                        <h3 className="mt-4 text-base font-bold text-[#073b70]">
+                          Mapa indisponível
+                        </h3>
+                        <p className="mt-2 max-w-md text-sm leading-6 text-slate-500">
+                          {!origem && !destino
+                            ? "A origem e o destino desta viagem não foram informados."
+                            : !origem
+                              ? "A origem desta viagem não foi informada."
+                              : "O destino desta viagem não foi informado."}
+>>>>>>> 9c9d572 (Fist Commit)
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  {possuiPontosMapa && (
+                    <a
+                      href={googleMapsRouteUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={`inline-flex w-full items-center justify-center gap-2 rounded-xl px-5 py-3.5 text-sm font-bold text-white transition active:scale-[0.99] sm:w-auto ${
+                        isTripCanceled
+                          ? "bg-red-700 hover:bg-red-800"
+                          : "bg-[#073b70] hover:bg-[#0a4d8f]"
+                      }`}
+                    >
+                      <Navigation size={17} />
+<<<<<<< HEAD
+
+                      {pontoOrigem && pontoDestino
+                        ? "Abrir rota no Google Maps"
+                        : "Abrir localização no Google Maps"}
+
+=======
+                      {pontoOrigem && pontoDestino
+                        ? "Abrir rota no Google Maps"
+                        : "Abrir localização no Google Maps"}
+>>>>>>> 9c9d572 (Fist Commit)
+                      <ExternalLink size={15} />
+                    </a>
+                  )}
+                </div>
+              </div>
+            </section>
+          </div>
+
+<<<<<<< HEAD
+          {/* Coluna lateral */}
+=======
+>>>>>>> 9c9d572 (Fist Commit)
+          <div className="flex min-w-0 flex-col gap-5 md:gap-6 lg:gap-7">
+            {isTripCanceled && (
+              <section className="rounded-[22px] border border-red-100 bg-white p-5 shadow-sm sm:rounded-[26px] sm:p-6 md:p-7 lg:rounded-[30px]">
+                <div className="flex flex-col items-center justify-center py-8 text-center">
+                  <div className="flex h-20 w-20 items-center justify-center rounded-3xl bg-red-50 text-red-500">
+                    <XCircle size={38} />
+                  </div>
+<<<<<<< HEAD
+
+=======
+>>>>>>> 9c9d572 (Fist Commit)
+                  <span className="mt-5 rounded-full bg-red-50 px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.12em] text-red-500">
+                    {isDriverCanceled
+                      ? "Cancelada pelo motorista"
+                      : "Viagem cancelada"}
+                  </span>
+<<<<<<< HEAD
+
+                  <h2 className="mt-3 text-xl font-bold text-[#073b70] sm:text-2xl">
+                    Viagem cancelada
+                  </h2>
+
+=======
+                  <h2 className="mt-3 text-xl font-bold text-[#073b70] sm:text-2xl">
+                    Viagem cancelada
+                  </h2>
+>>>>>>> 9c9d572 (Fist Commit)
+                  <p className="mt-2 max-w-md text-sm leading-6 text-slate-500">
+                    {isDriverCanceled
+                      ? "O motorista cancelou esta viagem. Os dados da corrida continuam disponíveis para consulta."
+                      : "Esta viagem foi cancelada. Os dados registrados continuam disponíveis para consulta."}
+                  </p>
+                </div>
+              </section>
+            )}
+
+<<<<<<< HEAD
+            {/* Motorista */}
+=======
+>>>>>>> 9c9d572 (Fist Commit)
+            <section className="rounded-[22px] border border-slate-200 bg-white p-5 shadow-sm sm:rounded-[26px] sm:p-6 md:p-7 lg:rounded-[30px]">
+              <div className="mb-5 flex items-center gap-3 sm:mb-6">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#eef3f7] text-[#073b70] sm:h-11 sm:w-11">
+                  <CarFront size={21} />
+                </div>
+<<<<<<< HEAD
+
+=======
+>>>>>>> 9c9d572 (Fist Commit)
+                <div className="min-w-0">
+                  <h2 className="text-lg font-bold tracking-tight text-[#073b70] sm:text-xl lg:text-2xl">
+                    Seu motorista
+                  </h2>
+<<<<<<< HEAD
+
+                  <p className="text-xs text-slate-500 sm:text-sm">
+=======
+                  <p className="mt-1 text-xs text-slate-500 sm:text-sm">
+>>>>>>> 9c9d572 (Fist Commit)
+                    Informações do condutor
+                  </p>
+                </div>
+              </div>
+
+              {!possuiMotorista ? (
+                <div className="rounded-2xl border border-amber-100 bg-amber-50 p-5">
+                  <div className="flex gap-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-600">
+                      <Clock3 size={20} />
+                    </div>
+<<<<<<< HEAD
+
+=======
+>>>>>>> 9c9d572 (Fist Commit)
+                    <div>
+                      <h3 className="text-sm font-bold text-amber-700">
+                        Motorista não informado
+                      </h3>
+<<<<<<< HEAD
+
+=======
+>>>>>>> 9c9d572 (Fist Commit)
+                      <p className="mt-1 text-xs leading-5 text-amber-600">
+                        {isTripCanceled
+                          ? "Não existem dados de motorista registrados para esta viagem."
+                          : "Os dados do motorista aparecerão aqui quando um motorista aceitar a corrida."}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-4">
+                  <div className="flex items-center gap-4 rounded-2xl border border-slate-100 bg-[#f8fafb] p-4 sm:p-5">
+                    <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-[#d9f8f3] to-[#eefbf9]">
+                      <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        className="h-10 w-10 text-[#008f80]"
+                      >
+                        <path
+                          d="M20 21a8 8 0 0 0-16 0"
+                          stroke="currentColor"
+                          strokeWidth="1.8"
+                          strokeLinecap="round"
+                        />
+<<<<<<< HEAD
+
+=======
+>>>>>>> 9c9d572 (Fist Commit)
+                        <circle
+                          cx="12"
+                          cy="7"
+                          r="4"
+                          stroke="currentColor"
+                          strokeWidth="1.8"
+                        />
+                      </svg>
+                    </div>
+<<<<<<< HEAD
+
+=======
+>>>>>>> 9c9d572 (Fist Commit)
+                    <div className="min-w-0">
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                        Motorista
+                      </p>
+<<<<<<< HEAD
+
+                      <h3 className="mt-1 break-words text-lg font-bold text-[#073b70] sm:text-xl">
+                        {nomeMotorista}
+                      </h3>
+
+=======
+                      <h3 className="mt-1 break-words text-lg font-bold text-[#073b70] sm:text-xl">
+                        {nomeMotorista}
+                      </h3>
+>>>>>>> 9c9d572 (Fist Commit)
+                      <span className="mt-2 inline-flex rounded-lg bg-[#e8f7f3] px-3 py-1 text-xs font-semibold text-[#008f80]">
+                        Motorista
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border border-slate-100 bg-[#f8fafb] p-4 sm:p-5">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                      Telefone
+                    </p>
+<<<<<<< HEAD
+
+=======
+>>>>>>> 9c9d572 (Fist Commit)
+                    <div className="mt-3 flex items-center gap-3">
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#e8f7f3] text-[#149c8b]">
+                        <Phone size={17} />
+                      </div>
+<<<<<<< HEAD
+
+                      <p className="break-words text-sm font-bold text-[#073b70] sm:text-base">
+                        {mascararTelefone(trip.driver?.phone)}
+=======
+                      <p className="break-words text-sm font-bold text-[#073b70] sm:text-base">
+                        {telefoneMotorista}
+>>>>>>> 9c9d572 (Fist Commit)
+                      </p>
+                    </div>
+                  </div>
+
+                  <div
+                    className={`rounded-2xl p-4 text-white sm:p-5 ${
+                      isTripCanceled
+                        ? "bg-gradient-to-br from-red-700 to-red-900"
+                        : "bg-gradient-to-br from-[#073b70] to-[#149c8b]"
+                    }`}
+                  >
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-white/70 sm:text-xs">
+                      Status do motorista
+                    </p>
+<<<<<<< HEAD
+
+=======
+>>>>>>> 9c9d572 (Fist Commit)
+                    <h3 className="mt-2 text-lg font-bold sm:text-xl">
+                      {isTripCanceled
+                        ? "Viagem cancelada"
+                        : "Vinculado à corrida"}
+                    </h3>
+<<<<<<< HEAD
+
+=======
+>>>>>>> 9c9d572 (Fist Commit)
+                    <p className="mt-2 text-sm leading-relaxed text-white/75">
+                      {isTripCanceled
+                        ? "O motorista estava vinculado a esta corrida, mas a viagem foi cancelada."
+                        : "Motorista vinculado à corrida e responsável pelo atendimento desta viagem."}
+                    </p>
+                  </div>
+                </div>
+              )}
+            </section>
+
+<<<<<<< HEAD
+            {/* Veículo */}
+=======
+>>>>>>> 9c9d572 (Fist Commit)
+            <section className="rounded-[22px] border border-slate-200 bg-white p-5 shadow-sm sm:rounded-[26px] sm:p-6 md:p-7 lg:rounded-[30px]">
+              <div className="mb-5 flex items-center gap-3 sm:mb-6">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#e8f7f3] text-[#149c8b] sm:h-11 sm:w-11">
+                  <CarFront size={21} />
+                </div>
+<<<<<<< HEAD
+
+=======
+>>>>>>> 9c9d572 (Fist Commit)
+                <div className="min-w-0">
+                  <h2 className="text-lg font-bold tracking-tight text-[#073b70] sm:text-xl lg:text-2xl">
+                    Veículo
+                  </h2>
+<<<<<<< HEAD
+
+=======
+>>>>>>> 9c9d572 (Fist Commit)
+                  <p className="mt-1 text-xs text-slate-500 sm:text-sm">
+                    Informações do veículo utilizado
+                  </p>
+                </div>
+              </div>
+
+              {imagemVeiculo && (
+                <div className="mb-4 overflow-hidden rounded-2xl border border-slate-100">
+<<<<<<< HEAD
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={`https://auth.maylon.com.br/storage/app/public/vehicle/model/${imagemVeiculo}`}
+                    alt={nomeVeiculo}
+                    className="h-40 w-full object-contain p-0"
+=======
+                  <img
+                    src={`https://auth.maylon.com.br/storage/app/public/vehicle/model/${imagemVeiculo}`}
+                    alt={nomeVeiculo || "Veículo"}
+                    className="h-40 w-full object-contain p-0 sm:h-40"
+>>>>>>> 9c9d572 (Fist Commit)
+                  />
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+<<<<<<< HEAD
+                {[
+                  { rotulo: "Modelo", valor: nomeVeiculo },
+                  { rotulo: "Placa", valor: placaVeiculo || NAO_INFORMADO },
+                  { rotulo: "Categoria", valor: categoria },
+                ].map((item) => (
+                  <div key={item.rotulo} className="rounded-2xl bg-[#f8fafb] p-4">
+                    <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">
+                      {item.rotulo}
+                    </p>
+
+                    <p className="mt-2 break-words text-xs font-bold text-[#073b70]">
+                      {item.valor}
+                    </p>
+                  </div>
+                ))}
+=======
+                <div className="rounded-2xl bg-[#f8fafb] p-4">
+                  <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">
+                    Modelo
+                  </p>
+                  <p className="mt-2 break-words text-xs font-bold text-[#073b70]">
+                    {nomeVeiculo}
+                  </p>
+                </div>
+                <div className="rounded-2xl bg-[#f8fafb] p-4">
+                  <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">
+                    Placa
+                  </p>
+                  <p className="mt-2 break-words text-xs font-bold text-[#073b70]">
+                    {placaVeiculo || "Não informado"}
+                  </p>
+                </div>
+                <div className="rounded-2xl bg-[#f8fafb] p-4">
+                  <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">
+                    Categoria
+                  </p>
+                  <p className="mt-2 break-words text-xs font-bold text-[#073b70]">
+                    {categoria}
+                  </p>
+                </div>
+>>>>>>> 9c9d572 (Fist Commit)
+              </div>
+            </section>
+
+            <Link
+              href="/passageiro/viagens"
+              className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 py-3.5 text-sm font-bold text-[#073b70] shadow-sm transition hover:border-[#149c8b] hover:text-[#149c8b]"
+            >
+              <ArrowLeft size={17} />
+              Voltar para todas as viagens
+            </Link>
+          </div>
+        </div>
+      </div>
+    </main>
+  );
 }

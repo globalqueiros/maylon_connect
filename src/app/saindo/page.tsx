@@ -8,21 +8,44 @@ export default function LogoutPage() {
   const router = useRouter();
 
   useEffect(() => {
-    localStorage.removeItem("token");
-    sessionStorage.clear();
-    document.cookie = "token=; path=/; max-age=0";
+    let cancelled = false;
 
-    const timer = setTimeout(() => {
-      router.replace("/?logout=success");
-    }, 1200);
+    async function logout() {
+      try {
+        const response = await fetch("/api/auth/logout", {
+          method: "POST",
+          credentials: "same-origin",
+          cache: "no-store",
+        });
 
-    return () => clearTimeout(timer);
+        if (!response.ok) {
+          throw new Error("Não foi possível encerrar a sessão.");
+        }
+      } catch (error) {
+        console.error("Erro ao sair:", error);
+      } finally {
+        localStorage.removeItem("token");
+        sessionStorage.clear();
+
+        if (!cancelled) {
+          router.replace("/?logout=success");
+        }
+      }
+    }
+
+    void logout();
+
+    return () => {
+      cancelled = true;
+    };
   }, [router]);
 
   return (
     <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#0F766E] px-4 sm:px-6 lg:px-8">
       <div className="pointer-events-none absolute -left-24 -top-24 h-72 w-72 rounded-full bg-[#14B8A6]/30 blur-3xl sm:h-96 sm:w-96" />
+
       <div className="pointer-events-none absolute -bottom-32 -right-24 h-80 w-80 rounded-full bg-[#0D9488]/40 blur-3xl sm:h-[28rem] sm:w-[28rem]" />
+
       <div className="pointer-events-none absolute left-1/2 top-1/2 h-96 w-96 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#2DD4BF]/10 blur-3xl" />
 
       <div className="relative z-10 flex w-full max-w-xs flex-col items-center sm:max-w-sm md:max-w-md 2xl:max-w-lg">
@@ -30,7 +53,7 @@ export default function LogoutPage() {
           <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-full bg-[#D8F7EB] p-3.5 shadow-sm sm:h-28 sm:w-28 sm:p-4 2xl:h-32 2xl:w-32 2xl:p-5">
             <Image
               src="/favicon.ico"
-              alt="Logo"
+              alt="Logo Maylon"
               width={90}
               height={90}
               priority
@@ -50,6 +73,7 @@ export default function LogoutPage() {
 
           <div className="mt-6 flex flex-col items-center sm:mt-7 2xl:mt-9">
             <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#D8F7EB] border-t-[#00A99D] sm:h-9 sm:w-9 2xl:h-11 2xl:w-11" />
+
             <span className="mt-3 text-xs font-semibold text-[#00A99D] sm:mt-4 2xl:text-sm">
               Saindo...
             </span>

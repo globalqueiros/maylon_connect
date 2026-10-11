@@ -261,7 +261,7 @@ export default function TransferirPage() {
         <header className="flex items-center justify-between pt-6 sm:pt-8">
           <div className="flex items-center gap-3">
             <Link
-              href="/passageiro/servicos"
+              href="/motorista/servicos"
               className="flex h-10 items-center gap-2 rounded-xl border border-[#08a89d]/30 bg-[#08a89d]/10 px-4 text-sm font-bold text-white transition"
             >
               <ArrowLeft size={18} />
@@ -304,7 +304,7 @@ export default function TransferirPage() {
             </div>
 
             <Link
-              href="/passageiro/servicos/deposito"
+              href="/motorista/servicos/deposito"
               className="text-[11px] font-bold text-[#08a89d]"
             >
               Adicionar saldo
