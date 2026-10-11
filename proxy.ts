@@ -1,8 +1,9 @@
+
 import { NextRequest, NextResponse } from "next/server";
 import { verificarTokenAcesso } from "./src/app/lib/tokenAcesso";
 
-// Valida o access_token aqui mesmo, sem chamar o /api/me
-// (a chamada ao próprio site falhava no servidor e dava 307 pro login).
+type TipoUsuario = "motorista" | "passageiro";
+
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
@@ -18,24 +19,62 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const token = request.cookies.get("access_token")?.value;
-  const { valido, tipo } = await verificarTokenAcesso(token);
+  const redirecionarInicio = () => {
+    const response = NextResponse.redirect(new URL("/", request.url));
 
-  if (!valido) {
-    return NextResponse.redirect(
-      new URL("/", request.url)
-    );
+    response.cookies.set("access_token", "", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: 0,
+    });
+
+    return response;
+  };
+
+  const token = request.cookies.get("access_token")?.value;
+
+  if (!token) {
+    return redirecionarInicio();
+  }
+
+  let tipo: TipoUsuario;
+
+  try {
+    const resultado = await verificarTokenAcesso(token);
+
+    if (!resultado?.valido) {
+      return redirecionarInicio();
+    }
+
+    if (
+      resultado.tipo !== "motorista" &&
+      resultado.tipo !== "passageiro"
+    ) {
+      return redirecionarInicio();
+    }
+
+    tipo = resultado.tipo;
+  } catch {
+    return redirecionarInicio();
   }
 
   if (motorista && tipo !== "motorista") {
     return NextResponse.redirect(
-      new URL(tipo === "passageiro" ? "/passageiro" : "/", request.url)
+      new URL(
+        tipo === "passageiro" ? "/passageiro" : "/",
+        request.url
+      )
     );
   }
 
   if (passageiro && tipo !== "passageiro") {
     return NextResponse.redirect(
-      new URL(tipo === "motorista" ? "/motorista" : "/", request.url)
+      new URL(
+        tipo === "motorista" ? "/motorista" : "/",
+        request.url
+      )
     );
   }
 
@@ -44,9 +83,7 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/motorista",
     "/motorista/:path*",
-    "/passageiro",
     "/passageiro/:path*",
   ],
 };
