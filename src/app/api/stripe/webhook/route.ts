@@ -45,7 +45,8 @@ export async function POST(req: Request) {
     switch (event.type) {
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session;
-        const usuario_id = Number(session.metadata?.usuario_id);
+        // Id do usuário é UUID: como texto (Number() dava NaN e o benefício pago nunca ativava).
+        const usuario_id = String(session.metadata?.usuario_id ?? "").trim();
         const beneficio_id = Number(session.metadata?.beneficio_id);
         const pedido = session.metadata?.pedido_codigo || null;
         const subscriptionId =

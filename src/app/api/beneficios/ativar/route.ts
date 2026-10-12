@@ -106,7 +106,8 @@ export async function POST(request: Request) {
         SELECT
           id,
           titulo,
-          status
+          status,
+          valor
         FROM beneficios
         WHERE id = ?
         LIMIT 1
@@ -122,6 +123,18 @@ export async function POST(request: Request) {
     }
 
     const beneficio = beneficios[0];
+
+    // Ativação direta só para benefício gratuito. Benefício pago só ativa
+    // pelo pagamento (Stripe ou Pix BTG); antes esta rota ativava qualquer um.
+    if (Number(beneficio.valor ?? 0) > 0) {
+      return NextResponse.json(
+        {
+          error:
+            "Este benefício exige pagamento. Use Cartão (Stripe) ou Pix (BTG).",
+        },
+        { status: 400 }
+      );
+    }
 
     const [existente]: any = await db.query(
       `

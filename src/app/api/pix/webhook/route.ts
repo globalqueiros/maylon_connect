@@ -1,7 +1,21 @@
 import { NextResponse } from "next/server";
 import { db } from "../../../lib/db";
+import { getPixInstantCharge } from "../../../lib/btg";
+import { webhookBtgAutorizado } from "../../../lib/webhookBtg";
 
 export const dynamic = "force-dynamic";
+
+/** Consulta a cobrança no BTG (mesma regra do /api/btg/pix/status). */
+async function cobrancaPagaNoBtg(txId: string): Promise<boolean> {
+  try {
+    const charge: any = await getPixInstantCharge(txId);
+    const remoto = String(charge?.status || "").toUpperCase();
+    return ["PAID", "CONCLUIDA", "COMPLETED"].includes(remoto);
+  } catch (error) {
+    console.warn("[pix webhook] falha ao consultar cobrança no BTG:", error);
+    return false;
+  }
+}
 
 /**
  * Webhook BTG Pactual.
@@ -12,6 +26,11 @@ export const dynamic = "force-dynamic";
  */
 export async function POST(req: Request) {
   try {
+    // Antes não havia autenticação nenhuma: qualquer POST "pago" ativava assinatura.
+    if (!webhookBtgAutorizado(req)) {
+      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+    }
+
     const payload = await req.json();
     const eventType =
       payload?.event ||
@@ -93,7 +112,15 @@ export async function POST(req: Request) {
       String(eventType).includes("instant-collection") ||
       status === "PAID"
     ) {
-      if (status === "PAID" || String(eventType).includes(".paid")) {
+      // Além do segredo, confirma no próprio BTG que a cobrança foi paga.
+      const pagoNoBtg =
+        (status === "PAID" || String(eventType).includes(".paid")) &&
+        !!txId &&
+        (await cobrancaPagaNoBtg(String(txId)));
+
+      if (!pagoNoBtg) {
+        console.warn("[pix webhook] pagamento não confirmado no BTG; nada ativado.", txId);
+      } else {
         if (assinaturaIdFromTag) {
           await db.execute(
             `

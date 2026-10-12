@@ -20,7 +20,8 @@ export async function GET(req: Request) {
       expand: ["subscription", "customer", "payment_intent"],
     });
 
-    const usuarioId = Number(session.metadata?.usuario_id || 0);
+    // Id do usuário é UUID: como texto (Number() dava NaN e o benefício pago nunca ativava).
+    const usuarioId = String(session.metadata?.usuario_id ?? "").trim();
     const beneficioId = Number(session.metadata?.beneficio_id || 0);
     const pedido =
       session.metadata?.pedido_codigo ||

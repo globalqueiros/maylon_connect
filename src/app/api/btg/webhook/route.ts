@@ -7,11 +7,17 @@ import {
 } from "../../../lib/assinaturaDb";
 import { createPixInstantCharge } from "../../../lib/btg";
 import { db } from "../../../lib/db";
+import { webhookBtgAutorizado } from "../../../lib/webhookBtg";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(req: Request) {
   try {
+    // Sem o segredo certo não processa nada (antes, sem cabeçalho, passava).
+    if (!webhookBtgAutorizado(req)) {
+      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+    }
+
     const payload = await req.json();
     const eventType =
       payload?.eventType ||
@@ -22,16 +28,6 @@ export async function POST(req: Request) {
 
     const data = payload?.data || payload;
     console.log("BTG webhook:", eventType, JSON.stringify(data)?.slice(0, 500));
-
-    // Optional HMAC/secret check if BTG sends signature header later
-    const secret = process.env.BTG_WEBHOOK_SECRET || process.env.BTG_SECRET;
-    const provided =
-      req.headers.get("x-webhook-secret") ||
-      req.headers.get("x-btg-secret") ||
-      "";
-    if (secret && provided && provided !== secret) {
-      return NextResponse.json({ error: "Secret inválido" }, { status: 401 });
-    }
 
     const normalized = String(eventType).toLowerCase();
 
