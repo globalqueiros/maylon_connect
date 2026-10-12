@@ -1,57 +1,23 @@
-import { cookies } from "next/headers";
-import { jwtVerify, type JWTPayload } from "jose";
+import { sessaoDaRequisicao } from "./sessaoServidor";
 
-const AUTH_COOKIE = "auth_token";
-
-type AuthPayload = JWTPayload & {
-  id?: number | string;
-  usuario_id?: number | string;
-};
-
-export async function getUsuarioLogado(): Promise<{
-  id: number;
-  usuario_id: number;
+/**
+ * Usuário logado pelo validador central de sessão (cookie access_token do
+ * login ou Bearer). Antes lia um cookie "auth_token" que o login nunca grava
+ * e convertia o id (UUID) em número, então estas rotas nunca reconheciam
+ * ninguém. Sessão revogada/encerrada não passa.
+ */
+export async function getUsuarioLogado(req?: Request): Promise<{
+  id: string;
+  usuario_id: string;
+  /** user_type do login (customer/driver...). */
+  tipo: string;
 } | null> {
-  try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get(AUTH_COOKIE)?.value;
+  const sessao = await sessaoDaRequisicao(req);
+  if (!sessao.ok) return null;
 
-    if (!token) {
-      return null;
-    }
-
-    const secret = process.env.JWT_SECRET;
-
-    if (!secret) {
-      console.error("JWT_SECRET não configurado.");
-      return null;
-    }
-
-    const encodedSecret = new TextEncoder().encode(secret);
-
-    const { payload } = await jwtVerify<AuthPayload>(
-      token,
-      encodedSecret
-    );
-
-    const rawId = payload.usuario_id ?? payload.id;
-
-    if (rawId === undefined || rawId === null) {
-      return null;
-    }
-
-    const id = Number(rawId);
-
-    if (!Number.isInteger(id) || id <= 0) {
-      return null;
-    }
-
-    return {
-      id,
-      usuario_id: id,
-    };
-  } catch (error) {
-    console.error("Erro ao validar auth_token:", error);
-    return null;
-  }
+  return {
+    id: sessao.userId,
+    usuario_id: sessao.userId,
+    tipo: sessao.userType,
+  };
 }

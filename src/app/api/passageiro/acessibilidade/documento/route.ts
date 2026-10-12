@@ -8,18 +8,12 @@ export const runtime = "nodejs";
 
 type AcessibilidadeRow = RowDataPacket & {
   id: number;
-  usuario_id: number;
-};
-
-type UsuarioLogado = {
-  id: number;
-  usuario_id?: number;
-  tipo?: string;
+  usuario_id: string;
 };
 
 export async function POST(request: Request) {
   try {
-    const usuario = (await getUsuarioLogado()) as UsuarioLogado | null;
+    const usuario = await getUsuarioLogado(request);
 
     if (!usuario?.id) {
       return NextResponse.json(
@@ -31,9 +25,10 @@ export async function POST(request: Request) {
       );
     }
 
-    const usuarioId = Number(usuario.id);
+    // Id é UUID (texto); antes virava número e dava sempre "inválido".
+    const usuarioId = String(usuario.id).trim();
 
-    if (!Number.isInteger(usuarioId) || usuarioId <= 0) {
+    if (!usuarioId) {
       return NextResponse.json(
         {
           success: false,

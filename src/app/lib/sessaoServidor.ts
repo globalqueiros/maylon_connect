@@ -29,6 +29,7 @@ export type ResultadoSessao = SessaoValida | SessaoInvalida;
 
 const CACHE_MS = 15_000;
 const cache = new Map<string, { ate: number; resultado: ResultadoSessao }>();
+const emAndamento = new Map<string, Promise<ResultadoSessao>>();
 
 function limparSecret(value?: string) {
   if (!value) return "";
@@ -154,14 +155,17 @@ export function infoDispositivo(userAgent: string | null) {
  */
 export function ipDaRequisicao(req?: Request | null): string | null {
   if (!req) return null;
-  const cf = req.headers.get("cf-connecting-ip")?.trim();
-  if (cf) return cf;
-  const forwarded = req.headers.get("x-forwarded-for");
-  if (forwarded) {
-    const primeiro = forwarded.split(",")[0].trim();
-    if (primeiro) return primeiro;
+  const candidatos = [
+    req.headers.get("cf-connecting-ip"),
+    req.headers.get("x-forwarded-for")?.split(",")[0],
+    req.headers.get("x-real-ip"),
+  ];
+  for (const c of candidatos) {
+    const ip = c?.trim();
+    // ip_address é varchar(45): só aceita algo com cara de IPv4/IPv6 que caiba.
+    if (ip && ip.length <= 45 && /^[0-9a-f:.]+$/i.test(ip)) return ip;
   }
-  return req.headers.get("x-real-ip")?.trim() || null;
+  return null;
 }
 
 /** Cria a linha da sessão. Usado no login (senha e link mágico). */
@@ -195,7 +199,6 @@ export async function criarSessao(params: {
 }
 
 type LinhaSessao = {
-  id: number;
   session_uuid: string;
   user_id: string;
   status: string;
@@ -218,8 +221,8 @@ async function tocarAtividade(row: LinhaSessao, req?: Request | null) {
       `UPDATE user_sessions
           SET last_activity_at = NOW(),
               ip_address = COALESCE(?, ip_address)
-        WHERE id = ?`,
-      [ipDaRequisicao(req), row.id]
+        WHERE session_uuid = ?`,
+      [ipDaRequisicao(req), row.session_uuid]
     )
     .catch(() => {});
 }
@@ -236,10 +239,20 @@ export async function validarSessao(
   const emCache = cache.get(token);
   if (emCache && emCache.ate > Date.now()) return emCache.resultado;
 
-  const resultado = await validarSemCache(token, req);
-  if (cache.size > 5000) cache.clear();
-  cache.set(token, { ate: Date.now() + CACHE_MS, resultado });
-  return resultado;
+  // Requisições simultâneas com o mesmo token esperam a mesma validação:
+  // assim um token antigo nunca ganha duas linhas (token_hash duplicado).
+  const pendente = emAndamento.get(token);
+  if (pendente) return pendente;
+
+  const promessa = validarSemCache(token, req)
+    .then((resultado) => {
+      if (cache.size > 5000) cache.clear();
+      cache.set(token, { ate: Date.now() + CACHE_MS, resultado });
+      return resultado;
+    })
+    .finally(() => emAndamento.delete(token));
+  emAndamento.set(token, promessa);
+  return promessa;
 }
 
 async function validarSemCache(token: string, req?: Request | null): Promise<ResultadoSessao> {
@@ -265,7 +278,7 @@ async function validarSemCache(token: string, req?: Request | null): Promise<Res
 
     if (sid) {
       const [rows]: any = await db.execute(
-        `SELECT id, session_uuid, user_id, status, expires_at, last_activity_at
+        `SELECT session_uuid, user_id, status, expires_at, last_activity_at
            FROM user_sessions WHERE session_uuid = ? LIMIT 1`,
         [sid]
       );
@@ -279,19 +292,22 @@ async function validarSemCache(token: string, req?: Request | null): Promise<Res
 
     // Token antigo, sem sid: procura (ou cria) a sessão pelo hash do token.
     const tokenHash = hashToken(token);
-    const [rows]: any = await db.execute(
-      `SELECT id, session_uuid, user_id, status, expires_at, last_activity_at
-         FROM user_sessions WHERE token_hash = ? LIMIT 1`,
-      [tokenHash]
-    );
-    const row: LinhaSessao | undefined = rows?.[0];
-    if (row) {
+    const buscarPeloHash = async (): Promise<ResultadoSessao | null> => {
+      const [rows]: any = await db.execute(
+        `SELECT session_uuid, user_id, status, expires_at, last_activity_at
+           FROM user_sessions WHERE token_hash = ? LIMIT 1`,
+        [tokenHash]
+      );
+      const row: LinhaSessao | undefined = rows?.[0];
+      if (!row) return null;
       if (String(row.user_id) !== userId || !ativa(row)) {
         return { ok: false, motivo: "sessao_encerrada" };
       }
       await tocarAtividade(row, req);
       return { ok: true, userId, userType, sessionUuid: row.session_uuid, payload };
-    }
+    };
+    const existente = await buscarPeloHash();
+    if (existente) return existente;
 
     const expiresAt =
       typeof payload.exp === "number"
@@ -300,24 +316,33 @@ async function validarSemCache(token: string, req?: Request | null): Promise<Res
     const sessionUuid = novoSessionUuid();
     const userAgent = req?.headers.get("user-agent") || null;
     const info = infoDispositivo(userAgent);
-    await db.execute(
-      `INSERT INTO user_sessions (
-         session_uuid, user_id, token_hash, ip_address, user_agent,
-         device_name, browser_name, operating_system,
-         status, created_at, last_activity_at, expires_at
-       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active', NOW(), NOW(), ?)`,
-      [
-        sessionUuid,
-        userId,
-        tokenHash,
-        ipDaRequisicao(req),
-        userAgent,
-        info.device_name,
-        info.browser_name,
-        info.operating_system,
-        expiresAt,
-      ]
-    );
+    try {
+      await db.execute(
+        `INSERT INTO user_sessions (
+           session_uuid, user_id, token_hash, ip_address, user_agent,
+           device_name, browser_name, operating_system,
+           status, created_at, last_activity_at, expires_at
+         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active', NOW(), NOW(), ?)`,
+        [
+          sessionUuid,
+          userId,
+          tokenHash,
+          ipDaRequisicao(req),
+          userAgent,
+          info.device_name,
+          info.browser_name,
+          info.operating_system,
+          expiresAt,
+        ]
+      );
+    } catch (error: any) {
+      // Outra requisição criou a linha deste token ao mesmo tempo: usa a dela.
+      if (error?.code === "ER_DUP_ENTRY") {
+        const outra = await buscarPeloHash();
+        if (outra) return outra;
+      }
+      throw error;
+    }
     return { ok: true, userId, userType, sessionUuid, payload };
   } catch (error) {
     console.error("[sessao] erro ao validar sessão:", error);
@@ -359,7 +384,9 @@ export async function encerrarSessao(
       WHERE session_uuid = ?
         ${userId ? "AND user_id = ?" : ""}
         AND status = 'active'`,
-    userId ? [status, motivo, sessionUuid, userId] : [status, motivo, sessionUuid]
+    userId
+      ? [status, motivo.slice(0, 100), sessionUuid, userId]
+      : [status, motivo.slice(0, 100), sessionUuid]
   );
   limparCache();
   return Number(result?.affectedRows || 0);
@@ -376,7 +403,7 @@ export async function revogarSessoesDoUsuario(
         SET status = 'revoked', ended_at = NOW(), end_reason = ?
       WHERE user_id = ? AND status = 'active'
         ${exceto ? "AND session_uuid <> ?" : ""}`,
-    exceto ? [motivo, userId, exceto] : [motivo, userId]
+    exceto ? [motivo.slice(0, 100), userId, exceto] : [motivo.slice(0, 100), userId]
   );
   limparCache();
   return Number(result?.affectedRows || 0);
