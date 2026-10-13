@@ -28,6 +28,16 @@ function LoginPage() {
     }
   }, [searchParams]);
 
+  // Sessão encerrada em outro aparelho (ver SessaoEncerradaWatcher).
+  const [sessaoEncerrada, setSessaoEncerrada] = useState(false);
+  useEffect(() => {
+    if (searchParams.get("sessao") === "encerrada") {
+      setSessaoEncerrada(true);
+      const timer = setTimeout(() => setSessaoEncerrada(false), 6000);
+      return () => clearTimeout(timer);
+    }
+  }, [searchParams]);
+
   const handleLogin = async (e: any) => {
     e.preventDefault();
     setLoading(true);
@@ -150,6 +160,16 @@ function LoginPage() {
               </svg>
               <span className="text-xs sm:text-sm tracking-5 font-semibold">
                 Deslogado com sucesso!
+              </span>
+            </div>
+          </div>
+        )}
+
+        {sessaoEncerrada && (
+          <div className="fixed top-3 right-3 sm:top-4 sm:right-4 z-[99999] pointer-events-none">
+            <div className="flex items-center gap-2 sm:gap-3 bg-amber-500 text-white px-4 py-2.5 sm:px-5 sm:py-3 rounded-xl shadow-2xl animate-slideIn pointer-events-auto">
+              <span className="text-xs sm:text-sm tracking-5 font-semibold">
+                Sua sessão foi encerrada. Entre novamente.
               </span>
             </div>
           </div>

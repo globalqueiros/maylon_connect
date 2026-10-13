@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import LayoutContainer from "./dashboard-layout";
 import { verificarTokenAcesso } from "../lib/tokenAcesso";
+import SessaoEncerradaWatcher from "../components/SessaoEncerradaWatcher";
 
 // Lê o token direto, sem chamar o /api/me pelo NEXT_PUBLIC_APP_URL.
 async function verificarPassageiro() {
@@ -29,6 +30,7 @@ export default async function PassageiroLayout({
 
   return (
     <div className="dashboard-layout">
+      <SessaoEncerradaWatcher />
       <LayoutContainer>
         {children}
         <p className="text-xs text-slate-500">
