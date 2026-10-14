@@ -24,8 +24,40 @@ export type SessaoValida = {
   sessionUuid: string;
   payload: JWTPayload & Record<string, unknown>;
 };
-export type SessaoInvalida = { ok: false; motivo: string };
+/**
+ * indisponivel = o banco falhou (não deu para conferir). Isso NÃO é sessão
+ * encerrada: quem recebe deve responder 503, nunca deslogar a pessoa.
+ */
+export type SessaoInvalida = { ok: false; motivo: string; indisponivel?: true };
 export type ResultadoSessao = SessaoValida | SessaoInvalida;
+
+const CONEXAO_CAIDA = new Set(["ECONNRESET", "PROTOCOL_CONNECTION_LOST", "EPIPE"]);
+
+/** Erro de conexão derrubada (MySQL remoto/firewall fechou a conexão ociosa). */
+export function conexaoCaiu(error: unknown): boolean {
+  return CONEXAO_CAIDA.has(String((error as { code?: string })?.code || ""));
+}
+
+// Igual ao connectionLimit do pool: depois de tantas falhas não sobra conexão
+// velha parada, e a próxima tentativa já usa uma conexão nova.
+const MAX_NOVAS_TENTATIVAS = 10;
+
+/**
+ * Roda a consulta e, se a conexão tiver caído, tenta de novo. Depois de um
+ * tempo parado, várias conexões ociosas do pool podem ter caído juntas; cada
+ * uma falha na hora e o pool a descarta, então tenta até chegar numa viva.
+ * Qualquer outro erro sobe direto, sem nova tentativa.
+ */
+export async function comNovaTentativa<T>(consulta: () => Promise<T>): Promise<T> {
+  for (let tentativa = 0; ; tentativa++) {
+    try {
+      return await consulta();
+    } catch (error) {
+      if (!conexaoCaiu(error) || tentativa >= MAX_NOVAS_TENTATIVAS) throw error;
+      console.warn("[db] conexão caiu, tentando de novo:", (error as { code?: string })?.code);
+    }
+  }
+}
 
 const CACHE_MS = 15_000;
 const cache = new Map<string, { ate: number; resultado: ResultadoSessao }>();
@@ -246,6 +278,8 @@ export async function validarSessao(
 
   const promessa = validarSemCache(token, req)
     .then((resultado) => {
+      // Falha de banco não entra no cache: a próxima requisição confere de novo.
+      if (!resultado.ok && resultado.indisponivel) return resultado;
       if (cache.size > 5000) cache.clear();
       cache.set(token, { ate: Date.now() + CACHE_MS, resultado });
       return resultado;
@@ -277,10 +311,12 @@ async function validarSemCache(token: string, req?: Request | null): Promise<Res
     const sid = typeof payload.sid === "string" ? payload.sid : null;
 
     if (sid) {
-      const [rows]: any = await db.execute(
-        `SELECT session_uuid, user_id, status, expires_at, last_activity_at
-           FROM user_sessions WHERE session_uuid = ? LIMIT 1`,
-        [sid]
+      const [rows]: any = await comNovaTentativa(() =>
+        db.execute(
+          `SELECT session_uuid, user_id, status, expires_at, last_activity_at
+             FROM user_sessions WHERE session_uuid = ? LIMIT 1`,
+          [sid]
+        )
       );
       const row: LinhaSessao | undefined = rows?.[0];
       if (!row || String(row.user_id) !== userId || !ativa(row)) {
@@ -293,10 +329,12 @@ async function validarSemCache(token: string, req?: Request | null): Promise<Res
     // Token antigo, sem sid: procura (ou cria) a sessão pelo hash do token.
     const tokenHash = hashToken(token);
     const buscarPeloHash = async (): Promise<ResultadoSessao | null> => {
-      const [rows]: any = await db.execute(
-        `SELECT session_uuid, user_id, status, expires_at, last_activity_at
-           FROM user_sessions WHERE token_hash = ? LIMIT 1`,
-        [tokenHash]
+      const [rows]: any = await comNovaTentativa(() =>
+        db.execute(
+          `SELECT session_uuid, user_id, status, expires_at, last_activity_at
+             FROM user_sessions WHERE token_hash = ? LIMIT 1`,
+          [tokenHash]
+        )
       );
       const row: LinhaSessao | undefined = rows?.[0];
       if (!row) return null;
@@ -317,23 +355,27 @@ async function validarSemCache(token: string, req?: Request | null): Promise<Res
     const userAgent = req?.headers.get("user-agent") || null;
     const info = infoDispositivo(userAgent);
     try {
-      await db.execute(
-        `INSERT INTO user_sessions (
-           session_uuid, user_id, token_hash, ip_address, user_agent,
-           device_name, browser_name, operating_system,
-           status, created_at, last_activity_at, expires_at
-         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active', NOW(), NOW(), ?)`,
-        [
-          sessionUuid,
-          userId,
-          tokenHash,
-          ipDaRequisicao(req),
-          userAgent,
-          info.device_name,
-          info.browser_name,
-          info.operating_system,
-          expiresAt,
-        ]
+      // Se a 1ª tentativa gravou e só a resposta se perdeu, a 2ª dá ER_DUP_ENTRY,
+      // tratado logo abaixo.
+      await comNovaTentativa(() =>
+        db.execute(
+          `INSERT INTO user_sessions (
+             session_uuid, user_id, token_hash, ip_address, user_agent,
+             device_name, browser_name, operating_system,
+             status, created_at, last_activity_at, expires_at
+           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active', NOW(), NOW(), ?)`,
+          [
+            sessionUuid,
+            userId,
+            tokenHash,
+            ipDaRequisicao(req),
+            userAgent,
+            info.device_name,
+            info.browser_name,
+            info.operating_system,
+            expiresAt,
+          ]
+        )
       );
     } catch (error: any) {
       // Outra requisição criou a linha deste token ao mesmo tempo: usa a dela.
@@ -346,7 +388,7 @@ async function validarSemCache(token: string, req?: Request | null): Promise<Res
     return { ok: true, userId, userType, sessionUuid, payload };
   } catch (error) {
     console.error("[sessao] erro ao validar sessão:", error);
-    return { ok: false, motivo: "erro_banco" };
+    return { ok: false, motivo: "erro_banco", indisponivel: true };
   }
 }
 

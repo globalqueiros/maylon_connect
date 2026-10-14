@@ -23,9 +23,10 @@ export function tipoDoUsuario(value: unknown): TipoUsuario {
 export async function verificarTokenAcesso(
   token: string | undefined | null,
   req?: Request
-): Promise<{ valido: boolean; tipo: TipoUsuario }> {
+): Promise<{ valido: boolean; tipo: TipoUsuario; indisponivel?: boolean }> {
   const sessao = await validarSessao(token, req);
-  if (!sessao.ok) return { valido: false, tipo: null };
+  // indisponivel: o banco falhou; não é sessão encerrada (não deslogar).
+  if (!sessao.ok) return { valido: false, tipo: null, indisponivel: !!sessao.indisponivel };
   return {
     valido: true,
     tipo: tipoDoUsuario(sessao.payload.user_type ?? sessao.payload.tipo),

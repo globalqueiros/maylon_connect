@@ -10,7 +10,12 @@ async function verificarPassageiro() {
   const cookieStore = await cookies();
   const token = cookieStore.get("access_token")?.value;
 
-  const { valido, tipo } = await verificarTokenAcesso(token);
+  const { valido, tipo, indisponivel } = await verificarTokenAcesso(token);
+
+  // Banco fora do ar: mostra erro (503) em vez de mandar para o login.
+  if (indisponivel) {
+    throw new Error("Serviço temporariamente indisponível.");
+  }
 
   if (!valido) {
     redirect("/");

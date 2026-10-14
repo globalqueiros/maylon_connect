@@ -11,6 +11,7 @@ import {
 } from "../../lib/didit";
 import { obterConsulta } from "../../lib/lawsuitDb";
 import {
+  comNovaTentativa,
   estenderSessao,
   fimDaSessao,
   SESSAO_SEGUNDOS,
@@ -137,6 +138,10 @@ export async function GET(req: Request) {
     // Sessão encerrada/revogada não passa, mesmo com o token ainda assinado.
     const sessao = await validarSessao(token, req);
     if (!sessao.ok) {
+      // Banco fora do ar não é sessão encerrada: 503 (a tela não desloga).
+      if (sessao.indisponivel) {
+        return jsonError("Serviço temporariamente indisponível. Tente novamente.", 503);
+      }
       return jsonError("Sessão encerrada. Faça login novamente.", 401);
     }
 
@@ -173,25 +178,27 @@ export async function GET(req: Request) {
 
     try {
       if (userId) {
-        const [result] = await db.query(
-          `
-            SELECT
-              id,
-              full_name,
-              phone,
-              email,
-              user_type,
-              profile_image,
-              identification_number,
-              identification_type,
-              phone_verified_at,
-              email_verified_at,
-              created_at
-            FROM users
-            WHERE id = ?
-            LIMIT 1
-          `,
-          [userId]
+        const [result] = await comNovaTentativa(() =>
+          db.query(
+            `
+              SELECT
+                id,
+                full_name,
+                phone,
+                email,
+                user_type,
+                profile_image,
+                identification_number,
+                identification_type,
+                phone_verified_at,
+                email_verified_at,
+                created_at
+              FROM users
+              WHERE id = ?
+              LIMIT 1
+            `,
+            [userId]
+          )
         );
 
         if (Array.isArray(result)) {
@@ -200,25 +207,27 @@ export async function GET(req: Request) {
       }
 
       if (!rows.length && email) {
-        const [result] = await db.query(
-          `
-            SELECT
-              id,
-              full_name,
-              phone,
-              email,
-              user_type,
-              profile_image,
-              identification_number,
-              identification_type,
-              phone_verified_at,
-              email_verified_at,
-              created_at
-            FROM users
-            WHERE LOWER(email) = LOWER(?)
-            LIMIT 1
-          `,
-          [email]
+        const [result] = await comNovaTentativa(() =>
+          db.query(
+            `
+              SELECT
+                id,
+                full_name,
+                phone,
+                email,
+                user_type,
+                profile_image,
+                identification_number,
+                identification_type,
+                phone_verified_at,
+                email_verified_at,
+                created_at
+              FROM users
+              WHERE LOWER(email) = LOWER(?)
+              LIMIT 1
+            `,
+            [email]
+          )
         );
 
         if (Array.isArray(result)) {
@@ -243,8 +252,9 @@ export async function GET(req: Request) {
         return jsonError("Não foi possível conectar ao banco de dados.", 500);
       }
 
-      if (code === "ECONNRESET") {
-        return jsonError("A conexão com o banco de dados foi encerrada.", 500);
+      if (code === "ECONNRESET" || code === "PROTOCOL_CONNECTION_LOST") {
+        // Já tentou de novo e caiu outra vez: indisponível, não deslogado.
+        return jsonError("A conexão com o banco de dados foi encerrada.", 503);
       }
 
       return jsonError("Erro ao consultar o usuário no banco de dados.", 500);

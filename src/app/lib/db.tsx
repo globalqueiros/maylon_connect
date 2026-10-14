@@ -42,6 +42,10 @@ export const db = mysql.createPool({
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
+  // Mantém as conexões paradas vivas: o MySQL remoto/firewall derrubava
+  // conexões ociosas e a próxima consulta dava ECONNRESET.
+  enableKeepAlive: true,
+  keepAliveInitialDelay: 10_000,
 });
 
 export const db2 = mysql.createPool({
@@ -52,6 +56,8 @@ export const db2 = mysql.createPool({
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
+  enableKeepAlive: true,
+  keepAliveInitialDelay: 10_000,
 });
 
 void logDbConnection("db", db, envStr("DB_HOST"), envStr("DB_NAME"));
