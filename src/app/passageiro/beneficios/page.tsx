@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import {
   AlertTriangle,
@@ -12,8 +12,27 @@ import {
   Zap,
   ChevronRight,
   X,
+  ShieldCheck,
+  Star,
+  Crown,
 } from "lucide-react";
 import CardCheckoutModal from "../../components/CardCheckoutModal";
+
+type PlanoTipo = "basico" | "plus" | "premium";
+
+type Plano = {
+  id: PlanoTipo;
+  nome: string;
+  descricao: string;
+  preco: string; // preço padrão do plano, usado quando o benefício não tem preço próprio
+  icon: typeof Gift;
+};
+
+type Usuario = {
+  id: string;
+  tipo: string;
+  user_type?: string;
+};
 
 type Beneficio = {
   id: number;
@@ -21,109 +40,227 @@ type Beneficio = {
   imagem: string;
   titulo: string;
   descricao: string;
-  valor: string;
+  valor: string | number;
+  valorPlus?: string | number | null;
+  valorPremium?: string | number | null;
+  valor_plus?: string | number | null;
+  valor_premium?: string | number | null;
   status: boolean;
-  status_assinatura?:
-  | "aprovado"
-  | "pendente"
-  | "cancelado"
-  | "expirado"
-  | "erro"
-  | "autorizado";
+  status_assinatura?: string;
 };
 
-type Usuario = {
-  id: number;
-  tipo: string;
-  user_type?: string;
+type Alerta = {
+  tipo: "success" | "error" | "warning";
+  mensagem: string;
 };
 
-type PixEtapa = "autorizacao" | "pagamento" | "pago";
+const PLANOS: Plano[] = [
+  {
+    id: "basico",
+    nome: "Básico",
+    descricao: "Seu plano essencial",
+    preco: "29,90",
+    icon: Gift,
+  },
+  {
+    id: "plus",
+    nome: "Plus",
+    descricao: "Mais vantagens para você",
+    preco: "59,90",
+    icon: Star,
+  },
+  {
+    id: "premium",
+    nome: "Premium",
+    descricao: "Experiência completa",
+    preco: "89,90",
+    icon: Crown,
+  },
+];
 
-function dedupeBeneficios(lista: Beneficio[]): Beneficio[] {
-  const map = new Map<number, Beneficio>();
+function normalizarValor(valor: string | number | null | undefined): number | null {
+  if (valor === null || valor === undefined || String(valor).trim() === "") {
+    return null;
+  }
+
+  if (typeof valor === "number") {
+    return Number.isFinite(valor) && valor >= 0 ? valor : null;
+  }
+
+  let texto = valor.trim().replace(/\s/g, "").replace(/^R\$/i, "");
+
+  if (texto.includes(",")) {
+    texto = texto.replace(/\./g, "").replace(",", ".");
+  }
+
+  const numero = Number(texto);
+
+  return Number.isFinite(numero) && numero >= 0 ? numero : null;
+}
+
+function formatValor(valor: string | number | null | undefined): string {
+  const numero = normalizarValor(valor);
+
+  if (numero === null) return "Preço não cadastrado";
+
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  }).format(numero);
+}
+
+/**
+ * Se o benefício tem preço próprio para o plano, usa ele.
+ * Se não tiver, usa o preço padrão do plano (PLANOS[].preco).
+ */
+function getValorPlano(
+  beneficio: Beneficio,
+  plano: PlanoTipo
+): number | null {
+  const padrao = normalizarValor(PLANOS.find((p) => p.id === plano)?.preco);
+
+  switch (plano) {
+    case "basico":
+      return normalizarValor(beneficio.valor) ?? padrao;
+
+    case "plus":
+      return (
+        normalizarValor(beneficio.valor_plus ?? beneficio.valorPlus) ?? padrao
+      );
+
+    case "premium":
+      return (
+        normalizarValor(beneficio.valor_premium ?? beneficio.valorPremium) ??
+        padrao
+      );
+
+    default:
+      return null;
+  }
+}
+
+function getImagem(imagem?: string): string {
+  if (!imagem) return "/bg-login.png";
+  if (/^https?:\/\//i.test(imagem)) return imagem;
+  return imagem.startsWith("/") ? imagem : `/${imagem}`;
+}
+
+function extrairUsuario(data: unknown): Record<string, unknown> | null {
+  if (!data || typeof data !== "object") return null;
+
+  const resposta = data as Record<string, unknown>;
+  const candidatos = [
+    resposta.user,
+    resposta.usuario,
+    resposta.data,
+    resposta,
+  ];
+
+  for (const candidato of candidatos) {
+    if (!candidato || typeof candidato !== "object") continue;
+
+    const objeto = candidato as Record<string, unknown>;
+
+    if (
+      objeto.id !== undefined ||
+      objeto.usuario_id !== undefined ||
+      objeto.user_id !== undefined
+    ) {
+      return objeto;
+    }
+
+    const interno = objeto.user ?? objeto.usuario;
+
+    if (interno && typeof interno === "object") {
+      const u = interno as Record<string, unknown>;
+
+      if (
+        u.id !== undefined ||
+        u.usuario_id !== undefined ||
+        u.user_id !== undefined
+      ) {
+        return u;
+      }
+    }
+  }
+
+  return null;
+}
+
+function extrairBeneficios(data: unknown): Beneficio[] {
+  const resposta = data as {
+    beneficios?: Beneficio[];
+    data?: Beneficio[] | { beneficios?: Beneficio[] };
+  } | null;
+
+  let lista: Beneficio[] = [];
+
+  if (Array.isArray(data)) {
+    lista = data as Beneficio[];
+  } else if (Array.isArray(resposta?.beneficios)) {
+    lista = resposta.beneficios;
+  } else if (Array.isArray(resposta?.data)) {
+    lista = resposta.data;
+  } else if (
+    resposta?.data &&
+    !Array.isArray(resposta.data) &&
+    Array.isArray(resposta.data.beneficios)
+  ) {
+    lista = resposta.data.beneficios;
+  }
+
+  const unicos = new Map<number, Beneficio>();
 
   for (const item of lista) {
     const id = Number(item.id);
 
     if (!Number.isFinite(id)) continue;
 
-    const next = {
-      ...item,
-      id,
-    };
-
-    const prev = map.get(id);
-
-    if (!prev) {
-      map.set(id, next);
+    if (
+      item.tipo &&
+      ![
+        "passageiro",
+        "customer",
+        "ambos",
+        "assinatura",
+      ].includes(String(item.tipo).toLowerCase())
+    ) {
       continue;
     }
 
-    if (!next.status && prev.status) {
-      map.set(id, next);
-    }
+    unicos.set(id, {
+      ...item,
+      id,
+      valor: item.valor,
+    });
   }
 
-  return Array.from(map.values());
-}
-
-function formatValor(valor?: string | number | null) {
-  if (valor === null || valor === undefined || valor === "") {
-    return "R$ 0,00";
-  }
-
-  let numero: number;
-
-  if (typeof valor === "number") {
-    numero = valor;
-  } else {
-    const texto = String(valor).trim();
-
-    if (texto.includes(",")) {
-      numero = Number(
-        texto.replace(/\./g, "").replace(",", ".")
-      );
-    } else {
-      numero = Number(texto);
-    }
-  }
-
-  return new Intl.NumberFormat("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(Number.isFinite(numero) ? numero : 0);
+  return Array.from(unicos.values());
 }
 
 export default function BeneficiosPage() {
-  const [alerta, setAlerta] = useState<{
-    tipo: "success" | "error" | "warning";
-    mensagem: string;
-  } | null>(null);
-
-  const [pixModalOpen, setPixModalOpen] = useState(false);
-  const [openCartao, setOpenCartao] = useState(false);
-
-  const [beneficios, setBeneficios] = useState<Beneficio[]>([]);
   const [usuario, setUsuario] = useState<Usuario | null>(null);
-
+  const [beneficios, setBeneficios] = useState<Beneficio[]>([]);
   const [loadingUser, setLoadingUser] = useState(true);
   const [loadingBeneficios, setLoadingBeneficios] = useState(false);
 
+  const [alerta, setAlerta] = useState<Alerta | null>(null);
+
   const [modalOpen, setModalOpen] = useState(false);
+  const [pixModalOpen, setPixModalOpen] = useState(false);
+  const [openCartao, setOpenCartao] = useState(false);
 
   const [beneficioSelecionado, setBeneficioSelecionado] =
     useState<Beneficio | null>(null);
 
   const beneficioRef = useRef<Beneficio | null>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const [planoSelecionado, setPlanoSelecionado] =
+    useState<PlanoTipo>("basico");
+  const [aceitouTermos, setAceitouTermos] = useState(false);
 
   const [pixLoading, setPixLoading] = useState(false);
-
-  const [pixEtapa, setPixEtapa] =
-    useState<PixEtapa>("autorizacao");
-
   const [pixEmv, setPixEmv] = useState("");
   const [pixQr, setPixQr] = useState("");
   const [pixPedido, setPixPedido] = useState("");
@@ -131,17 +268,41 @@ export default function BeneficiosPage() {
   const [pixMessage, setPixMessage] = useState("");
   const [pixError, setPixError] = useState<string | null>(null);
 
-  const [cancelandoId, setCancelandoId] =
-    useState<number | null>(null);
-
+  const [cancelandoId, setCancelandoId] = useState<number | null>(null);
   const [beneficioCancelar, setBeneficioCancelar] =
     useState<Beneficio | null>(null);
 
-  const pollRef =
-    useRef<ReturnType<typeof setInterval> | null>(null);
+  const valorSelecionado = useMemo(() => {
+    if (!beneficioSelecionado) return null;
 
-  const carregarUsuario = async () => {
+    return getValorPlano(beneficioSelecionado, planoSelecionado);
+  }, [beneficioSelecionado, planoSelecionado]);
+
+  const planoAtual = PLANOS.find(
+    (p) => p.id === planoSelecionado
+  );
+
+  const stopPolling = useCallback(() => {
+    if (pollRef.current) {
+      clearInterval(pollRef.current);
+      pollRef.current = null;
+    }
+  }, []);
+
+  const resetPix = useCallback(() => {
+    stopPolling();
+    setPixLoading(false);
+    setPixEmv("");
+    setPixQr("");
+    setPixPedido("");
+    setPixAuthId("");
+    setPixMessage("");
+    setPixError(null);
+  }, [stopPolling]);
+
+  const carregarUsuario = useCallback(async () => {
     setLoadingUser(true);
+    setAlerta(null);
 
     try {
       let res = await fetch("/api/me", {
@@ -151,288 +312,127 @@ export default function BeneficiosPage() {
       });
 
       if (res.status === 401) {
-        await fetch("/api/refresh", {
+        const refresh = await fetch("/api/refresh", {
           method: "POST",
           credentials: "include",
           cache: "no-store",
         });
 
-        res = await fetch("/api/me", {
-          method: "GET",
-          credentials: "include",
-          cache: "no-store",
-        });
+        if (refresh.ok) {
+          res = await fetch("/api/me", {
+            method: "GET",
+            credentials: "include",
+            cache: "no-store",
+          });
+        }
       }
 
-      if (res.status === 401) {
-        window.location.href = "/";
-        return;
-      }
+      const data = await res.json().catch(() => ({}));
 
       if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-
-        console.error(
-          "Erro /api/me:",
-          res.status,
-          err
+        throw new Error(
+          data?.error ||
+            data?.message ||
+            `Falha na autenticação (HTTP ${res.status}).`
         );
-
-        setUsuario(null);
-
-        setAlerta({
-          tipo: "error",
-          mensagem:
-            err?.message ||
-            "Não foi possível carregar sua sessão. Tente novamente.",
-        });
-
-        return;
       }
 
-      const data = await res.json();
+      const user = extrairUsuario(data);
 
-      if (!data?.id) {
-        setUsuario(null);
-
-        setAlerta({
-          tipo: "error",
-          mensagem:
-            "Sessão inválida. Faça login novamente.",
-        });
-
-        return;
+      if (!user) {
+        throw new Error(
+          "A API /api/me não retornou o ID do usuário. Verifique a resposta da autenticação."
+        );
       }
 
-      setAlerta(null);
+      const id =
+        user.id ??
+        user.usuario_id ??
+        user.user_id;
+
+      if (id === null || id === undefined || String(id).trim() === "") {
+        throw new Error("A sessão não contém um identificador de usuário.");
+      }
 
       setUsuario({
-        id: Number(data.id),
-        tipo: data.user_type || data.tipo || "",
-        user_type: data.user_type,
+        id: String(id),
+        tipo: String(user.user_type ?? user.tipo ?? user.perfil ?? ""),
+        user_type:
+          user.user_type !== undefined
+            ? String(user.user_type)
+            : undefined,
       });
     } catch (error) {
-      console.error(
-        "Erro ao buscar usuário:",
-        error
-      );
-
+      console.error("Falha ao carregar usuário:", error);
       setUsuario(null);
-
       setAlerta({
         tipo: "error",
         mensagem:
-          "Erro de conexão ao carregar benefícios.",
+          error instanceof Error
+            ? error.message
+            : "Não foi possível validar sua sessão.",
       });
     } finally {
       setLoadingUser(false);
     }
-  };
-
-  useEffect(() => {
-    void carregarUsuario();
   }, []);
 
-  useEffect(() => {
+  const carregarBeneficios = useCallback(async () => {
     if (!usuario) return;
 
-    const carregarBeneficios = async () => {
-      setLoadingBeneficios(true);
+    setLoadingBeneficios(true);
 
-      try {
-        const res = await fetch("/api/beneficios", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          credentials: "include",
-          cache: "no-store",
-          body: JSON.stringify({
-            usuario_id: usuario.id,
-            tipo: usuario.tipo,
-          }),
-        });
+    try {
+      const res = await fetch("/api/beneficios", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        cache: "no-store",
+        body: JSON.stringify({
+          usuario_id: usuario.id,
+          tipo: usuario.tipo,
+        }),
+      });
 
-        const data = await res.json();
+      const data = await res.json().catch(() => ({}));
 
-        if (!res.ok) {
-          throw new Error(
-            data?.error ||
-            "Não foi possível carregar os benefícios."
-          );
-        }
-
-        let lista: Beneficio[] = [];
-
-        if (Array.isArray(data)) {
-          lista = data;
-        } else if (Array.isArray(data.beneficios)) {
-          lista = data.beneficios;
-        } else if (Array.isArray(data.data)) {
-          lista = data.data;
-        }
-
-        setBeneficios(
-          dedupeBeneficios(
-            lista.filter(
-              (b) =>
-                b.tipo === "passageiro" ||
-                b.tipo === "customer" ||
-                b.tipo === "ambos" ||
-                b.tipo === "assinatura" ||
-                !b.tipo
-            )
-          )
+      if (!res.ok) {
+        throw new Error(
+          data?.error || data?.message || "Erro ao carregar benefícios."
         );
-      } catch (error) {
-        console.error(
-          "Erro ao carregar benefícios:",
-          error
-        );
-
-        setAlerta({
-          tipo: "error",
-          mensagem:
-            error instanceof Error
-              ? error.message
-              : "Não foi possível carregar os benefícios.",
-        });
-      } finally {
-        setLoadingBeneficios(false);
       }
-    };
 
-    void carregarBeneficios();
+      setBeneficios(extrairBeneficios(data));
+    } catch (error) {
+      setAlerta({
+        tipo: "error",
+        mensagem:
+          error instanceof Error
+            ? error.message
+            : "Erro ao carregar benefícios.",
+      });
+    } finally {
+      setLoadingBeneficios(false);
+    }
   }, [usuario]);
 
   useEffect(() => {
-    return () => {
-      if (pollRef.current) {
-        clearInterval(pollRef.current);
-      }
-    };
-  }, []);
+    void carregarUsuario();
+  }, [carregarUsuario]);
 
-  const stopPolling = () => {
-    if (pollRef.current) {
-      clearInterval(pollRef.current);
-      pollRef.current = null;
-    }
-  };
+  useEffect(() => {
+    if (usuario) void carregarBeneficios();
+  }, [usuario, carregarBeneficios]);
 
-  const startPolling = (pedido: string) => {
-    stopPolling();
-
-    pollRef.current = setInterval(async () => {
-      try {
-        const res = await fetch(
-          `/api/btg/pix/status?pedido=${encodeURIComponent(
-            pedido
-          )}`,
-          {
-            credentials: "include",
-            cache: "no-store",
-          }
-        );
-
-        const data = await res.json();
-
-        if (!res.ok) return;
-
-        if (data.rejected) {
-          stopPolling();
-
-          window.location.href =
-            `/passageiro/beneficios/pagamento/recusado?method=pix&pedido=${encodeURIComponent(
-              pedido
-            )}&reason=pix_rejected&valor=${encodeURIComponent(
-              String(
-                beneficioSelecionado?.valor || ""
-              )
-            )}`;
-
-          return;
-        }
-
-        if (data.etapa === "pagamento") {
-          setPixEtapa("pagamento");
-          setPixEmv(data.emv || "");
-          setPixQr(data.qr_image || "");
-          setPixMessage(data.message || "");
-        }
-
-        if (
-          data.paid ||
-          data.etapa === "pago"
-        ) {
-          stopPolling();
-
-          setPixEtapa("pago");
-
-          const valor =
-            data.valor ||
-            beneficioSelecionado?.valor ||
-            "";
-
-          window.location.href =
-            `/passageiro/beneficios/pagamento/sucesso?method=pix&pedido=${encodeURIComponent(
-              pedido
-            )}&valor=${encodeURIComponent(
-              String(valor)
-            )}`;
-        }
-      } catch (error) {
-        console.error(
-          "Erro polling Pix:",
-          error
-        );
-      }
-    }, 4000);
-  };
+  useEffect(() => () => stopPolling(), [stopPolling]);
 
   const abrirModal = (beneficio: Beneficio) => {
-    const normalized: Beneficio = {
-      ...beneficio,
-      id: Number(beneficio.id),
-      valor: String(beneficio.valor ?? ""),
-      titulo: String(beneficio.titulo ?? ""),
-    };
-
-    beneficioRef.current = normalized;
-    setBeneficioSelecionado(normalized);
+    beneficioRef.current = beneficio;
+    setBeneficioSelecionado(beneficio);
+    setPlanoSelecionado("basico");
+    setAceitouTermos(false);
+    setAlerta(null);
     setModalOpen(true);
-  };
-
-  const resetPixState = () => {
-    stopPolling();
-
-    setPixEtapa("autorizacao");
-    setPixEmv("");
-    setPixQr("");
-    setPixPedido("");
-    setPixAuthId("");
-    setPixMessage("");
-    setPixError(null);
-    setPixLoading(false);
-  };
-
-  const abrirPixModal = () => {
-    setModalOpen(false);
-    setOpenCartao(false);
-    resetPixState();
-    setPixModalOpen(true);
-  };
-
-  const abrirCartaoModal = () => {
-    setModalOpen(false);
-    setPixModalOpen(false);
-    resetPixState();
-    setOpenCartao(true);
-  };
-
-  const fecharPixModal = () => {
-    resetPixState();
-    setPixModalOpen(false);
   };
 
   const fecharModal = () => {
@@ -444,82 +444,89 @@ export default function BeneficiosPage() {
     }
   };
 
-  const resolvePaymentIds = async () => {
-    const selected =
-      beneficioRef.current ||
-      beneficioSelecionado;
+  const resolverDadosPagamento = async () => {
+    const beneficio = beneficioRef.current ?? beneficioSelecionado;
 
-    const meRes = await fetch("/api/me", {
-      method: "GET",
-      credentials: "include",
-      cache: "no-store",
-    });
+    if (!beneficio) {
+      throw new Error("Selecione um benefício.");
+    }
 
-    if (!meRes.ok) {
+    const valor = getValorPlano(beneficio, planoSelecionado);
+
+    if (valor === null) {
       throw new Error(
-        "Sessão expirada. Faça login novamente."
+        `O preço do plano ${planoSelecionado} não está cadastrado para "${beneficio.titulo}".`
       );
     }
 
-    const me = await meRes.json();
-
-    const usuarioId = Number(me?.id);
-    const beneficioId = Number(selected?.id);
-
-    if (
-      !Number.isFinite(usuarioId) ||
-      usuarioId <= 0
-    ) {
-      throw new Error(
-        "Usuário inválido. Faça login novamente."
-      );
+    if (valor <= 0) {
+      throw new Error("O preço cadastrado precisa ser maior que zero.");
     }
-
-    if (
-      !Number.isFinite(beneficioId) ||
-      beneficioId <= 0
-    ) {
-      throw new Error(
-        "Benefício inválido. Recarregue a página."
-      );
-    }
-
-    setUsuario((prev) =>
-      prev
-        ? {
-          ...prev,
-          id: usuarioId,
-          tipo: me.user_type || prev.tipo,
-          user_type: me.user_type,
-        }
-        : {
-          id: usuarioId,
-          tipo: me.user_type || me.tipo || "",
-          user_type: me.user_type,
-        }
-    );
 
     return {
-      usuarioId,
-      beneficioId,
-      titulo: String(
-        selected?.titulo || ""
-      ),
-      valor: String(
-        selected?.valor ?? ""
-      ).replace(",", "."),
+      usuario_id: usuario?.id,
+      beneficio_id: beneficio.id,
+      titulo: beneficio.titulo,
+      plano: planoSelecionado,
+      valor: valor.toFixed(2),
     };
   };
 
-  const gerarPixAutorizacao = async () => {
-    const selected =
-      beneficioRef.current ||
-      beneficioSelecionado;
+  const iniciarPolling = useCallback(
+    (pedido: string) => {
+      stopPolling();
 
-    if (!selected?.id) {
-      setPixError(
-        "Benefício não selecionado. Feche e abra novamente."
-      );
+      pollRef.current = setInterval(async () => {
+        try {
+          const res = await fetch(
+            `/api/btg/pix/status?pedido=${encodeURIComponent(pedido)}`,
+            {
+              credentials: "include",
+              cache: "no-store",
+            }
+          );
+
+          const data = await res.json().catch(() => ({}));
+
+          if (!res.ok) return;
+
+          if (data.rejected) {
+            stopPolling();
+            setPixError("A autorização Pix foi recusada.");
+            return;
+          }
+
+          if (data.paid || data.etapa === "pago") {
+            stopPolling();
+
+            const valor =
+              data.valor ??
+              valorSelecionado?.toFixed(2) ??
+              "";
+
+            window.location.href =
+              `/passageiro/beneficios/pagamento/sucesso?method=pix` +
+              `&pedido=${encodeURIComponent(pedido)}` +
+              `&valor=${encodeURIComponent(String(valor))}` +
+              `&plano=${encodeURIComponent(planoSelecionado)}`;
+
+            return;
+          }
+
+          if (data.emv) setPixEmv(data.emv);
+          if (data.qr_image) setPixQr(data.qr_image);
+          if (data.message) setPixMessage(data.message);
+        } catch (error) {
+          console.error("Erro consultando Pix:", error);
+        }
+      }, 4000);
+    },
+    [stopPolling, valorSelecionado, planoSelecionado]
+  );
+
+  const gerarPixAutorizacao = async () => {
+    if (!aceitouTermos) {
+      setPixError("Aceite os termos antes de continuar.");
       return;
     }
 
@@ -527,82 +534,34 @@ export default function BeneficiosPage() {
     setPixError(null);
 
     try {
-      const {
-        usuarioId,
-        beneficioId,
-        titulo,
-        valor,
-      } = await resolvePaymentIds();
+      const payload = await resolverDadosPagamento();
 
-      const payload = {
-        usuario_id: usuarioId,
-        beneficio_id: beneficioId,
-        titulo,
-        valor,
-      };
+      const res = await fetch("/api/btg/pix/authorize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        cache: "no-store",
+        body: JSON.stringify(payload),
+      });
 
-      const res = await fetch(
-        `/api/btg/pix/authorize?usuario_id=${usuarioId}&beneficio_id=${beneficioId}`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          credentials: "include",
-          body: JSON.stringify(payload),
-        }
-      );
-
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
 
       if (!res.ok) {
-        let message =
-          data.error ||
-          "Erro ao gerar autorização Pix";
-
-        if (
-          data?.details?.beneficio_id == null ||
-          data?.details?.usuario_id == null
-        ) {
-          message +=
-            " (usuário/benefício não identificados — faça login novamente)";
-        }
-
-        if (
-          String(message).includes(
-            "CPF/CNPJ"
-          )
-        ) {
-          message +=
-            " Vá em Perfil e salve seu CPF antes de tentar novamente.";
-        }
-
-        if (
-          String(message).includes(
-            "Configuração BTG"
-          )
-        ) {
-          message +=
-            " Peça ao administrador para preencher BTG_ACCOUNT_NUMBER e BTG_PIX_KEY no .env do servidor.";
-        }
-
-        throw new Error(message);
+        throw new Error(
+          data?.error || data?.message || "Não foi possível gerar o Pix."
+        );
       }
 
-      setPixEtapa("autorizacao");
       setPixEmv(data.emv || "");
       setPixQr(data.qr_image || "");
       setPixPedido(data.pedido_codigo || "");
       setPixAuthId(data.authorization_id || "");
       setPixMessage(data.message || "");
 
-      if (data.pedido_codigo) {
-        startPolling(data.pedido_codigo);
-      }
-    } catch (error: any) {
+      if (data.pedido_codigo) iniciarPolling(data.pedido_codigo);
+    } catch (error) {
       setPixError(
-        error?.message ||
-        "Erro ao gerar Pix"
+        error instanceof Error ? error.message : "Erro ao gerar Pix."
       );
     } finally {
       setPixLoading(false);
@@ -613,1048 +572,587 @@ export default function BeneficiosPage() {
     if (!pixEmv) return;
 
     try {
-      await navigator.clipboard.writeText(
-        pixEmv
-      );
-
-      setAlerta({
-        tipo: "success",
-        mensagem: "Código Pix copiado!",
-      });
-
-      setTimeout(() => {
-        setAlerta(null);
-      }, 3000);
+      await navigator.clipboard.writeText(pixEmv);
+      setAlerta({ tipo: "success", mensagem: "Código Pix copiado." });
     } catch {
-      setAlerta({
-        tipo: "error",
-        mensagem:
-          "Não foi possível copiar o código Pix.",
-      });
+      setPixError("Não foi possível copiar o código Pix.");
     }
   };
 
-  const cancelarComReembolso = async (
-    beneficio: Beneficio
-  ) => {
-    if (!usuario?.id) return;
-
+  const cancelarBeneficio = async (beneficio: Beneficio) => {
     setCancelandoId(beneficio.id);
     setAlerta(null);
 
     try {
-      const res = await fetch(
-        "/api/beneficios/cancelar",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          credentials: "include",
-          body: JSON.stringify({
-            usuario_id: usuario.id,
-            beneficio_id: beneficio.id,
-          }),
-        }
-      );
+      const res = await fetch("/api/beneficios/cancelar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          usuario_id: usuario?.id,
+          beneficio_id: beneficio.id,
+        }),
+      });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
 
       if (!res.ok) {
-        throw new Error(
-          data.error ||
-          "Falha ao cancelar o serviço"
-        );
+        throw new Error(data?.error || "Não foi possível cancelar.");
       }
 
       setBeneficioCancelar(null);
-      setOpenCartao(false);
-      setPixModalOpen(false);
-
-      resetPixState();
-
-      setModalOpen(false);
-
-      beneficioRef.current = null;
-      setBeneficioSelecionado(null);
-
       setAlerta({
         tipo: "success",
-        mensagem:
-          data.message ||
-          "Serviço cancelado. Reembolso em andamento.",
+        mensagem: data.message || "Cancelamento solicitado.",
       });
 
-      const reload = await fetch(
-        "/api/beneficios",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          credentials: "include",
-          cache: "no-store",
-          body: JSON.stringify({
-            usuario_id: usuario.id,
-            tipo: usuario.tipo,
-          }),
-        }
-      );
-
-      const listaData = await reload.json();
-
-      let lista: Beneficio[] = [];
-
-      if (Array.isArray(listaData)) {
-        lista = listaData;
-      } else if (
-        Array.isArray(listaData.beneficios)
-      ) {
-        lista = listaData.beneficios;
-      } else if (
-        Array.isArray(listaData.data)
-      ) {
-        lista = listaData.data;
-      }
-
-      setBeneficios(
-        dedupeBeneficios(
-          lista.filter(
-            (b: Beneficio) =>
-              b.tipo === "passageiro" ||
-              b.tipo === "customer" ||
-              b.tipo === "ambos" ||
-              b.tipo === "assinatura" ||
-              !b.tipo
-          )
-        )
-      );
-    } catch (error: any) {
+      await carregarBeneficios();
+    } catch (error) {
       setAlerta({
         tipo: "error",
         mensagem:
-          error?.message ||
-          "Erro ao cancelar serviço",
+          error instanceof Error ? error.message : "Erro ao cancelar.",
       });
     } finally {
       setCancelandoId(null);
     }
   };
 
-  const ativos = beneficios.filter(
-    (b) => !b.status
-  );
-
-  const disponiveis = beneficios.filter(
-    (b) => b.status
-  );
-
-  const getImageSrc = (img?: string) => {
-    if (!img) return "/bg-login.png";
-
-    if (
-      img.startsWith("http://") ||
-      img.startsWith("https://")
-    ) {
-      return img;
-    }
-
-    return img.startsWith("/")
-      ? img
-      : `/${img}`;
-  };
+  const ativos = beneficios.filter((b) => !b.status);
+  const disponiveis = beneficios.filter((b) => b.status);
 
   if (loadingUser) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-transparent px-4">
-        <div className="flex w-full max-w-[280px] flex-col items-center rounded-2xl bg-white p-6 text-center shadow-xl ring-1 ring-black/5 sm:max-w-[320px] sm:rounded-[24px] sm:p-8 md:max-w-[340px] md:rounded-[28px] md:p-10">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-teal-50 sm:h-14 sm:w-14 sm:rounded-2xl md:h-16 md:w-16">
-            <Loader2
-              size={24}
-              strokeWidth={2.5}
-              className="animate-spin text-teal-600 sm:hidden"
-            />
-            <Loader2
-              size={28}
-              strokeWidth={2.5}
-              className="hidden animate-spin text-teal-600 sm:block md:hidden"
-            />
-            <Loader2
-              size={32}
-              strokeWidth={2.5}
-              className="hidden animate-spin text-teal-600 md:block"
-            />
-          </div>
-
-          <p className="mt-4 text-xs font-bold text-teal-700 sm:mt-5 sm:text-sm">
-            Carregando sua página
-          </p>
-
-          <p className="mt-1 text-[11px] text-gray-400 sm:text-xs">
-            Aguarde um momento...
-          </p>
-        </div>
+      <div className="flex min-h-screen items-center justify-center bg-slate-50">
+        <Loader2 className="animate-spin text-teal-600" size={36} />
       </div>
     );
   }
 
   if (!usuario) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-transparent p-4 sm:p-6">
-        <div className="w-full max-w-sm rounded-2xl bg-white p-5 text-center shadow-2xl ring-1 ring-black/5 sm:max-w-md sm:rounded-3xl sm:p-7">
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-red-50 sm:h-14 sm:w-14">
-            <AlertTriangle
-              className="text-red-500"
-              size={22}
-            />
-          </div>
-
-          <h2 className="mt-4 text-base font-bold text-teal-700 sm:text-lg">
+      <main className="flex min-h-screen items-center justify-center p-4">
+        <section className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-7 text-center shadow-xl">
+          <AlertTriangle className="mx-auto text-red-500" size={34} />
+          <h1 className="mt-4 text-xl font-extrabold">
             Não foi possível abrir Benefícios
-          </h2>
-
-          <p className="mt-2 text-xs leading-6 text-gray-500 sm:text-sm">
-            {alerta?.mensagem ||
-              "Sua sessão pode ter expirado. Tente novamente."}
+          </h1>
+          <p className="mt-3 text-sm text-slate-500">
+            {alerta?.mensagem || "Não foi possível validar sua sessão."}
           </p>
-
           <button
             type="button"
-            onClick={() =>
-              void carregarUsuario()
-            }
-            className="mt-5 w-full cursor-pointer rounded-xl bg-teal-600 py-2.5 text-xs font-semibold text-white transition hover:bg-teal-700 sm:py-3 sm:text-sm"
+            onClick={() => void carregarUsuario()}
+            className="mt-5 w-full rounded-xl bg-teal-700 px-4 py-3 font-bold text-white hover:bg-teal-800"
           >
             Tentar novamente
           </button>
-
           <a
             href="/"
-            className="mt-3 block text-xs font-medium text-teal-600 hover:underline"
+            className="mt-4 block text-sm font-semibold text-teal-700"
           >
-            Fazer login novamente
+            Voltar ao login
           </a>
-
-          <a
-            href="/passageiro"
-            className="mt-2 block text-xs font-medium text-teal-600 hover:underline"
-          >
-            Voltar ao Dashboard
-          </a>
-        </div>
-      </div>
+        </section>
+      </main>
     );
   }
 
   return (
-    <main className="min-h-screen min-w-0">
-      <div className="mx-auto w-full min-w-0 max-w-8xl px-0 sm:px-0 md:px-2 lg:px-0 2xl:max-w-[1600px]">
+    <main className="min-h-screen mb-3">
+      <div className="mx-auto max-w-8xl space-y-6">
         {alerta && (
           <div
-            className={`mb-4 flex items-center gap-2.5 rounded-xl border px-3.5 py-2.5 text-xs font-medium shadow-sm sm:mb-5 sm:gap-3 sm:rounded-2xl sm:px-4 sm:py-3 sm:text-sm ${alerta.tipo === "success"
-              ? "border-teal-200 bg-teal-50 text-teal-700"
-              : alerta.tipo === "warning"
-                ? "border-amber-200 bg-amber-50 text-amber-700"
-                : "border-red-200 bg-red-50 text-red-700"
-              }`}
+            role="status"
+            className={`flex items-center gap-3 rounded-2xl border p-4 text-sm ${
+              alerta.tipo === "success"
+                ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                : alerta.tipo === "warning"
+                  ? "border-amber-200 bg-amber-50 text-amber-800"
+                  : "border-red-200 bg-red-50 text-red-700"
+            }`}
           >
             {alerta.tipo === "success" ? (
-              <CheckCircle size={18} className="shrink-0" />
+              <CheckCircle size={19} />
             ) : (
-              <AlertTriangle size={18} className="shrink-0" />
+              <AlertTriangle size={19} />
             )}
-
-            <span>{alerta.mensagem}</span>
+            <span className="flex-1">{alerta.mensagem}</span>
+            <button
+              type="button"
+              onClick={() => setAlerta(null)}
+              aria-label="Fechar aviso"
+            >
+              <X size={17} />
+            </button>
           </div>
         )}
 
-        <div className="relative my-3 mt-0 overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-r from-teal-700 via-teal-600 to-teal-500 px-4 py-5 shadow-2xl shadow-teal-950/30 sm:rounded-[24px] sm:px-6 sm:py-6 lg:rounded-[30px] lg:px-8">
-          <div className="pointer-events-none absolute -right-16 -top-20 h-48 w-48 rounded-full bg-white/10 blur-3xl sm:-right-20 sm:-top-24 sm:h-64 sm:w-64" />
-          <div className="pointer-events-none absolute -bottom-20 left-1/3 h-56 w-56 rounded-full bg-teal-200/10 blur-3xl sm:-bottom-28 sm:h-72 sm:w-72" />
-          <div className="relative z-10 flex items-center gap-3 sm:gap-4">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl shadow-lg shadow-[#0f766e]/15 sm:h-14 sm:w-14 sm:rounded-2xl">
-              <Gift
-                size={22}
-                strokeWidth={2}
-                className="text-white sm:hidden"
-              />
-              <Gift
-                size={28}
-                strokeWidth={2}
-                className="hidden text-white sm:block"
-              />
-            </div>
-
-            <div className="min-w-0">
-              <h1 className="text-xl font-bold tracking-tight text-white sm:text-2xl lg:text-3xl">
-                Benefícios
+        <header className="rounded-3xl bg-gradient-to-r from-teal-800 via-teal-700 to-teal-500 p-6 text-white shadow-lg sm:p-8">
+          <div className="flex items-center gap-4">
+            <span className="rounded-2xl bg-white/15 p-3">
+              <Gift size={30} />
+            </span>
+            <div>
+              <p className="text-xs font-bold uppercase tracking-widest text-teal-100">
+                Maylon · Vantagens
+              </p>
+              <h1 className="mt-1 text-2xl font-extrabold sm:text-3xl">
+                Meus benefícios
               </h1>
-
-              <p className="mt-0 text-xs text-white/70 sm:text-sm">
-                Gerencie seus benefícios e aproveite vantagens exclusivas.
+              <p className="mt-2 text-sm text-white/80">
+                Gerencie suas assinaturas e escolha seu plano.
               </p>
             </div>
           </div>
-        </div>
+        </header>
 
-        <section className="mb-5 overflow-hidden rounded-2xl border border-white/70 bg-white shadow-xl shadow-teal-950/10 sm:mb-6 sm:rounded-[28px]">
-          <div className="flex flex-col justify-between gap-3 border-b border-slate-100 px-4 py-4 sm:flex-row sm:items-center sm:px-6 sm:py-5">
-            <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-teal-50 sm:h-10 sm:w-10">
-                <CheckCircle
-                  size={19}
-                  className="text-teal-600"
-                />
-              </div>
-
-              <div>
-                <h2 className="text-base font-bold text-teal-700 sm:text-lg">
-                  Benefícios Ativos
-                </h2>
-
-                <p className="text-[11px] text-slate-500 sm:text-xs">
-                  Serviços atualmente contratados.
-                </p>
-              </div>
+        <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-extrabold">Benefícios ativos</h2>
+              <p className="mt-1 text-sm text-slate-500">
+                Serviços vinculados à sua conta.
+              </p>
             </div>
-
-            <span className="w-fit rounded-full bg-teal-50 px-3 py-1.5 text-[11px] font-bold text-teal-600 sm:text-xs">
+            <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700">
               {ativos.length} ativo(s)
             </span>
           </div>
 
-          <div className="p-4 sm:p-5 lg:p-6">
-            {loadingBeneficios ? (
-              <div className="flex min-h-[140px] items-center justify-center sm:min-h-[160px]">
-                <div className="flex flex-col items-center">
-                  <Loader2
-                    size={26}
-                    className="animate-spin text-teal-600 sm:hidden"
-                  />
-                  <Loader2
-                    size={28}
-                    className="hidden animate-spin text-teal-600 sm:block"
-                  />
-
-                  <p className="mt-3 text-[11px] font-medium text-gray-500 sm:text-xs">
-                    Carregando benefícios...
+          {loadingBeneficios ? (
+            <Loader2 className="mx-auto mt-8 animate-spin text-teal-600" />
+          ) : ativos.length === 0 ? (
+            <p className="mt-5 rounded-2xl bg-slate-50 p-6 text-center text-sm text-slate-500">
+              Nenhum benefício ativo no momento.
+            </p>
+          ) : (
+            <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {ativos.map((b) => (
+                <article
+                  key={b.id}
+                  className="rounded-2xl border border-teal-100 p-5"
+                >
+                  <h3 className="font-bold">{b.titulo}</h3>
+                  <p className="mt-2 text-xl font-extrabold text-teal-700">
+                    {formatValor(b.valor)}
                   </p>
-                </div>
-              </div>
-            ) : ativos.length === 0 ? (
-              <div className="flex items-center gap-3 rounded-xl border border-red-100 bg-red-50 px-4 py-3.5 sm:gap-4 sm:rounded-2xl sm:px-5 sm:py-4">
-                <AlertTriangle
-                  size={20}
-                  className="shrink-0 text-red-500 sm:size-[22px]"
-                />
-
-                <div>
-                  <p className="text-xs font-semibold text-red-700 sm:text-sm">
-                    Nenhum benefício ativo
-                  </p>
-
-                  <p className="mt-0.5 text-[11px] text-red-500 sm:text-xs">
-                    Escolha um dos benefícios disponíveis abaixo.
-                  </p>
-                </div>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-1 lg:grid-cols-2 sm:gap-5 xl:grid-cols-4 2xl:grid-cols-4">
-                {ativos.map((b) => (
-                  <div
-                    key={b.id}
-                    className="group rounded-2xl border border-teal-100 bg-gradient-to-br from-white to-teal-50/40 p-4 shadow-sm transition duration-300 hover:-translate-y-1 hover:border-teal-200 hover:shadow-lg hover:shadow-teal-900/10 sm:rounded-[22px] sm:p-5"
+                  <button
+                    type="button"
+                    onClick={() => setBeneficioCancelar(b)}
+                    disabled={cancelandoId === b.id}
+                    className="mt-4 w-full rounded-xl border border-red-200 bg-red-50 p-3 text-sm font-bold text-red-700 disabled:opacity-50"
                   >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex min-w-0 items-center gap-3">
-                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-teal-50 sm:h-10 sm:w-10">
-                          <CheckCircle
-                            size={18}
-                            className="text-teal-600 sm:size-[19px]"
-                          />
-                        </div>
-
-                        <div className="min-w-0">
-                          <h3 className="truncate text-sm font-bold text-gray-900">
-                            {b.titulo}
-                          </h3>
-
-                          <p className="mt-0.5 text-[11px] capitalize text-gray-500 sm:text-xs">
-                            {b.status_assinatura ||
-                              "ativo"}
-                          </p>
-                        </div>
-                      </div>
-
-                      <span className="shrink-0 rounded-full bg-teal-50 px-2 py-1 text-[9px] font-bold uppercase tracking-wide text-teal-700 sm:px-2.5 sm:text-[10px]">
-                        Ativo
-                      </span>
-                    </div>
-
-                    <div className="mt-4 border-t border-gray-100 pt-3.5 sm:mt-5 sm:pt-4">
-                      <p className="text-[9px] font-semibold uppercase tracking-wider text-gray-400 sm:text-[10px]">
-                        Mensalidade
-                      </p>
-
-                      <p className="mt-1 text-base font-extrabold text-teal-600 sm:text-lg">
-                        {formatValor(b.valor)}
-
-                        <span className="ml-1 text-[9px] font-medium text-gray-400 sm:text-[10px]">
-                          /mês
-                        </span>
-                      </p>
-                    </div>
-
-                    <button
-                      type="button"
-                      disabled={
-                        cancelandoId === b.id
-                      }
-                      onClick={() =>
-                        setBeneficioCancelar(b)
-                      }
-                      className="mt-3.5 w-full cursor-pointer rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-[11px] font-semibold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60 sm:mt-4 sm:py-2.5 sm:text-xs"
-                    >
-                      {cancelandoId === b.id
-                        ? "Cancelando..."
-                        : "Cancelar benefício"}
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+                    {cancelandoId === b.id
+                      ? "Cancelando..."
+                      : "Cancelar benefício"}
+                  </button>
+                </article>
+              ))}
+            </div>
+          )}
         </section>
 
-        <section className="overflow-hidden rounded-2xl border border-white/70 bg-white shadow-xl shadow-teal-950/10 sm:rounded-[28px]">
-          <div className="flex flex-col justify-between gap-3 border-b border-slate-100 px-4 py-4 sm:flex-row sm:items-center sm:px-6 sm:py-5">
-            <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-teal-50 sm:h-10 sm:w-10">
-                <Gift
-                  size={19}
-                  className="text-teal-600"
-                />
-              </div>
-
-              <div>
-                <h2 className="text-base font-bold text-teal-700 sm:text-lg">
-                  Benefícios Disponíveis
-                </h2>
-
-                <p className="text-[11px] text-slate-500 sm:text-xs">
-                  Escolha uma vantagem para ativar.
-                </p>
-              </div>
+        <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-extrabold">
+                Benefícios disponíveis
+              </h2>
+              <p className="mt-1 text-sm text-slate-500">
+                Selecione um benefício para conhecer os planos.
+              </p>
             </div>
-
-            <span className="w-fit rounded-full bg-teal-50 px-3 py-1.5 text-[11px] font-bold text-teal-600 sm:text-xs">
+            <span className="rounded-full bg-teal-50 px-3 py-1 text-xs font-bold text-teal-700">
               {disponiveis.length} disponível(is)
             </span>
           </div>
 
-          <div className="p-4 sm:p-5 lg:p-6">
-            {loadingBeneficios ? (
-              <div className="flex min-h-[180px] items-center justify-center sm:min-h-[200px]">
-                <div className="flex flex-col items-center">
-                  <Loader2
-                    size={26}
-                    className="animate-spin text-teal-600 sm:hidden"
-                  />
-                  <Loader2
-                    size={28}
-                    className="hidden animate-spin text-teal-600 sm:block"
-                  />
+          {loadingBeneficios ? (
+            <Loader2 className="mx-auto mt-8 animate-spin text-teal-600" />
+          ) : disponiveis.length === 0 ? (
+            <p className="mt-5 rounded-2xl bg-slate-50 p-6 text-center text-sm text-slate-500">
+              Nenhum benefício disponível no momento.
+            </p>
+          ) : (
+            <div className="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+              {disponiveis.map((b) => (
+                <article
+                  key={b.id}
+                  className="overflow-hidden rounded-2xl border border-slate-200 bg-white transition hover:border-teal-300 hover:shadow-lg"
+                >
+                  <div className="relative h-44">
+                    <Image
+                      src={getImagem(b.imagem)}
+                      alt={b.titulo}
+                      fill
+                      sizes="(max-width: 768px) 100vw, 33vw"
+                      className="object-cover"
+                    />
+                  </div>
 
-                  <p className="mt-3 text-[11px] font-medium text-gray-500 sm:text-xs">
-                    Carregando benefícios...
-                  </p>
-                </div>
-              </div>
-            ) : disponiveis.length === 0 ? (
-              <div className="rounded-xl border border-slate-100 bg-slate-50 px-4 py-6 text-center sm:rounded-2xl sm:px-5 sm:py-8">
-                <Gift
-                  size={26}
-                  className="mx-auto text-slate-300 sm:size-[28px]"
-                />
+                  <div className="p-5">
+                    <h3 className="text-lg font-extrabold">{b.titulo}</h3>
+                    <p className="mt-2 line-clamp-3 min-h-16 text-sm leading-6 text-slate-500">
+                      {b.descricao}
+                    </p>
 
-                <p className="mt-3 text-xs font-semibold text-slate-600 sm:text-sm">
-                  Nenhum benefício disponível
-                </p>
+                    <div className="mt-4 grid grid-cols-3 gap-2">
+                      {PLANOS.map((p) => {
+                        const valor = getValorPlano(b, p.id);
 
-                <p className="mt-1 text-[11px] text-slate-400 sm:text-xs">
-                  Novos benefícios aparecerão aqui.
-                </p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-1 lg:grid-cols-2 sm:gap-5 xl:grid-cols-4 2xl:grid-cols-4">
-                {disponiveis.map((b) => (
-                  <article
-                    key={b.id}
-                    className="group overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition duration-300 hover:-translate-y-1 hover:border-teal-600/30 hover:shadow-xl"
-                  >
-                    <div className="relative h-40 overflow-hidden sm:h-44 lg:h-48">
-                      <Image
-                        src={getImageSrc(b.imagem)}
-                        alt={b.titulo}
-                        fill
-                        sizes="(max-width: 640px) 100vw, (max-width: 1280px) 50vw, (max-width: 1536px) 33vw, 25vw"
-                        className="object-cover transition duration-500 group-hover:scale-105"
-                      />
-
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/15 to-transparent" />
-
-                      <span className="absolute left-3 top-3 rounded-full bg-white/95 px-2.5 py-1 text-[9px] font-bold uppercase tracking-wide text-teal-600 shadow-sm sm:left-4 sm:top-4 sm:px-3 sm:text-[10px]">
-                        Benefício Exclusivo
-                      </span>
-
-                      <div className="absolute bottom-3 left-4 right-4 sm:bottom-4 sm:left-5 sm:right-5">
-                        <h3 className="line-clamp-2 text-lg font-bold leading-tight text-white sm:text-xl">
-                          {b.titulo}
-                        </h3>
-                      </div>
+                        return (
+                          <div
+                            key={p.id}
+                            className="rounded-xl bg-teal-50 p-2 text-center"
+                          >
+                            <p className="text-xs font-bold text-teal-800">
+                              {p.nome}
+                            </p>
+                            <p className="mt-1 text-xs font-extrabold text-teal-700">
+                              {formatValor(valor)}
+                            </p>
+                          </div>
+                        );
+                      })}
                     </div>
 
-                    <div className="p-4 sm:p-5">
-                      <p className="line-clamp-3 min-h-[55px] text-justify text-xs leading-5 text-gray-500 sm:min-h-[60px]">
-                        {b.descricao}
-                      </p>
-
-                      <div className="mt-4 flex items-end justify-between gap-4 border-t border-gray-100 pt-3.5 sm:mt-5 sm:pt-4">
-                        <div>
-                          <p className="text-[9px] font-semibold uppercase tracking-wider text-gray-400 sm:text-[10px]">
-                            Valor mensal
-                          </p>
-
-                          <p className="mt-1 text-lg font-extrabold text-teal-600 sm:text-xl">
-                            {formatValor(b.valor)}
-                          </p>
-                        </div>
-
-                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-teal-50 sm:h-9 sm:w-9">
-                          <Gift
-                            size={16}
-                            className="text-teal-600 sm:size-[17px]"
-                          />
-                        </div>
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={() =>
-                          abrirModal(b)
-                        }
-                        className="mt-3.5 flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-teal-600 py-2 text-[11px] font-bold text-white shadow-sm transition hover:bg-teal-700 hover:shadow-md sm:mt-4 sm:py-2.5 sm:text-xs"
-                      >
-                        Ativar benefício
-
-                        <ChevronRight size={16} />
-                      </button>
-                    </div>
-                  </article>
-                ))}
-              </div>
-            )}
-          </div>
+                    <button
+                      type="button"
+                      onClick={() => abrirModal(b)}
+                      className="mt-4 cursor-pointer flex w-full items-center justify-center gap-2 rounded-xl bg-teal-700 p-3 font-bold text-white hover:bg-teal-800"
+                    >
+                      Conhecer planos <ChevronRight size={17} />
+                    </button>
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
         </section>
       </div>
 
       {beneficioCancelar && (
-        <div
-          className="fixed inset-0 z-[10001] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
-          onClick={() => {
-            if (cancelandoId == null) {
-              setBeneficioCancelar(null);
-            }
-          }}
-        >
-          <div
-            onClick={(e) =>
-              e.stopPropagation()
-            }
-            className="w-full max-w-sm overflow-hidden rounded-2xl bg-white shadow-2xl sm:max-w-md sm:rounded-3xl"
-            role="dialog"
-            aria-modal="true"
-          >
-            <div className="bg-gradient-to-br from-teal-800 via-teal-700 to-teal-500 px-5 py-4 text-white sm:px-6 sm:py-5">
-              <div className="flex items-center justify-between">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/15 sm:h-11 sm:w-11">
-                  <AlertTriangle size={20} className="sm:hidden" />
-                  <AlertTriangle size={22} className="hidden sm:block" />
-                </div>
+        <div className="fixed inset-0 z-[10001] flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl">
+            <AlertTriangle className="text-red-500" size={30} />
+            <h2 className="mt-4 text-xl font-extrabold">
+              Cancelar benefício?
+            </h2>
+            <p className="mt-2 text-sm text-slate-500">
+              Confirma o cancelamento de {beneficioCancelar.titulo}?
+            </p>
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (cancelandoId == null) {
-                      setBeneficioCancelar(null);
-                    }
-                  }}
-                  className="rounded-lg p-2 text-white/80 transition hover:bg-white/10 hover:text-white"
-                >
-                  <X size={19} />
-                </button>
-              </div>
-
-              <h3 className="mt-3.5 text-lg font-bold sm:mt-4 sm:text-xl">
-                Cancelar benefício?
-              </h3>
-
-              <p className="mt-1 text-xs text-white/80 sm:text-sm">
-                Esta ação encerra o serviço e solicita a devolução do valor.
-              </p>
-            </div>
-
-            <div className="space-y-3.5 px-5 py-4 sm:space-y-4 sm:px-6 sm:py-5">
-              <div className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-3 sm:rounded-2xl">
-                <p className="text-[9px] font-bold uppercase tracking-wide text-gray-400 sm:text-[10px]">
-                  Plano
-                </p>
-
-                <p className="mt-1 text-sm font-bold text-gray-900">
-                  {beneficioCancelar.titulo}
-                </p>
-
-                <p className="mt-1 text-xs text-gray-500">
-                  {formatValor(
-                    beneficioCancelar.valor
-                  )}
-                  /mês
-                </p>
-              </div>
-
-              <p className="text-xs leading-5 text-justify text-gray-500">
-                Para pagamentos realizados com cartão, o reembolso é iniciado automaticamente. O valor pode levar alguns dias úteis para aparecer na conta.
-              </p>
-
-              <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-                <button
-                  type="button"
-                  disabled={
-                    cancelandoId ===
-                    beneficioCancelar.id
-                  }
-                  onClick={() =>
-                    setBeneficioCancelar(null)
-                  }
-                  className="cursor-pointer rounded-xl border border-gray-200 px-4 py-2.5 text-xs font-semibold text-gray-700 transition hover:bg-gray-50 disabled:opacity-60"
-                >
-                  Manter benefício
-                </button>
-
-                <button
-                  type="button"
-                  disabled={
-                    cancelandoId ===
-                    beneficioCancelar.id
-                  }
-                  onClick={() =>
-                    void cancelarComReembolso(
-                      beneficioCancelar
-                    )
-                  }
-                  className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-red-600 px-4 py-2.5 text-xs font-semibold text-white transition hover:bg-red-700 disabled:opacity-60"
-                >
-                  {cancelandoId ===
-                    beneficioCancelar.id ? (
-                    <>
-                      <Loader2
-                        size={15}
-                        className="animate-spin"
-                      />
-                      Cancelando...
-                    </>
-                  ) : (
-                    "Cancelar e devolver"
-                  )}
-                </button>
-              </div>
+            <div className="mt-6 grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => setBeneficioCancelar(null)}
+                className="rounded-xl border border-slate-200 p-3 text-sm font-bold"
+              >
+                Voltar
+              </button>
+              <button
+                type="button"
+                onClick={() => void cancelarBeneficio(beneficioCancelar)}
+                disabled={cancelandoId !== null}
+                className="rounded-xl bg-red-600 p-3 text-sm font-bold text-white disabled:opacity-50"
+              >
+                {cancelandoId !== null ? "Aguarde..." : "Confirmar"}
+              </button>
             </div>
           </div>
         </div>
       )}
 
-      {modalOpen &&
-        beneficioSelecionado && (
-          <div
-            className="fixed inset-0 z-[9999] overflow-y-auto bg-black/70 p-3 backdrop-blur-sm sm:p-4"
-            onClick={fecharModal}
-          >
-            <div className="flex min-h-screen items-center justify-center py-6">
-              <div
-                onClick={(e) =>
-                  e.stopPropagation()
-                }
-                className="relative w-full max-w-xl overflow-hidden rounded-2xl bg-white shadow-2xl sm:rounded-3xl"
-              >
-                <div className="relative h-40 sm:h-48">
-                  <Image
-                    src={getImageSrc(
-                      beneficioSelecionado.imagem
-                    )}
-                    alt={
-                      beneficioSelecionado.titulo
-                    }
-                    fill
-                    sizes="100vw"
-                    className="object-cover"
-                  />
-
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#0f766e]/90 via-[#0f766e]/40 to-transparent" />
-
-                  <button
-                    type="button"
-                    onClick={fecharModal}
-                    className="absolute right-3 top-3 flex h-8 w-8 cursor-pointer items-center justify-center rounded-full bg-white/90 text-gray-700 shadow transition hover:bg-white sm:right-4 sm:top-4 sm:h-9 sm:w-9"
-                  >
-                    <X size={17} />
-                  </button>
-
-                  <div className="absolute bottom-4 left-5 right-5 sm:bottom-5 sm:left-6 sm:right-6">
-                    <span className="rounded-full bg-white/15 px-2.5 py-1 text-[9px] font-bold uppercase tracking-wide text-white backdrop-blur sm:px-3 sm:text-[10px]">
-                      Benefício Exclusivo
-                    </span>
-
-                    <h2 className="mt-2 text-xl font-bold text-white sm:text-2xl">
-                      {beneficioSelecionado.titulo}
-                    </h2>
-                  </div>
+      {modalOpen && beneficioSelecionado && (
+        <div
+          className="fixed inset-0 z-[9999] overflow-y-auto bg-black/70 p-3 backdrop-blur-sm sm:p-5"
+          onClick={fecharModal}
+        >
+          <div className="flex min-h-full items-center justify-center py-4">
+            <section
+              role="dialog"
+              aria-modal="true"
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-3xl rounded-3xl bg-white p-5 shadow-2xl sm:p-7"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-widest text-teal-700">
+                    Benefício Maylon
+                  </p>
+                  <h2 className="mt-2 text-2xl font-extrabold">
+                    {beneficioSelecionado.titulo}
+                  </h2>
+                  <p className="mt-2 text-sm text-slate-500">
+                    {beneficioSelecionado.descricao}
+                  </p>
                 </div>
+                <button
+                  type="button"
+                  onClick={fecharModal}
+                  aria-label="Fechar"
+                >
+                  <X size={21} />
+                </button>
+              </div>
 
-                <div className="max-h-[70vh] overflow-y-auto p-5 sm:max-h-none sm:p-6">
-                  <div className="rounded-xl border border-slate-100 bg-slate-50 p-3.5 sm:rounded-2xl sm:p-4">
-                    <h3 className="text-sm font-bold text-gray-900">
-                      O que está incluso?
-                    </h3>
+              <h3 className="mt-6 font-bold">Escolha seu plano</h3>
 
-                    <p className="mt-2 text-justify text-xs leading-5 text-gray-500">
-                      {beneficioSelecionado.descricao}
-                    </p>
-                  </div>
+              <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                {PLANOS.map((p) => {
+                  const Icone = p.icon;
+                  const escolhido = planoSelecionado === p.id;
+                  const valor = getValorPlano(beneficioSelecionado, p.id);
 
-                  <div className="mt-4 flex items-center justify-between rounded-xl border border-teal-600/20 bg-teal-50 p-3.5 sm:rounded-2xl sm:p-4">
-                    <div>
-                      <p className="text-[9px] font-bold uppercase tracking-wider text-gray-400 sm:text-[10px]">
-                        Assinatura mensal
+                  return (
+                    <button
+                      key={p.id}
+                      type="button"
+                      aria-pressed={escolhido}
+                      onClick={() => setPlanoSelecionado(p.id)}
+                      className={`rounded-2xl border p-4 text-left ${
+                        escolhido
+                          ? "border-teal-600 bg-teal-50 ring-2 ring-teal-600/20"
+                          : "border-slate-200 hover:border-teal-300"
+                      }`}
+                    >
+                      <Icone className="text-teal-700" size={23} />
+                      <p className="mt-3 font-extrabold">{p.nome}</p>
+                      <p className="mt-1 text-xs text-slate-500">
+                        {p.descricao}
                       </p>
-                      <h3 className="mt-1 text-lg font-extrabold text-teal-600 sm:text-xl">
-                        {formatValor(
-                          beneficioSelecionado.valor
-                        )}
-                      </h3>
-                    </div>
-                    <Gift
-                      size={22}
-                      className="text-teal-600 sm:size-[24px]"
-                    />
-                  </div>
-                  <div className="my-3 rounded-xl border border-slate-200 bg-slate-50/80 p-3.5 sm:rounded-2xl sm:p-4">
-                    <label
-                      htmlFor="politica_termo"
-                      className="flex cursor-pointer items-start gap-3"
-                    >
-                      <span className="relative mt-1 shrink-0">
-                        <input
-                          type="checkbox"
-                          name="politica_termo"
-                          id="politica_termo"
-                          required
-                          className="peer sr-only"
-                        />
+                      <p className="mt-3 text-xl font-extrabold text-teal-700">
+                        {formatValor(valor)}
+                      </p>
+                      <p className="text-xs text-slate-400">por mês</p>
 
-                        <span
-                          className="
-          flex h-5 w-5 items-center justify-center
-          rounded-md border-2 border-slate-300 bg-white
-          transition-all duration-200
-          peer-checked:border-teal-500
-          peer-checked:bg-teal-500
-          peer-focus:ring-4
-          peer-focus:ring-teal-500/20
-          peer-checked:after:scale-100
-          after:content-['✓']
-          after:scale-0
-          after:text-[13px]
-          after:font-bold
-          after:leading-none
-          after:text-white
-          after:transition-transform
-          after:duration-200
-        "
-                        />
-                      </span>
-
-                      <span className="text-justify text-xs leading-5 text-slate-600">
-                        Declaro que li e concordo com os{" "}
-                        <a
-                          href="/passageiro/termos-de-uso"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="font-semibold text-teal-700 underline"
-                        >
-                          Termos de Uso
-                        </a>
-                        ,{" "}
-                        <a
-                          href="/passageiro/politica-de-privacidade"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="font-semibold text-teal-700 underline"
-                        >
-                          Política de Privacidade
-                        </a>{" "}
-                        e{" "}
-                        <a
-                          href="/passageiro/regras-assinatura"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="font-semibold text-teal-700 underline"
-                        >
-                          Regras de Assinatura
-                        </a>
-                        , Cobrança, Renovação Automática e Cancelamento.
-                      </span>
-                    </label>
-                  </div>
-                  <h3 className="mt-0 text-sm font-bold text-gray-900">
-                    Forma de pagamento
-                  </h3>
-
-                  <div className="mt-3 grid gap-3">
-                    <button
-                      type="button"
-                      onClick={abrirPixModal}
-                      className="group flex cursor-pointer items-center justify-between rounded-xl border border-gray-200 p-3.5 transition hover:border-teal-600 hover:bg-teal-50 sm:rounded-2xl sm:p-4"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-teal-50 sm:h-11 sm:w-11">
-                          <Zap
-                            size={19}
-                            className="text-teal-600 sm:size-[21px]"
-                          />
-                        </div>
-
-                        <div className="text-left">
-                          <h4 className="text-sm font-bold text-gray-900">
-                            PIX
-                          </h4>
-
-                          <p className="mt-0.5 text-xs text-gray-500">
-                            Autorização + 1ª mensalidade
-                          </p>
-                        </div>
-                      </div>
-
-                      <ChevronRight
-                        size={18}
-                        className="shrink-0 text-gray-400 transition group-hover:translate-x-1 group-hover:text-teal-600"
-                      />
+                      {escolhido && (
+                        <p className="mt-2 text-xs font-bold text-teal-700">
+                          Selecionado
+                        </p>
+                      )}
                     </button>
-
-                    <button
-                      type="button"
-                      onClick={abrirCartaoModal}
-                      className="group flex cursor-pointer items-center justify-between rounded-xl border border-gray-200 p-3.5 transition hover:border-teal-600 hover:bg-teal-50 sm:rounded-2xl sm:p-4"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-teal-50 sm:h-11 sm:w-11">
-                          <CreditCard
-                            size={19}
-                            className="text-teal-700 sm:size-[21px]"
-                          />
-                        </div>
-
-                        <div className="text-left">
-                          <h4 className="text-sm font-bold text-gray-900">
-                            Cartão de Crédito
-                          </h4>
-
-                          <p className="mt-0.5 text-xs text-gray-500">
-                            Cobrança recorrente via Stripe
-                          </p>
-                        </div>
-                      </div>
-
-                      <ChevronRight
-                        size={18}
-                        className="shrink-0 text-gray-400 transition group-hover:translate-x-1 group-hover:text-teal-600"
-                      />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-      {usuario &&
-        beneficioSelecionado && (
-          <CardCheckoutModal
-            open={openCartao}
-            onClose={() => {
-              setOpenCartao(false);
-
-              if (beneficioSelecionado) {
-                setModalOpen(true);
-              }
-            }}
-            usuarioId={Number(
-              usuario.id
-            )}
-            beneficioId={Number(
-              beneficioSelecionado.id
-            )}
-            titulo={
-              beneficioSelecionado.titulo
-            }
-            valor={
-              beneficioSelecionado.valor
-            }
-          />
-        )}
-
-      {pixModalOpen &&
-        beneficioSelecionado && (
-          <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/70 p-3 backdrop-blur-sm sm:p-4">
-            <div className="w-full max-w-sm overflow-hidden rounded-2xl bg-white shadow-2xl sm:max-w-md sm:rounded-3xl">
-              <div className="bg-gradient-to-r from-teal-500 to-teal-700 px-5 py-4 text-white sm:px-6 sm:py-5">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-[9px] font-bold uppercase tracking-widest text-white/70 sm:text-[10px]">
-                      Pagamento
-                    </p>
-
-                    <h2 className="mt-1 text-lg font-bold sm:text-xl">
-                      Pagamento via PIX
-                    </h2>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={fecharPixModal}
-                    className="rounded-lg p-2 text-white/80 transition hover:bg-white/10 hover:text-white"
-                  >
-                    <X size={18} />
-                  </button>
-                </div>
+                  );
+                })}
               </div>
 
-              <div className="max-h-[75vh] overflow-y-auto p-5 sm:max-h-none sm:p-6">
-                <div className="rounded-xl border border-slate-100 bg-slate-50 p-3.5 text-center sm:rounded-2xl sm:p-4">
-                  <p className="text-[11px] font-semibold text-gray-600 sm:text-xs">
-                    {pixEtapa ===
-                      "autorizacao"
-                      ? "1/2 — Autorize o débito mensal automático"
-                      : pixEtapa ===
-                        "pagamento"
-                        ? "2/2 — Pague a primeira mensalidade"
-                        : "Pagamento confirmado"}
+              <div className="mt-5 flex items-center justify-between rounded-2xl bg-teal-50 p-4">
+                <div>
+                  <p className="text-xs text-teal-800">Total mensal</p>
+                  <p className="mt-1 text-2xl font-extrabold text-teal-800">
+                    {formatValor(valorSelecionado)}
                   </p>
                 </div>
+                <ShieldCheck className="text-teal-700" size={28} />
+              </div>
 
-                {!pixEmv && (
-                  <p className="my-3 text-center text-[11px] leading-5 text-gray-500 sm:text-xs">
-                    Primeiro geramos um QR Code de autorização do Pix Automático. Depois da aprovação, aparecerá o QR Code da primeira mensalidade.
-                  </p>
-                )}
+              <label className="mt-5 flex items-start gap-3 rounded-xl border border-slate-200 p-3 text-xs leading-5 text-slate-600">
+                <input
+                  type="checkbox"
+                  checked={aceitouTermos}
+                  onChange={(e) => setAceitouTermos(e.target.checked)}
+                  className="mt-1 accent-teal-700"
+                />
+                Li e concordo com os termos de uso, a política de privacidade
+                e as condições de cobrança recorrente e cancelamento.
+              </label>
 
-                {pixMessage && (
-                  <p className="mt-3 text-center text-[11px] font-medium text-teal-600 sm:text-xs">
-                    {pixMessage}
-                  </p>
-                )}
-
-                {pixQr && (
-                  <div className="my-4 flex justify-center sm:my-5">
-
-                    <img
-                      src={pixQr}
-                      alt="QR Code Pix"
-                      className="h-44 w-44 rounded-2xl border bg-white p-2 shadow-sm sm:h-52 sm:w-52"
-                    />
-                  </div>
-                )}
-
-                {pixEmv && (
-                  <div className="mb-4">
-                    <p className="mb-2 text-[9px] font-bold uppercase tracking-wider text-gray-400 sm:text-[10px]">
-                      Pix Copia e Cola
-                    </p>
-
-                    <div className="max-h-24 overflow-y-auto break-all rounded-xl border border-gray-100 bg-gray-50 p-3 text-[10px] leading-4 text-gray-600">
-                      {pixEmv}
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={copiarEmv}
-                      className="mt-2 flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl border border-gray-200 py-2.5 text-[11px] font-semibold text-gray-700 transition hover:bg-gray-50 sm:text-xs"
-                    >
-                      <Copy size={15} />
-                      Copiar código
-                    </button>
-                  </div>
-                )}
-
-                {pixPedido && (
-                  <p className="mb-3 text-center text-[10px] text-gray-400">
-                    Pedido #{pixPedido}
-
-                    {pixAuthId
-                      ? ` · Auth ${pixAuthId.slice(
-                        0,
-                        8
-                      )}...`
-                      : ""}
-                  </p>
-                )}
-
-                {pixError && (
-                  <p className="mb-3 rounded-xl bg-red-50 px-3 py-2 text-[11px] text-red-600 sm:text-xs">
-                    {pixError}
-                  </p>
-                )}
-
-                {!pixEmv ? (
-                  <button
-                    type="button"
-                    className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-teal-600 py-2.5 text-[11px] font-bold text-white transition hover:bg-teal-700 disabled:opacity-70 sm:py-3 sm:text-xs"
-                    onClick={
-                      gerarPixAutorizacao
+              <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                <button
+                  type="button"
+                  disabled={valorSelecionado === null || valorSelecionado <= 0}
+                  onClick={() => {
+                    if (!aceitouTermos) {
+                      setAlerta({
+                        tipo: "warning",
+                        mensagem: "Aceite os termos antes de continuar.",
+                      });
+                      return;
                     }
-                    disabled={pixLoading}
-                  >
-                    {pixLoading ? (
-                      <>
-                        <Loader2
-                          className="animate-spin"
-                          size={17}
-                        />
-                        Gerando autorização...
-                      </>
-                    ) : (
-                      <>
-                        <Zap size={16} />
-                        Gerar QR de Autorização
-                      </>
-                    )}
-                  </button>
-                ) : (
-                  <div className="rounded-xl bg-amber-50 px-3 py-2.5 text-center text-[11px] font-medium text-amber-800 sm:text-xs">
-                    Aguardando confirmação no app do banco...
-                  </div>
-                )}
+
+                    if (valorSelecionado === null || valorSelecionado <= 0) {
+                      setAlerta({
+                        tipo: "error",
+                        mensagem: "Cadastre um preço válido para este plano.",
+                      });
+                      return;
+                    }
+
+                    setAlerta(null);
+                    setModalOpen(false);
+                    resetPix();
+                    setPixModalOpen(true);
+                  }}
+                  className="flex items-center cursor-pointer justify-center gap-2 rounded-xl bg-teal-700 p-3 font-bold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <Zap size={18} /> Pix Automático
+                </button>
 
                 <button
                   type="button"
-                  onClick={fecharPixModal}
-                  className="mt-2.5 w-full cursor-pointer rounded-xl border border-gray-200 py-2.5 text-[11px] font-semibold text-gray-600 transition hover:bg-gray-50 sm:py-3 sm:text-xs"
+                  disabled={valorSelecionado === null || valorSelecionado <= 0}
+                  onClick={() => {
+                    if (!aceitouTermos) {
+                      setAlerta({
+                        tipo: "warning",
+                        mensagem: "Aceite os termos antes de continuar.",
+                      });
+                      return;
+                    }
+
+                    if (valorSelecionado === null || valorSelecionado <= 0) {
+                      setAlerta({
+                        tipo: "error",
+                        mensagem: "Cadastre um preço válido para este plano.",
+                      });
+                      return;
+                    }
+
+                    setAlerta(null);
+                    setModalOpen(false);
+                    setOpenCartao(true);
+                  }}
+                  className="flex items-center cursor-pointer justify-center gap-2 rounded-xl border border-slate-200 p-3 font-bold text-slate-800 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  Cancelar
+                  <CreditCard size={18} /> Cartão de crédito
                 </button>
               </div>
-            </div>
+            </section>
           </div>
-        )}
+        </div>
+      )}
+
+      {usuario && beneficioSelecionado && (
+        <CardCheckoutModal
+          open={openCartao}
+          onClose={() => {
+            setOpenCartao(false);
+            setModalOpen(true);
+          }}
+          usuarioId={usuario.id}
+          beneficioId={beneficioSelecionado.id}
+          titulo={`${beneficioSelecionado.titulo} - ${planoAtual?.nome ?? planoSelecionado}`}
+          valor={valorSelecionado?.toFixed(2) ?? ""}
+        />
+      )}
+
+      {pixModalOpen && (
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/70 p-3 backdrop-blur-sm sm:p-5">
+          <section className="w-full max-w-md overflow-hidden rounded-3xl bg-white shadow-2xl">
+            <header className="flex items-center justify-between bg-gradient-to-r from-teal-700 to-teal-500 p-5 text-white">
+              <div>
+                <p className="text-xs text-white/70">Maylon · Pagamento</p>
+                <h2 className="mt-1 text-xl font-extrabold">
+                  Pix Automático
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  resetPix();
+                  setPixModalOpen(false);
+                  setModalOpen(true);
+                }}
+                aria-label="Fechar"
+              >
+                <X size={20} />
+              </button>
+            </header>
+
+            <div className="space-y-4 p-5">
+              <div className="rounded-xl bg-slate-50 p-4">
+                <p className="text-xs text-slate-500">
+                  {beneficioSelecionado?.titulo} · {planoAtual?.nome}
+                </p>
+                <p className="mt-1 text-xl font-extrabold text-teal-700">
+                  {formatValor(valorSelecionado)}/mês
+                </p>
+              </div>
+
+              {pixMessage && (
+                <p className="text-sm text-teal-700">{pixMessage}</p>
+              )}
+
+              {pixQr && (
+                <div className="flex justify-center">
+                  <img
+                    src={pixQr}
+                    alt="QR Code Pix"
+                    className="h-48 w-48 object-contain"
+                  />
+                </div>
+              )}
+
+              {pixEmv && (
+                <div>
+                  <p className="mb-2 text-xs font-bold text-slate-600">
+                    Código Pix Copia e Cola
+                  </p>
+                  <div className="break-all rounded-xl bg-slate-50 p-3 text-xs text-slate-600">
+                    {pixEmv}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => void copiarEmv()}
+                    className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl border p-3 text-sm font-bold"
+                  >
+                    <Copy size={16} /> Copiar código
+                  </button>
+                </div>
+              )}
+
+              {pixPedido && (
+                <p className="text-center text-xs text-slate-400">
+                  Pedido {pixPedido}
+                  {pixAuthId ? ` · Autorização ${pixAuthId}` : ""}
+                </p>
+              )}
+
+              {pixError && (
+                <p className="rounded-xl bg-red-50 p-3 text-sm text-red-700">
+                  {pixError}
+                </p>
+              )}
+
+              {!pixEmv && (
+                <button
+                  type="button"
+                  onClick={() => void gerarPixAutorizacao()}
+                  disabled={pixLoading}
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-teal-700 p-3 font-bold text-white disabled:opacity-50"
+                >
+                  {pixLoading ? (
+                    <Loader2 className="animate-spin" size={18} />
+                  ) : (
+                    <Zap size={18} />
+                  )}
+                  {pixLoading ? "Gerando Pix..." : "Gerar autorização Pix"}
+                </button>
+              )}
+
+              {pixEmv && (
+                <p className="text-center text-xs text-amber-700">
+                  Aguardando confirmação do banco. O status é consultado
+                  automaticamente quando existe um pedido.
+                </p>
+              )}
+
+              <button
+                type="button"
+                onClick={() => {
+                  resetPix();
+                  setPixModalOpen(false);
+                  setModalOpen(true);
+                }}
+                className="w-full rounded-xl border border-slate-200 p-3 text-sm font-bold text-slate-600"
+              >
+                Voltar
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
     </main>
   );
 }
