@@ -1030,7 +1030,7 @@ export default function BeneficiosPage() {
             setOpenCartao(false);
             setModalOpen(true);
           }}
-          usuarioId={usuario.id}
+          usuarioId={usuario.id as unknown as number}
           beneficioId={beneficioSelecionado.id}
           titulo={`${beneficioSelecionado.titulo} - ${planoAtual?.nome ?? planoSelecionado}`}
           valor={valorSelecionado?.toFixed(2) ?? ""}
