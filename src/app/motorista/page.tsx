@@ -844,49 +844,6 @@ export default function DriverDashboard() {
               Acompanhe suas corridas e seus ganhos.
             </p>
           </div>
-
-          <button
-            type="button"
-            onClick={() =>
-              setOnline((current) => !current)
-            }
-            aria-pressed={online}
-            className={`flex w-full items-center gap-3 rounded-xl border px-4 py-3 transition sm:w-fit ${
-              online
-                ? "border-emerald-200 bg-emerald-50"
-                : "border-slate-200 bg-white"
-            }`}
-          >
-            <div
-              className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
-                online
-                  ? "bg-emerald-500 text-white"
-                  : "bg-slate-200 text-slate-500"
-              }`}
-            >
-              <Power size={17} />
-            </div>
-
-            <div className="min-w-0 text-left">
-              <p
-                className={`text-sm font-semibold ${
-                  online
-                    ? "text-emerald-800"
-                    : "text-slate-700"
-                }`}
-              >
-                {online
-                  ? "Você está online"
-                  : "Você está offline"}
-              </p>
-
-              <p className="text-xs text-slate-500">
-                {online
-                  ? "Disponível para novas corridas"
-                  : "Você não receberá novas corridas"}
-              </p>
-            </div>
-          </button>
         </header>
 
         {/* ESTATÍSTICAS */}
