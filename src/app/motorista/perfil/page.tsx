@@ -27,6 +27,7 @@ import {
   User,
   UserRound,
   UserRoundCheck,
+  Venus,
   X,
   Trophy,
   ArrowUp,
@@ -1045,6 +1046,13 @@ export default function DashboardLayout({
   const [iniciandoVerificacao, setIniciandoVerificacao] =
     useState(false);
 
+  const [somentePassageiras, setSomentePassageiras] = useState(false);
+
+  const [generoConfirmado, setGeneroConfirmado] = useState(false);
+
+  const [salvandoSomentePassageiras, setSalvandoSomentePassageiras] =
+    useState(false);
+
   useEffect(() => {
     async function carregarUsuario() {
       try {
@@ -1143,6 +1151,76 @@ export default function DashboardLayout({
       ativo = false;
     };
   }, [usuario?.user_type]);
+
+  useEffect(() => {
+    if (usuario?.user_type !== "driver") return;
+
+    let ativo = true;
+
+    (async () => {
+      try {
+        const res = await fetch("/api/motorista/preferencias", {
+          credentials: "include",
+          cache: "no-store",
+        });
+
+        if (!res.ok) return;
+
+        const json = await res.json();
+
+        if (!ativo || !json?.success) return;
+
+        setSomentePassageiras(json.somente_passageiras === true);
+        setGeneroConfirmado(json.genero_confirmado === true);
+      } catch (error) {
+        console.error("Erro ao carregar preferência de passageiras:", error);
+      }
+    })();
+
+    return () => {
+      ativo = false;
+    };
+  }, [usuario?.user_type]);
+
+  async function alternarSomentePassageiras() {
+    if (salvandoSomentePassageiras) return;
+
+    const novoValor = !somentePassageiras;
+
+    setSomentePassageiras(novoValor);
+    setSalvandoSomentePassageiras(true);
+
+    try {
+      const res = await fetch("/api/motorista/preferencias", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ somente_passageiras: novoValor }),
+      });
+
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok || !data?.success) {
+        throw new Error(
+          data?.message || "Não foi possível salvar sua preferência.",
+        );
+      }
+
+      setAlert({ type: "success", message: data.message });
+    } catch (error) {
+      setSomentePassageiras(!novoValor);
+
+      setAlert({
+        type: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Não foi possível salvar sua preferência.",
+      });
+    } finally {
+      setSalvandoSomentePassageiras(false);
+    }
+  }
 
   useEffect(() => {
     if (loading) return;
@@ -2563,6 +2641,45 @@ export default function DashboardLayout({
                       />
                     </div>
                   )}
+                </section>
+              )}
+
+              {usuario.user_type === "driver" && (
+                <section className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
+                  <div className="flex items-start gap-3 border-b border-slate-100 pb-5">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#35a989]/10 text-[#35a989]">
+                      <Venus size={22} />
+                    </div>
+
+                    <div>
+                      <h2 className="text-lg font-bold text-slate-900">
+                        Passageiros
+                      </h2>
+
+                      <p className="mt-0.5 max-w-2xl text-sm leading-5 text-slate-500">
+                        Escolha se quer receber apenas passageiras nas suas
+                        corridas.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-6">
+                    <AccessibilityOption
+                      title="Atender somente passageiras"
+                      description={
+                        generoConfirmado
+                          ? "Você só vai receber corridas de passageiras. Pode desligar quando quiser."
+                          : "Disponível depois que sua verificação de identidade confirmar o gênero feminino."
+                      }
+                      selected={somentePassageiras}
+                      disabled={
+                        salvandoSomentePassageiras ||
+                        (!generoConfirmado && !somentePassageiras)
+                      }
+                      onClick={alternarSomentePassageiras}
+                      icon={Venus}
+                    />
+                  </div>
                 </section>
               )}
 

@@ -1,3 +1,5 @@
+import { normalizarGenero, type Genero } from "./pareamento/genero";
+
 export type VerificacaoStatus =
   | "nao_iniciado"
   | "pendente"
@@ -81,6 +83,14 @@ export function documentoConfere(
     personal_number: personalNumber,
     identification_number: identificationNumber,
   };
+}
+
+/** Gênero impresso no documento verificado (campo gender do primeiro id_verifications). */
+export function generoDoDocumento(decision: unknown): Genero | null {
+  const lista = (decision as { id_verifications?: unknown })?.id_verifications;
+  if (!Array.isArray(lista)) return null;
+
+  return normalizarGenero((lista[0] as { gender?: unknown } | undefined)?.gender);
 }
 
 const STATUS_APROVADO = ["Approved"];

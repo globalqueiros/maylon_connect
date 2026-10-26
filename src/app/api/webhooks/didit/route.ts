@@ -3,10 +3,12 @@ import crypto from "node:crypto";
 import { db } from "../../../lib/db";
 import {
   documentoConfere,
+  generoDoDocumento,
   IDENTITY_MATCH_KEY,
   LAST_LIVENESS_KEY,
 } from "../../../lib/didit";
 import type { IdentityMatch } from "../../../lib/didit";
+import { registrarGenero } from "../../../lib/pareamento/repositorio";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -174,6 +176,20 @@ export async function POST(request: NextRequest) {
       ];
       const usuario = userRows[0];
       identityMatch = documentoConfere(parsed?.decision, usuario ?? {});
+
+      // Gênero do documento só vale quando ele confere com o cadastro; serve
+      // para a opção de motorista mulher. Falha aqui não pode derrubar o KYC.
+      const genero = generoDoDocumento(parsed?.decision);
+      if (genero && identityMatch.ok) {
+        try {
+          await registrarGenero(driverId, genero, "didit");
+        } catch (generoError) {
+          console.error(
+            "webhook didit: erro ao registrar gênero:",
+            generoError
+          );
+        }
+      }
     }
 
     const novoDetails = JSON.stringify({
