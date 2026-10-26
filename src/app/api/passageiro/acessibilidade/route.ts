@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import type { RowDataPacket } from "mysql2";
 
 import { db } from "../../../lib/db";
-import { getUsuarioLogado } from "../../../lib/auth";
+import { getUsuarioAutenticado } from "../../../lib/pareamento/usuarioApp";
 
 export const runtime = "nodejs";
 
@@ -26,9 +26,9 @@ type AcessibilidadeRow = RowDataPacket & {
   atualizado_em: string | null;
 };
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
-    const usuario = await getUsuarioLogado();
+    const usuario = await getUsuarioAutenticado(req);
 
     if (!usuario?.id) {
       return NextResponse.json(
@@ -120,7 +120,7 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
-    const usuario = await getUsuarioLogado();
+    const usuario = await getUsuarioAutenticado(req);
 
     if (!usuario?.id) {
       return NextResponse.json(
@@ -150,18 +150,21 @@ export async function POST(req: Request) {
       )
       VALUES (?, ?, ?, ?, ?, 0, 0)
       ON DUPLICATE KEY UPDATE
-        pcd = VALUES(pcd),
-        autista = VALUES(autista),
+        -- Os status vêm antes de pcd/autista: o MySQL avalia da esquerda para
+        -- a direita, então aqui pcd/autista ainda têm o valor salvo. Quem já
+        -- estava selecionado mantém o status (aprovado não volta a pendente).
         pcd_status = IF(
           VALUES(pcd) = 1,
-          'pendente',
+          IF(pcd = 1 AND pcd_status IS NOT NULL, pcd_status, 'pendente'),
           'nao_solicitado'
         ),
         autista_status = IF(
           VALUES(autista) = 1,
-          'pendente',
+          IF(autista = 1 AND autista_status IS NOT NULL, autista_status, 'pendente'),
           'nao_solicitado'
         ),
+        pcd = VALUES(pcd),
+        autista = VALUES(autista),
         atualizado_em = CURRENT_TIMESTAMP
       `,
       [
@@ -173,14 +176,20 @@ export async function POST(req: Request) {
       ]
     );
 
-    await db.query(
-      `
-      UPDATE usuarios
-      SET passageiro_tea = ?
-      WHERE id = ?
-      `,
-      [autista, usuario.id]
-    );
+    // Espelho opcional: a tabela/coluna pode não existir neste banco, e a
+    // fonte de verdade é passageiro_acessibilidade, já gravada acima.
+    try {
+      await db.query(
+        `
+        UPDATE usuarios
+        SET passageiro_tea = ?
+        WHERE id = ?
+        `,
+        [autista, usuario.id]
+      );
+    } catch (error) {
+      console.error("Não foi possível atualizar passageiro_tea:", error);
+    }
 
     const [rows] = await db.query<AcessibilidadeRow[]>(
       `

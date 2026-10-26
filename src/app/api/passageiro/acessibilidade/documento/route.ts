@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import type { RowDataPacket, ResultSetHeader } from "mysql2";
 import { db } from "../../../../lib/db";
-import { getUsuarioLogado } from "../../../../lib/auth";
+import { getUsuarioAutenticado } from "../../../../lib/pareamento/usuarioApp";
 import { uploadToS3 } from "../../../../lib/s3";
 
 export const runtime = "nodejs";
@@ -13,7 +13,7 @@ type AcessibilidadeRow = RowDataPacket & {
 
 export async function POST(request: Request) {
   try {
-    const usuario = await getUsuarioLogado(request);
+    const usuario = await getUsuarioAutenticado(request);
 
     if (!usuario?.id) {
       return NextResponse.json(
@@ -270,14 +270,20 @@ export async function POST(request: Request) {
         ]
       );
 
-      await db.query(
-        `
-        UPDATE usuarios
-        SET passageiro_tea = 1
-        WHERE id = ?
-        `,
-        [usuarioId]
-      );
+      // Espelho opcional: a tabela/coluna pode não existir neste banco, e a
+      // fonte de verdade é passageiro_acessibilidade, já gravada acima.
+      try {
+        await db.query(
+          `
+          UPDATE usuarios
+          SET passageiro_tea = 1
+          WHERE id = ?
+          `,
+          [usuarioId]
+        );
+      } catch (error) {
+        console.error("Não foi possível atualizar passageiro_tea:", error);
+      }
     }
 
     return NextResponse.json(

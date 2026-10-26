@@ -34,6 +34,7 @@ import {
   Smartphone,
   Upload,
   User,
+  Venus,
   X,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -1075,6 +1076,12 @@ export default function PerfilPage() {
   const [uploadingLaudo, setUploadingLaudo] =
     useState(false);
 
+  const [motoristaFeminina, setMotoristaFeminina] =
+    useState(false);
+
+  const [salvandoMotoristaFeminina, setSalvandoMotoristaFeminina] =
+    useState(false);
+
   const [verificacaoUrl, setVerificacaoUrl] =
     useState<string | null>(null);
 
@@ -1099,6 +1106,81 @@ export default function PerfilPage() {
     },
     []
   );
+
+  // Padrão "só motorista mulher" da passageira. Para motorista a rota
+  // responde 403 e o valor fica desligado.
+  useEffect(() => {
+    let ativo = true;
+
+    fetch("/api/passageiro/preferencias", {
+      credentials: "include",
+      cache: "no-store",
+    })
+      .then((response) =>
+        response.ok ? response.json() : null
+      )
+      .then((data) => {
+        if (ativo && data?.success) {
+          setMotoristaFeminina(
+            data.motorista_feminina === true
+          );
+        }
+      })
+      .catch(() => { });
+
+    return () => {
+      ativo = false;
+    };
+  }, []);
+
+  const alternarMotoristaFeminina = async () => {
+    if (salvandoMotoristaFeminina) return;
+
+    const novoValor = !motoristaFeminina;
+
+    setMotoristaFeminina(novoValor);
+    setSalvandoMotoristaFeminina(true);
+
+    try {
+      const response = await fetch(
+        "/api/passageiro/preferencias",
+        {
+          method: "POST",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            motorista_feminina: novoValor,
+          }),
+        }
+      );
+
+      const data = await response
+        .json()
+        .catch(() => null);
+
+      if (!response.ok || !data?.success) {
+        throw new Error(
+          data?.message ||
+          "Não foi possível salvar sua preferência."
+        );
+      }
+
+      showAlert("success", data.message);
+    } catch (error) {
+      setMotoristaFeminina(!novoValor);
+
+      showAlert(
+        "error",
+        error instanceof Error
+          ? error.message
+          : "Não foi possível salvar sua preferência."
+      );
+    } finally {
+      setSalvandoMotoristaFeminina(false);
+    }
+  };
 
   const carregarUsuario = useCallback(
     async (
@@ -2935,6 +3017,42 @@ export default function PerfilPage() {
                       />
                     </div>
                   )}
+              </section>
+            )}
+
+            {isPassageiro && (
+              <section className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
+                <div className="flex items-start gap-3 border-b border-slate-100 pb-5">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#35a989]/10 text-[#35a989]">
+                    <Venus className="h-5 w-5" />
+                  </div>
+
+                  <div>
+                    <h2 className="text-lg font-bold text-slate-900">
+                      Motorista mulher
+                    </h2>
+
+                    <p className="mt-0.5 max-w-2xl text-sm leading-5 text-slate-500">
+                      Escolha viajar apenas com motoristas mulheres, com identidade verificada.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-6">
+                  <AccessibilityOption
+                    title="Quero motorista mulher nas minhas viagens"
+                    description="Se não houver motorista mulher por perto, avisamos antes e você escolhe entre esperar, ampliar a busca ou cancelar. Nunca trocamos de motorista sem você saber."
+                    selected={motoristaFeminina}
+                    disabled={
+                      salvandoMotoristaFeminina ||
+                      contaBloqueada
+                    }
+                    onClick={alternarMotoristaFeminina}
+                    icon={
+                      <Venus className="h-5 w-5" />
+                    }
+                  />
+                </div>
               </section>
             )}
           </div>
