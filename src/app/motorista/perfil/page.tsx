@@ -40,7 +40,7 @@ import {
 import { validarCpf } from "../../lib/cpf";
 
 const GERENTE_DIGITAL_URL =
-  "https://www.huggy.chat/e1f3479b-2c80-4b5d-8973-bd1a63adb7f3";
+  "https://www.huggy.chat/b9e794c0-432c-4e9b-8417-7aeeaada5e81";
 
 type Gerente = {
   id?: number;
