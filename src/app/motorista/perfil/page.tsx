@@ -51,7 +51,7 @@ type Gerente = {
 };
 
 type UserLevel = {
-  id: number;
+  id: string;
   sequence: number;
   name: string;
   reward_type?: string | null;
@@ -92,6 +92,14 @@ type LevelProgress = {
   target_value?: number | null;
 };
 
+type NivelMotoristaResponse = {
+  success: boolean;
+  nivel_atual?: unknown;
+  proximo_nivel?: unknown;
+  progresso?: { pontos: number; total: number; percentual: number } | null;
+  nivel_concluido?: boolean;
+};
+
 type Usuario = {
   id: number;
   full_name: string;
@@ -115,8 +123,8 @@ type Usuario = {
   pcd?: boolean | null;
   autista?: boolean | null;
 
-  user_level_id?: number | null;
-  level_id?: number | null;
+  user_level_id?: string | null;
+  level_id?: string | null;
 
   user_level?: UserLevel | null;
   current_level?: UserLevel | null;
@@ -285,7 +293,7 @@ function normalizarNivel(n: any): UserLevel {
 
   return {
     ...n,
-    id: Number(n.id),
+    id: String(n.id),
     sequence: Number(n.sequence),
     reward_amount: num(n.reward_amount),
     targeted_ride: num(n.targeted_ride),
@@ -319,11 +327,12 @@ function obterNivelAtual(
     null;
 
   if (id != null) {
-    const encontrado = niveis.find((n) => n.id === Number(id));
+    const encontrado = niveis.find((n) => n.id === String(id));
     if (encontrado) return encontrado;
   }
 
-  return doUsuario ?? niveis[0] ?? null;
+  // Sem nível cadastrado não se presume o inicial: o card mostra que falta definir.
+  return doUsuario;
 }
 
 function obterProximoNivel(
@@ -961,6 +970,9 @@ export default function DashboardLayout({
 
   const [niveis, setNiveis] = useState<UserLevel[]>([]);
 
+  const [nivelMotorista, setNivelMotorista] =
+    useState<NivelMotoristaResponse | null>(null);
+
   const [loading, setLoading] = useState(true);
 
   const [imgSrc, setImgSrc] = useState("/favicon.ico");
@@ -1159,6 +1171,33 @@ export default function DashboardLayout({
 
     (async () => {
       try {
+        const res = await fetch("/api/motorista/nivel", {
+          credentials: "include",
+          cache: "no-store",
+        });
+
+        if (!res.ok) return;
+
+        const json: NivelMotoristaResponse = await res.json();
+
+        if (ativo && json?.success) setNivelMotorista(json);
+      } catch (error) {
+        console.error("Erro ao carregar o nível do motorista:", error);
+      }
+    })();
+
+    return () => {
+      ativo = false;
+    };
+  }, [usuario?.user_type]);
+
+  useEffect(() => {
+    if (usuario?.user_type !== "driver") return;
+
+    let ativo = true;
+
+    (async () => {
+      try {
         const res = await fetch("/api/motorista/preferencias", {
           credentials: "include",
           cache: "no-store",
@@ -1321,14 +1360,37 @@ export default function DashboardLayout({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [showGerenteModal]);
 
+  const usuarioComNivel = useMemo<Usuario | null>(() => {
+    if (!usuario || !nivelMotorista) return usuario;
+
+    const progresso = nivelMotorista.progresso;
+
+    return {
+      ...usuario,
+      user_level: nivelMotorista.nivel_atual
+        ? normalizarNivel(nivelMotorista.nivel_atual)
+        : null,
+      next_user_level: nivelMotorista.proximo_nivel
+        ? normalizarNivel(nivelMotorista.proximo_nivel)
+        : null,
+      level_progress: progresso
+        ? {
+            percentage: progresso.percentual,
+            current_value: progresso.pontos,
+            target_value: progresso.total,
+          }
+        : null,
+    };
+  }, [usuario, nivelMotorista]);
+
   const nivelAtual = useMemo(
-    () => obterNivelAtual(usuario, niveis),
-    [usuario, niveis],
+    () => obterNivelAtual(usuarioComNivel, niveis),
+    [usuarioComNivel, niveis],
   );
 
   const proximoNivel = useMemo(
-    () => obterProximoNivel(usuario, nivelAtual, niveis),
-    [usuario, nivelAtual, niveis],
+    () => obterProximoNivel(usuarioComNivel, nivelAtual, niveis),
+    [usuarioComNivel, nivelAtual, niveis],
   );
 
   const nivelBlue = useMemo(
@@ -1337,8 +1399,8 @@ export default function DashboardLayout({
   );
 
   const progressoNivel = useMemo(
-    () => calcularProgressoNivel(nivelAtual, proximoNivel, usuario),
-    [nivelAtual, proximoNivel, usuario],
+    () => calcularProgressoNivel(nivelAtual, proximoNivel, usuarioComNivel),
+    [nivelAtual, proximoNivel, usuarioComNivel],
   );
 
   const gerentePermitido = !nivelBlue && Boolean(usuario?.gerente);
@@ -2414,7 +2476,26 @@ export default function DashboardLayout({
                     />
                   )}
 
-                  {ehMotorista && nivelBlue ? (
+                  {ehMotorista && nivelMotorista && !nivelAtual && (
+                    <div className="mb-6 flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 sm:p-5">
+                      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white text-amber-600 shadow-sm">
+                        <Trophy size={21} />
+                      </span>
+
+                      <div className="min-w-0">
+                        <p className="text-xs font-medium uppercase tracking-wide text-amber-700">
+                          Seu nível
+                        </p>
+
+                        <p className="mt-1 text-sm leading-6 text-gray-700">
+                          Seu nível ainda não foi definido. Fale com o suporte
+                          para regularizar.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {ehMotorista && nivelAtual && nivelBlue ? (
 
                     <GerenteDigitalButton
                       onClick={abrirGerenteModal}
