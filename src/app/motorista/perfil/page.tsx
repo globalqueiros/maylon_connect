@@ -38,6 +38,7 @@ import {
   verifDocPendente,
 } from "../../lib/didit";
 import { validarCpf } from "../../lib/cpf";
+import ConfirmarEmailModal from "../../components/ConfirmarEmailModal";
 
 const GERENTE_DIGITAL_URL =
   "https://www.huggy.chat/b9e794c0-432c-4e9b-8417-7aeeaada5e81";
@@ -984,6 +985,8 @@ export default function DashboardLayout({
   const [showModal, setShowModal] = useState(false);
 
   const [showGerenteModal, setShowGerenteModal] = useState(false);
+
+  const [confirmarEmailAberto, setConfirmarEmailAberto] = useState(false);
 
   const [uploading, setUploading] = useState(false);
 
@@ -2451,6 +2454,17 @@ export default function DashboardLayout({
                     <span className="text-xs font-semibold text-gray-900 [overflow-wrap:anywhere] sm:text-sm">
                       {usuario.email}
                     </span>
+
+                    {!usuario.email_verified_at && usuario.email && (
+                      <button
+                        type="button"
+                        onClick={() => setConfirmarEmailAberto(true)}
+                        className={`mt-1.5 flex cursor-pointer items-center gap-1.5 rounded-md text-xs font-semibold text-[#0B6F68] transition hover:text-[#149C8B] ${foco}`}
+                      >
+                        <Mail size={13} />
+                        Confirmar e-mail
+                      </button>
+                    )}
                   </Campo>
                 </dl>
               </section>
@@ -3106,6 +3120,22 @@ export default function DashboardLayout({
       )}
 
       {}
+
+      {confirmarEmailAberto && usuario?.email && (
+        <ConfirmarEmailModal
+          email={usuario.email}
+          onFechar={() => setConfirmarEmailAberto(false)}
+          onConfirmado={() => {
+            setConfirmarEmailAberto(false);
+            setUsuario((atual) =>
+              atual
+                ? { ...atual, email_verified_at: new Date().toISOString() }
+                : atual,
+            );
+            setAlert({ type: "success", message: "E-mail confirmado com sucesso." });
+          }}
+        />
+      )}
 
       {showGerenteModal && (
         <div
